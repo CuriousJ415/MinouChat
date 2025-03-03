@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiaAI - Personal AI Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <!-- Add Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="app-title">MiaAI</h1>
+                <p class="app-subtitle">Your AI Companions</p>
+            </div>
+            
+            <div class="character-list" id="character-list">
+                <!-- Character items will be populated here -->
+            </div>
+            
+            <button id="new-character-button" class="new-character-button">
+                <i class="fas fa-plus"></i> New Character
+            </button>
+            
+            <button id="restore-defaults-button" class="restore-defaults-button">
+                <i class="fas fa-undo"></i> Restore Default Characters
+            </button>
+            
+            <div class="sidebar-footer">
+                <a href="/settings" class="settings-button">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+                <div class="app-version">v1.0.0</div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="chat-header" id="chat-header">
+                    <div class="chat-placeholder">Select a character to start chatting</div>
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will be populated here -->
+                    <div class="welcome-message">
+                        <h2>Welcome to MiaAI</h2>
+                        <p>Select a character from the sidebar to start a conversation, or create a new character.</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <div class="chat-actions">
+                        <button id="clear-chat-button" class="action-button" title="Clear Chat">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button id="search-memories-button" class="action-button" title="Search Memories">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <textarea id="message-input" placeholder="Type a message..." disabled></textarea>
+                    <button id="send-button" class="send-button" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Character Modal -->
+    <div id="character-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="character-modal-title">Create New Character</h2>
+                <button id="close-modal" class="close-button">&times;</button>
+            </div>
+            <form id="character-form">
+                <input type="hidden" id="character-id">
+                
+                <div class="form-group">
+                    <label for="character-name">Name</label>
+                    <input type="text" id="character-name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="character-role">Role</label>
+                    <input type="text" id="character-role" placeholder="e.g. Helpful Assistant, Sci-Fi Writer" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="character-personality">Personality</label>
+                    <textarea id="character-personality" placeholder="Describe the character's personality traits" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="character-backstory">Backstory (Optional)</label>
+                    <textarea id="character-backstory" placeholder="Provide background information for the character"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="character-system-prompt">System Prompt (Advanced)</label>
+                    <textarea id="character-system-prompt" placeholder="Custom system prompt for the AI"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="character-llm-provider">LLM Provider</label>
+                    <select id="character-llm-provider">
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="character-model">Model</label>
+                    <input type="text" id="character-model" placeholder="e.g. mistral, llama2, gpt-4, claude-3">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="clear-memory-button" class="clear-memory-button">Clear Memory</button>
+                    <button type="button" id="delete-character-button" class="delete-button">Delete</button>
+                    <button type="submit" class="save-button">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Memory Search Modal -->
+    <div id="memory-search-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Search Memories</h2>
+                <button id="close-memory-modal" class="close-button">&times;</button>
+            </div>
+            <form id="memory-search-form">
+                <div class="form-group">
+                    <label for="memory-search-query">Search Query</label>
+                    <input type="text" id="memory-search-query" placeholder="What do you want to search for?" required>
+                </div>
+                
+                <button type="submit" class="search-button">Search</button>
+            </form>
+            
+            <div id="memory-search-results" class="memory-results">
+                <!-- Search results will be populated here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Error Toast -->
+    <div id="error-toast" class="error-toast">
+        <div class="error-content">
+            <span id="error-message"></span>
+            <button id="close-error" class="close-error">&times;</button>
+        </div>
+    </div>
+    
+    <!-- Load JavaScript -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html> 

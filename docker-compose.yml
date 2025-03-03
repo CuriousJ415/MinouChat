@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Main MiaAI application
+  miaai:
+    build: .
+    container_name: miaai-app
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - miaai-data:/data
+    environment:
+      - DATABASE_PATH=/data/memories.db
+      - PORT=${PORT:-8080}
+      - DEBUG=${DEBUG:-false}
+      - SECRET_KEY=${SECRET_KEY:-change_this_to_a_random_string}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_API_URL=${LLM_API_URL:-http://ollama:11434/api}
+      - LLM_MODEL=${LLM_MODEL:-mistral}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+    networks:
+      - miaai-network
+
+  # Ollama LLM server 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - miaai-network
+
+  # Optional Ngrok tunnel for remote access
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok-tunnel
+    restart: unless-stopped
+    depends_on:
+      - miaai
+    ports:
+      - "4040:4040"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTH_TOKEN}
+      - NGROK_DOMAIN=${NGROK_DOMAIN:-}
+    command: http miaai:8080
+    networks:
+      - miaai-network
+    profiles:
+      - with-ngrok
+
+volumes:
+  miaai-data:
+    driver: local
+  ollama-models:
+    driver: local
+
+networks:
+  miaai-network:
+    driver: bridge
