@@ -278,7 +278,7 @@ class MiaAIApp {
                 document.getElementById('delete-character-button').onclick = () => this.deleteCharacter(character.id);
             }
             
-            // Clear memory button is always available
+            // Clear memory button is always available for existing characters
             document.getElementById('clear-memory-button').style.display = 'block';
         } else {
             // New character - hide delete and clear memory buttons
@@ -286,8 +286,75 @@ class MiaAIApp {
             document.getElementById('clear-memory-button').style.display = 'none';
         }
         
+        // Fetch available models for the selected provider
+        this.fetchAndPopulateModels();
+        
+        // Add event listener to provider dropdown to update models when changed
+        const providerSelect = document.getElementById('character-llm-provider');
+        providerSelect.addEventListener('change', () => this.fetchAndPopulateModels());
+        
         // Show modal
         this.characterModal.classList.add('active');
+    }
+    
+    async fetchAndPopulateModels() {
+        try {
+            const provider = document.getElementById('character-llm-provider').value;
+            const modelContainer = document.getElementById('character-model-container');
+            
+            // Show loading indicator
+            modelContainer.innerHTML = '<select id="character-model" disabled><option>Loading models...</option></select>';
+            
+            // Fetch models from server
+            const response = await fetch(`/api/settings/llm/models?provider=${provider}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch models');
+            }
+            
+            const data = await response.json();
+            
+            // Create select dropdown
+            let modelSelect = '<select id="character-model" required>';
+            if (data.models && data.models.length > 0) {
+                data.models.forEach(model => {
+                    modelSelect += `<option value="${model}">${model}</option>`;
+                });
+            } else {
+                modelSelect += '<option value="">No models available</option>';
+            }
+            modelSelect += '</select>';
+            
+            // Update the container
+            modelContainer.innerHTML = modelSelect;
+            
+            // If editing a character, set the model
+            if (this.editingCharacter && this.editingCharacter.model) {
+                const selectElement = document.getElementById('character-model');
+                // Try to find the model in the options
+                const modelExists = Array.from(selectElement.options).some(option => option.value === this.editingCharacter.model);
+                
+                if (modelExists) {
+                    selectElement.value = this.editingCharacter.model;
+                } else if (selectElement.options.length > 0) {
+                    // Add the model if it doesn't exist in the list but is set for the character
+                    const option = document.createElement('option');
+                    option.value = this.editingCharacter.model;
+                    option.text = `${this.editingCharacter.model} (not found locally)`;
+                    selectElement.add(option, 0);
+                    selectElement.value = this.editingCharacter.model;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching models:', error);
+            // Fallback to text input
+            document.getElementById('character-model-container').innerHTML = 
+                '<input type="text" id="character-model" placeholder="e.g. mistral, llama2, gpt-4, claude-3" required>';
+                
+            // If editing, set the model value
+            if (this.editingCharacter && this.editingCharacter.model) {
+                document.getElementById('character-model').value = this.editingCharacter.model;
+            }
+        }
     }
     
     closeCharacterModal() {

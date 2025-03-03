@@ -4,7 +4,7 @@ Handles application and LLM configuration
 """
 from flask import jsonify, request, current_app
 from app.api import settings_bp
-from app.llm.adapter import update_llm_config, get_llm_config, test_llm_connection
+from app.llm.adapter import update_llm_config, get_llm_config, test_llm_connection, fetch_available_models
 
 @settings_bp.route('/llm', methods=['GET'])
 def get_configuration():
@@ -18,6 +18,17 @@ def get_configuration():
         secure_config['api_key'] = secure_config['api_key'] is not None
         
     return jsonify(secure_config)
+
+@settings_bp.route('/llm/models', methods=['GET'])
+def get_llm_models():
+    """Get available models for the current LLM provider"""
+    provider = request.args.get('provider', 'ollama')
+    try:
+        models = fetch_available_models(provider)
+        return jsonify({'models': models})
+    except Exception as e:
+        current_app.logger.error(f"Error fetching models: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @settings_bp.route('/llm', methods=['POST'])
 def update_configuration():
