@@ -1,36 +1,29 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=run.py
-
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     build-essential \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file
-COPY requirements.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Create directories for persistent data
-RUN mkdir -p /data
+# Copy requirements first for better caching
+COPY requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt
 
 # Copy application code
 COPY . .
 
-# Create volume mount points
-VOLUME ["/data"]
+# Make entrypoint script executable
+RUN chmod +x /app/entrypoint.sh
 
-# Expose port for web interface
-EXPOSE 8080
+# Verify Flask and Flask-CORS installation
+RUN python -c "import flask; import flask_cors"
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "run:app"]
+# Set environment variables
+ENV FLASK_APP=app
+ENV FLASK_ENV=development
+ENV PYTHONPATH=/app
+
+# Run the application
+ENTRYPOINT ["/app/entrypoint.sh"]

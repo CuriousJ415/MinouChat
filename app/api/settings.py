@@ -2,9 +2,12 @@
 Settings API
 Handles application and LLM configuration
 """
-from flask import jsonify, request, current_app
+from flask import jsonify, request, current_app, Blueprint
 from app.api import settings_bp
 from app.llm.adapter import update_llm_config, get_llm_config, test_llm_connection, fetch_available_models
+from app.core.character import create_character, get_characters, DEFAULT_CHARACTERS
+from app.core.settings import get_llm_models, save_llm_settings
+from app.llm.adapter import get_llm_adapter
 
 @settings_bp.route('/llm', methods=['GET'])
 def get_configuration():
@@ -20,14 +23,13 @@ def get_configuration():
     return jsonify(secure_config)
 
 @settings_bp.route('/llm/models', methods=['GET'])
-def get_llm_models():
-    """Get available models for the current LLM provider"""
-    provider = request.args.get('provider', 'ollama')
+def get_models():
     try:
-        models = fetch_available_models(provider)
-        return jsonify({'models': models})
+        provider = request.args.get('provider', current_app.config.get('LLM_PROVIDER', 'ollama'))
+        models = get_llm_models(provider)
+        return jsonify(models)
     except Exception as e:
-        current_app.logger.error(f"Error fetching models: {str(e)}")
+        current_app.logger.error(f"Error getting LLM models: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @settings_bp.route('/llm', methods=['POST'])
@@ -78,4 +80,41 @@ def test_connection():
         return jsonify({
             "success": False,
             "error": f"Test connection failed: {str(e)}"
-        }), 500 
+        }), 500
+
+@settings_bp.route('/setup', methods=['POST'])
+def save_setup():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        # Required fields
+        provider = data.get('provider')
+        api_key = data.get('api_key')
+        character_models = data.get('character_models', {})
+        
+        if not provider:
+            return jsonify({'error': 'LLM provider is required'}), 400
+            
+        # Save LLM settings
+        save_llm_settings(provider, api_key)
+        
+        # Create default characters with specified models
+        characters = []
+        for char in DEFAULT_CHARACTERS:
+            model = character_models.get(char['id'], 'mistral')  # Default to mistral if not specified
+            char_copy = char.copy()
+            char_copy['model'] = model
+            character = create_character(**char_copy)
+            characters.append(character)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Setup completed successfully',
+            'characters': characters
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error saving setup: {str(e)}")
+        return jsonify({'error': str(e)}), 500 

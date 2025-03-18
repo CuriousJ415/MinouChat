@@ -15,7 +15,7 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <h1 class="app-title">MiaAI</h1>
-                <p class="app-subtitle">Your AI Companions</p>
+                <p class="app-subtitle">Your AI Constructs</p>
             </div>
             
             <div class="character-list" id="character-list">
@@ -119,6 +119,60 @@
                     <label for="character-model">Model</label>
                     <div id="character-model-container">
                         <input type="text" id="character-model" placeholder="Loading models..." required>
+                    </div>
+                </div>
+                
+                <!-- Model Parameters Section -->
+                <div class="form-section">
+                    <h3>Model Parameters</h3>
+                    <p class="form-hint">Adjust these parameters to fine-tune the character's responses</p>
+                    
+                    <div class="form-group slider-group">
+                        <label for="character-temperature">
+                            Temperature: <span id="temperature-value">0.7</span>
+                            <span class="parameter-hint">Controls creativity (lower = more deterministic, higher = more creative)</span>
+                        </label>
+                        <div class="slider-container">
+                            <span class="slider-label">Precise</span>
+                            <input type="range" id="character-temperature" min="0" max="2" step="0.1" value="0.7">
+                            <span class="slider-label">Creative</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group slider-group">
+                        <label for="character-top-p">
+                            Top P: <span id="top-p-value">0.9</span>
+                            <span class="parameter-hint">Controls diversity of word choices (lower = more focused, higher = more diverse)</span>
+                        </label>
+                        <div class="slider-container">
+                            <span class="slider-label">Focused</span>
+                            <input type="range" id="character-top-p" min="0.1" max="1.0" step="0.05" value="0.9">
+                            <span class="slider-label">Diverse</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group slider-group">
+                        <label for="character-repeat-penalty">
+                            Repeat Penalty: <span id="repeat-penalty-value">1.1</span>
+                            <span class="parameter-hint">Penalizes repetition (higher = less repetition)</span>
+                        </label>
+                        <div class="slider-container">
+                            <span class="slider-label">Allow Repetition</span>
+                            <input type="range" id="character-repeat-penalty" min="1.0" max="2.0" step="0.1" value="1.1">
+                            <span class="slider-label">Avoid Repetition</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group slider-group">
+                        <label for="character-top-k">
+                            Top K: <span id="top-k-value">40</span>
+                            <span class="parameter-hint">Limits token selection pool (lower = more predictable, higher = more varied)</span>
+                        </label>
+                        <div class="slider-container">
+                            <span class="slider-label">Predictable</span>
+                            <input type="range" id="character-top-k" min="5" max="100" step="5" value="40">
+                            <span class="slider-label">Varied</span>
+                        </div>
                     </div>
                 </div>
                 

@@ -85,42 +85,104 @@ def test_llm_connection(provider: str, config: Dict[str, Any] = None) -> Dict[st
             "error": str(e)
         }
 
-def generate_llm_response(messages: List[Dict[str, str]], model: str = None, config: Dict[str, Any] = None, provider: str = None) -> str:
+def generate_llm_response(
+    messages: List[Dict[str, str]] = None,
+    system_prompt: str = None,
+    message_history: List[Dict] = None,
+    user_message: str = None,
+    model: str = None, 
+    config: Dict[str, Any] = None, 
+    provider: str = None,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    repeat_penalty: float = 1.1,
+    top_k: int = 40
+) -> str:
     """
-    Generate a response from the LLM
+    Generate a response from an LLM provider
+    
+    Supports two modes:
+    1. Messages mode: Pass a list of messages in OpenAI format
+    2. System + history mode: Pass system_prompt, message_history, and user_message
     
     Args:
-        messages: List of message dictionaries (role, content)
-        model: Optional model override
-        config: Optional configuration override
-        provider: Optional provider override
+        messages: List of message dictionaries (OpenAI format)
+        system_prompt: System prompt for the LLM
+        message_history: List of previous message dictionaries
+        user_message: Current user message
+        model: Model name to use
+        config: Custom LLM configuration
+        provider: Provider name (e.g., 'ollama', 'openai')
+        temperature: Sampling temperature (0.0 to 1.0)
+        top_p: Nucleus sampling probability (0.0 to 1.0)
+        repeat_penalty: Penalty for repeating tokens (1.0 to 2.0)
+        top_k: Top-k sampling parameter (1 to 100)
         
     Returns:
-        Generated text response
-        
-    Raises:
-        ValueError: If provider not supported or connection fails
+        Generated response text
     """
-    if config is None:
-        config = get_llm_config()
+    # If using the system + history mode, convert to messages format
+    if messages is None and system_prompt and user_message:
+        messages = []
         
-    # Use specified model or fallback
-    model = model or config.get('model', 'mistral')
+        # Add system message
+        messages.append({
+            "role": "system",
+            "content": system_prompt
+        })
+        
+        # Add message history
+        if message_history:
+            for msg in message_history:
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        # Add user message
+        messages.append({
+            "role": "user",
+            "content": user_message
+        })
     
-    # Use specified provider or fallback to config
-    provider = provider or config.get('provider', 'ollama')
+    # Get LLM configuration
+    if not config:
+        config = get_llm_config()
     
-    # Route to appropriate provider implementation
+    # Use default provider if not specified
+    if not provider:
+        provider = config.get('default_provider', 'ollama')
+    
+    # Use default model if not specified
+    if not model:
+        # Get default model for provider
+        provider_config = config.get(provider, {})
+        model = provider_config.get('default_model', 'mistral')
+    
+    # Prepare model parameters
+    model_params = {
+        "temperature": temperature,
+        "top_p": top_p,
+        "repeat_penalty": repeat_penalty,
+        "top_k": top_k
+    }
+    
+    # Select provider-specific implementation
     if provider == 'ollama':
-        return _generate_ollama_response(messages, model, config)
+        return _generate_ollama_response(messages, model, config, model_params)
     elif provider == 'openai':
-        return _generate_openai_response(messages, model, config)
+        return _generate_openai_response(messages, model, config, model_params)
     elif provider == 'anthropic':
-        return _generate_anthropic_response(messages, model, config)
+        return _generate_anthropic_response(messages, model, config, model_params)
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
-def _generate_ollama_response(messages: List[Dict[str, str]], model: str, config: Dict[str, Any]) -> str:
+def _generate_ollama_response(
+    messages: List[Dict[str, str]], 
+    model: str, 
+    config: Dict[str, Any],
+    model_params: Dict[str, Any]
+) -> str:
     """
     Generate a response using Ollama
     
@@ -128,6 +190,7 @@ def _generate_ollama_response(messages: List[Dict[str, str]], model: str, config
         messages: List of message dictionaries
         model: Model name
         config: Configuration dictionary
+        model_params: Model parameters (temperature, top_p, etc.)
         
     Returns:
         Generated text response
@@ -135,35 +198,74 @@ def _generate_ollama_response(messages: List[Dict[str, str]], model: str, config
     Raises:
         ValueError: If connection fails
     """
-    api_url = config.get('api_url', 'http://localhost:11434/api')
-    
-    # Fix API URL if needed
-    if not api_url.endswith('/api'):
-        api_url = f"{api_url.rstrip('/')}/api"
-        
-    generate_url = f"{api_url}/chat"
+    # Add explicit timeout for requests
+    REQUEST_TIMEOUT = 15  # seconds
     
     try:
-        # Format request
-        data = {
-            "model": model,
-            "messages": messages,
-            "stream": False
-        }
+        # Try multiple possible hostnames for Ollama
+        hosts_to_try = [
+            os.environ.get('OLLAMA_HOST', 'host.docker.internal'),  # From env or default
+            'host.docker.internal',  # Docker Desktop standard for host machine
+            'localhost',  # Direct localhost
+            '127.0.0.1',  # Explicit localhost IP
+            'ollama',     # Service name if using docker-compose
+            'host-gateway'  # Linux Docker
+        ]
         
-        # Make request
-        response = requests.post(generate_url, json=data)
-        response.raise_for_status()
+        port = os.environ.get('OLLAMA_PORT', '11434')
         
-        # Parse response
-        result = response.json()
-        return result.get('message', {}).get('content', '')
+        # Log for debugging
+        current_app.logger.info(f"Attempting to connect to Ollama with hosts: {hosts_to_try}, on port {port}")
         
-    except requests.RequestException as e:
+        last_error = None
+        for host in hosts_to_try:
+            try:
+                current_app.logger.info(f"Trying Ollama connection at {host}:{port}")
+                api_url = f"http://{host}:{port}/api"
+                generate_url = f"{api_url}/chat"
+                
+                # Format request
+                data = {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "options": {
+                        "temperature": model_params.get('temperature', 0.7),
+                        "top_p": model_params.get('top_p', 0.9),
+                        "top_k": model_params.get('top_k', 40),
+                        "repeat_penalty": model_params.get('repeat_penalty', 1.1)
+                    }
+                }
+                
+                # Make request with a short timeout for quick failure
+                response = requests.post(generate_url, json=data, timeout=REQUEST_TIMEOUT)
+                response.raise_for_status()
+                
+                # If we get here, the request was successful
+                current_app.logger.info(f"Successfully connected to Ollama at {host}")
+                
+                # Parse response
+                result = response.json()
+                return result.get('message', {}).get('content', '')
+                
+            except requests.RequestException as e:
+                current_app.logger.warning(f"Ollama request to {host} failed: {str(e)}")
+                last_error = e
+                continue
+                
+        # If we get here, all hosts failed
+        raise ValueError(f"Failed to connect to Ollama on any host: {str(last_error)}")
+        
+    except Exception as e:
         current_app.logger.error(f"Ollama request failed: {str(e)}")
         raise ValueError(f"Failed to connect to Ollama: {str(e)}")
 
-def _generate_openai_response(messages: List[Dict[str, str]], model: str, config: Dict[str, Any]) -> str:
+def _generate_openai_response(
+    messages: List[Dict[str, str]], 
+    model: str, 
+    config: Dict[str, Any],
+    model_params: Dict[str, Any]
+) -> str:
     """
     Generate a response using OpenAI
     
@@ -171,6 +273,7 @@ def _generate_openai_response(messages: List[Dict[str, str]], model: str, config
         messages: List of message dictionaries
         model: Model name
         config: Configuration dictionary
+        model_params: Model parameters (temperature, top_p, etc.)
         
     Returns:
         Generated text response
@@ -192,7 +295,8 @@ def _generate_openai_response(messages: List[Dict[str, str]], model: str, config
         }
         data = {
             "model": model,
-            "messages": messages
+            "messages": messages,
+            "options": model_params
         }
         
         # Make request
@@ -207,7 +311,12 @@ def _generate_openai_response(messages: List[Dict[str, str]], model: str, config
         current_app.logger.error(f"OpenAI request failed: {str(e)}")
         raise ValueError(f"Failed to connect to OpenAI: {str(e)}")
 
-def _generate_anthropic_response(messages: List[Dict[str, str]], model: str, config: Dict[str, Any]) -> str:
+def _generate_anthropic_response(
+    messages: List[Dict[str, str]], 
+    model: str, 
+    config: Dict[str, Any],
+    model_params: Dict[str, Any]
+) -> str:
     """
     Generate a response using Anthropic
     
@@ -215,6 +324,7 @@ def _generate_anthropic_response(messages: List[Dict[str, str]], model: str, con
         messages: List of message dictionaries
         model: Model name
         config: Configuration dictionary
+        model_params: Model parameters (temperature, top_p, etc.)
         
     Returns:
         Generated text response
@@ -251,7 +361,8 @@ def _generate_anthropic_response(messages: List[Dict[str, str]], model: str, con
         data = {
             "model": model,
             "messages": anthropic_messages,
-            "max_tokens": 1024
+            "max_tokens": 1024,
+            "options": model_params
         }
         
         # Add system content if exists
@@ -270,67 +381,91 @@ def _generate_anthropic_response(messages: List[Dict[str, str]], model: str, con
         current_app.logger.error(f"Anthropic request failed: {str(e)}")
         raise ValueError(f"Failed to connect to Anthropic: {str(e)}")
 
-def fetch_available_models(provider: str = 'ollama') -> List[str]:
-    """
-    Fetch available models from the provider
-    
-    Args:
-        provider: LLM provider name
-        
-    Returns:
-        List of available model names
-        
-    Raises:
-        ValueError: If provider not supported or connection fails
-    """
-    config = get_llm_config()
+def get_ollama_base_url():
+    """Get the base URL for Ollama API"""
+    host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
+    port = os.environ.get('OLLAMA_PORT', '11434')
+    return f"http://{host}:{port}/api"
+
+def fetch_available_models(provider):
+    """Fetch available models from the provider"""
+    try:
+        if provider == 'ollama':
+            base_url = get_ollama_base_url()
+            response = requests.get(f"{base_url}/tags")
+            if response.ok:
+                data = response.json()
+                return [model['name'].split(':')[0] for model in data['models']]
+            else:
+                raise Exception(f"Failed to fetch Ollama models: {response.text}")
+        elif provider == 'openai':
+            # Add OpenAI model fetching if needed
+            return ['gpt-3.5-turbo', 'gpt-4']
+        elif provider == 'anthropic':
+            # Add Anthropic model fetching if needed
+            return ['claude-2', 'claude-instant-1']
+        else:
+            raise ValueError(f"Unsupported provider: {provider}")
+    except Exception as e:
+        current_app.logger.error(f"Error fetching models: {str(e)}")
+        raise
+
+def get_llm_adapter():
+    """Get the appropriate LLM adapter based on configuration"""
+    provider = current_app.config.get('LLM_PROVIDER', 'ollama')
     
     if provider == 'ollama':
-        return _fetch_ollama_models(config)
+        base_url = get_ollama_base_url()
+        return OllamaAdapter(base_url)
     elif provider == 'openai':
-        return _fetch_openai_models(config)
+        api_key = current_app.config.get('OPENAI_API_KEY')
+        return OpenAIAdapter(api_key)
     elif provider == 'anthropic':
-        return _fetch_anthropic_models(config)
+        api_key = current_app.config.get('ANTHROPIC_API_KEY')
+        return AnthropicAdapter(api_key)
     else:
-        raise ValueError(f"Unsupported LLM provider for model fetching: {provider}")
+        raise ValueError(f"Unsupported LLM provider: {provider}")
 
-def _fetch_ollama_models(config: Dict[str, Any]) -> List[str]:
-    """
-    Fetch available models from Ollama
-    
-    Args:
-        config: LLM configuration dictionary
+class OllamaAdapter:
+    def __init__(self, base_url):
+        self.base_url = base_url
         
-    Returns:
-        List of available model names
-        
-    Raises:
-        ValueError: If connection fails
-    """
-    api_url = config.get('api_url', 'http://localhost:11434/api')
-    
-    # Fix API URL if needed
-    if not api_url.endswith('/api'):
-        api_url = f"{api_url.rstrip('/')}/api"
-        
-    models_url = f"{api_url}/tags"
-    
-    try:
-        # Make request
-        response = requests.get(models_url, timeout=5)
-        response.raise_for_status()
-        
-        # Parse response
-        result = response.json()
-        models = result.get('models', [])
-        
-        # Extract model names
-        return [model.get('name') for model in models if model.get('name')]
-        
-    except requests.RequestException as e:
-        if current_app:
-            current_app.logger.error(f"Ollama models request failed: {str(e)}")
-        raise ValueError(f"Failed to fetch Ollama models: {str(e)}")
+    def generate_response(self, messages, model="mistral", **kwargs):
+        """Generate a response using Ollama"""
+        try:
+            # Format messages for Ollama
+            prompt = self._format_messages(messages)
+            
+            # Make request to Ollama
+            response = requests.post(
+                f"{self.base_url}/chat",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    **kwargs
+                }
+            )
+            
+            if not response.ok:
+                raise Exception(f"Ollama request failed: {response.text}")
+                
+            data = response.json()
+            return data['message']['content']
+            
+        except Exception as e:
+            current_app.logger.error(f"Ollama request failed: {str(e)}")
+            raise Exception(f"Failed to connect to Ollama: {str(e)}")
+            
+    def _format_messages(self, messages):
+        """Format messages for Ollama API"""
+        formatted = []
+        for msg in messages:
+            formatted.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+        return formatted
 
 def _fetch_openai_models(config: Dict[str, Any]) -> List[str]:
     """

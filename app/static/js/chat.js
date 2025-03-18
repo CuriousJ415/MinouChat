@@ -19,17 +19,28 @@ class ChatManager {
     }
     
     init() {
-        // Set up event listeners
-        this.messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
+        // Set up event listeners for required elements
+        if (this.messageInput) {
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+        }
         
-        this.sendButton.addEventListener('click', () => this.sendMessage());
-        this.clearButton.addEventListener('click', () => this.clearChat());
-        this.searchButton.addEventListener('click', () => this.app.openMemorySearchModal());
+        if (this.sendButton) {
+            this.sendButton.addEventListener('click', () => this.sendMessage());
+        }
+        
+        // Set up event listeners for optional elements
+        if (this.clearButton) {
+            this.clearButton.addEventListener('click', () => this.clearChat());
+        }
+        
+        if (this.searchButton) {
+            this.searchButton.addEventListener('click', () => this.app.openMemorySearchModal());
+        }
     }
     
     sendMessage() {
@@ -57,25 +68,10 @@ class ChatManager {
     
     displayMessage(role, content, isMemory = false) {
         const messageElement = document.createElement('div');
-        messageElement.className = `message ${role}${isMemory ? ' memory' : ''}`;
-        
-        // Format the message content (handle markdown, code, etc.)
-        const formattedContent = this.formatMessageContent(content);
-        
-        // Add memory badge if it's a memory
-        let memoryBadge = '';
-        if (isMemory) {
-            memoryBadge = '<span class="memory-badge">Memory</span>';
-        }
-        
-        messageElement.innerHTML = `
-            ${memoryBadge}
-            <div class="message-content">${formattedContent}</div>
-        `;
+        messageElement.className = `message ${role}`;
+        messageElement.textContent = content;
         
         this.messageContainer.appendChild(messageElement);
-        
-        // Scroll to bottom
         this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
     }
     
@@ -108,61 +104,72 @@ class ChatManager {
     }
     
     clearChat() {
-        // Remove all messages from the screen
+        // Clear messages from the UI only, don't delete from database
         while (this.messageContainer.firstChild) {
             this.messageContainer.removeChild(this.messageContainer.firstChild);
         }
-
-        // Add a notification that the chat was cleared but history is preserved
-        const notification = document.createElement('div');
-        notification.className = 'chat-notification';
         
-        const content = document.createElement('div');
-        content.className = 'notification-content';
+        // Show welcome message
+        const character = this.app.selectedCharacter;
+        if (character) {
+            const welcomeMessage = `Chat cleared. I'm ${character.name}, ${character.role}. How can I help you today?`;
+            this.displayMessage('assistant', welcomeMessage);
+        }
         
-        const icon = document.createElement('i');
-        icon.className = 'fas fa-info-circle';
-        
-        content.appendChild(icon);
-        content.appendChild(document.createTextNode('Chat screen cleared. Conversation history is preserved.'));
-        
-        notification.appendChild(content);
-        this.messageContainer.appendChild(notification);
-        
-        // Remove notification after 5 seconds
-        setTimeout(() => {
-            if (notification.parentNode === this.messageContainer) {
-                this.messageContainer.removeChild(notification);
-            }
-        }, 5000);
+        // Show notification
+        this.app.showNotification('Chat cleared');
     }
     
-    loadChatHistory(characterId) {
-        fetch(`/api/chat/${characterId}/history`)
-            .then(response => response.json())
-            .then(data => {
-                // Clear existing messages
-                while (this.messageContainer.firstChild) {
-                    this.messageContainer.removeChild(this.messageContainer.firstChild);
+    loadChatHistory(characterId, limit = 10, offset = 0) {
+        console.log(`Loading chat history for character ${characterId} with limit=${limit}, offset=${offset}`);
+        
+        // Clear existing messages
+        while (this.messageContainer.firstChild) {
+            this.messageContainer.removeChild(this.messageContainer.firstChild);
+        }
+        
+        // Show welcome message by default
+        const character = this.app.selectedCharacter;
+        if (character) {
+            const welcomeMessage = `Hello! I'm ${character.name}, ${character.role}. How can I help you today?`;
+            this.displayMessage('assistant', welcomeMessage);
+        }
+        
+        // Try to load history
+        fetch(`/api/chat/${characterId}/history?limit=${limit}&offset=${offset}`)
+            .then(response => {
+                console.log("History response status:", response.status);
+                if (!response.ok) {
+                    console.log("Error response:", response);
+                    // Don't throw error, just return null so we keep the welcome message
+                    return null;
                 }
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return; // If null, keep the welcome message
                 
-                // Display messages
-                if (data.messages && data.messages.length > 0) {
-                    data.messages.forEach(msg => {
-                        this.displayMessage(msg.role, msg.content);
-                    });
-                } else {
-                    // Show welcome message
-                    const character = this.app.selectedCharacter;
-                    if (character) {
-                        const welcomeMessage = `Hello! I'm ${character.name}, ${character.role}. How can I help you today?`;
-                        this.displayMessage('ai', welcomeMessage);
+                console.log("History data:", data);
+                
+                // Only clear messages if we have conversations to show
+                if (data.success && data.conversations && data.conversations.length > 0) {
+                    // Clear the welcome message
+                    while (this.messageContainer.firstChild) {
+                        this.messageContainer.removeChild(this.messageContainer.firstChild);
                     }
+                    
+                    // Display messages
+                    data.conversations.forEach(msg => {
+                        this.displayMessage(
+                            msg.role === 'user' ? 'user' : 'assistant', 
+                            msg.content
+                        );
+                    });
                 }
             })
             .catch(error => {
                 console.error('Error loading chat history:', error);
-                this.app.showError('Failed to load chat history');
+                // We already showed the welcome message, so no need to handle the error
             });
     }
 }

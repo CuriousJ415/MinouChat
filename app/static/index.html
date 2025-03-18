@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiaAI - Your AI Companion</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar with character list -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>Characters</h1>
+                <div class="sidebar-actions">
+                    <button id="new-character-btn" class="primary-button">+ New Character</button>
+                    <button id="restore-defaults-btn" class="secondary-button">↺ Restore Defaults</button>
+                </div>
+            </div>
+            <div id="character-list" class="character-list">
+                <!-- Characters will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Main chat area -->
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="chat-placeholder">Select a character to start chatting</div>
+                <div class="chat-actions">
+                    <button id="document-context-indicator" class="document-indicator" title="Using Document Context" style="display: none;">
+                        <i class="fas fa-file-alt"></i>
+                    </button>
+                    <button id="clear-chat-button" class="action-button" title="Clear Chat" disabled>
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                    <button id="recall-conversation-button" class="action-button" title="Recall Last Conversation" disabled>
+                        <i class="fas fa-history"></i>
+                    </button>
+                    <button id="search-memories-button" class="action-button" title="Search Memories" disabled>
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <!-- Messages will be added here dynamically -->
+            </div>
+            <div class="chat-input">
+                <textarea id="message-input" placeholder="Send a message..." disabled></textarea>
+                <button id="document-button" class="document-button" title="Attach Document" disabled>
+                    <i class="fas fa-file-alt"></i>
+                </button>
+                <button id="send-button" class="send-button" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Character Modal -->
+    <div id="new-character-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Character</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="new-character-form">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <input type="text" id="role" name="role" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="personality">Personality</label>
+                    <textarea id="personality" name="personality" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="backstory">Backstory</label>
+                    <textarea id="backstory" name="backstory"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="system_prompt">System Prompt</label>
+                    <textarea id="system_prompt" name="system_prompt" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="llm_provider">LLM Provider</label>
+                    <select id="llm_provider" name="llm_provider" required>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="huggingface">HuggingFace</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="model">Model</label>
+                    <select id="model" name="model" required>
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                
+                <!-- API Key field for non-Ollama providers -->
+                <div class="form-group api-key-field" style="display: none;">
+                    <label for="api_key">API Key</label>
+                    <input type="password" id="api_key" name="api_key">
+                </div>
+                
+                <div class="form-group">
+                    <label for="temperature">Temperature (<span id="temperature-value">0.7</span>)</label>
+                    <input type="range" id="temperature" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                </div>
+                
+                <div class="form-group">
+                    <label for="top_p">Top P (<span id="top-p-value">0.9</span>)</label>
+                    <input type="range" id="top_p" name="top_p" min="0" max="1" step="0.1" value="0.9">
+                </div>
+                
+                <div class="form-group">
+                    <label for="repeat_penalty">Repeat Penalty (<span id="repeat-penalty-value">1.1</span>)</label>
+                    <input type="range" id="repeat_penalty" name="repeat_penalty" min="1" max="2" step="0.1" value="1.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="top_k">Top K (<span id="top-k-value">40</span>)</label>
+                    <input type="range" id="top_k" name="top_k" min="1" max="100" step="1" value="40">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">Save Character</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Character Settings Modal -->
+    <div id="character-settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Character Settings</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="character-settings-form">
+                <div class="form-group">
+                    <label for="settings-llm-provider">LLM Provider</label>
+                    <select id="settings-llm-provider" name="llm_provider" required>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="huggingface">HuggingFace</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-model">Model</label>
+                    <select id="settings-model" name="model" required>
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                
+                <!-- API Key field for non-Ollama providers -->
+                <div class="form-group settings-api-key-field" style="display: none;">
+                    <label for="settings-api-key">API Key</label>
+                    <input type="password" id="settings-api-key" name="api_key">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-temperature">Temperature (<span id="settings-temperature-value">0.7</span>)</label>
+                    <input type="range" id="settings-temperature" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-top-p">Top P (<span id="settings-top-p-value">0.9</span>)</label>
+                    <input type="range" id="settings-top-p" name="top_p" min="0" max="1" step="0.1" value="0.9">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-repeat-penalty">Repeat Penalty (<span id="settings-repeat-penalty-value">1.1</span>)</label>
+                    <input type="range" id="settings-repeat-penalty" name="repeat_penalty" min="1" max="2" step="0.1" value="1.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-top-k">Top K (<span id="settings-top-k-value">40</span>)</label>
+                    <input type="range" id="settings-top-k" name="top_k" min="1" max="100" step="1" value="40">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">Save Settings</button>
+                    <button type="button" id="reset-memory-button" class="danger-button">Reset Memory</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Memory Search Modal -->
+    <div id="memory-search-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Search Memories</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="memory-search-form">
+                <div class="form-group">
+                    <label for="memory-search-query">Search Query</label>
+                    <input type="text" id="memory-search-query" placeholder="Enter search terms..." required>
+                    <button type="submit" class="primary-btn">Search</button>
+                </div>
+                <div id="search-results-container" class="search-results">
+                    <!-- Search results will be displayed here -->
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Document Manager Modal -->
+    <div id="document-manager-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Document Manager</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="document-tabs">
+                <button class="tab-btn active" data-tab="upload">Upload</button>
+                <button class="tab-btn" data-tab="library">Library</button>
+            </div>
+            <div class="tab-content" id="upload-tab">
+                <form id="document-upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="document-file">Choose a file (PDF, TXT, MD, DOCX)</label>
+                        <input type="file" id="document-file" name="file" accept=".pdf,.txt,.md,.docx">
+                    </div>
+                    <div class="form-group">
+                        <label for="document-character">Associate with Character (optional)</label>
+                        <select id="document-character" name="character_id">
+                            <option value="">None (Just Upload)</option>
+                            <!-- Character options will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="primary-button">Upload Document</button>
+                    </div>
+                </form>
+            </div>
+            <div class="tab-content" id="library-tab" style="display: none;">
+                <div class="document-filters">
+                    <select id="document-filter-character">
+                        <option value="">All Documents</option>
+                        <!-- Character options will be populated dynamically -->
+                    </select>
+                    <input type="text" id="document-search" placeholder="Search documents...">
+                </div>
+                <div id="document-list" class="document-list">
+                    <!-- Documents will be populated dynamically -->
+                    <div class="empty-state">No documents found</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Preview Modal -->
+    <div id="document-preview-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="document-preview-title">Document Preview</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div id="document-preview-content" class="document-preview-content">
+                <!-- Document content will be shown here -->
+            </div>
+            <div class="document-actions">
+                <button id="document-extract-btn" class="primary-button">Extract to Memory</button>
+                <button id="document-summarize-btn" class="secondary-button">Summarize with AI</button>
+                <button id="document-delete-btn" class="danger-button">Delete Document</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="toast error">
+        <span id="error-message"></span>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="success-toast" class="toast success">
+        <span id="success-message"></span>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/chat.js"></script>
+    <script src="/static/js/documents.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html> 

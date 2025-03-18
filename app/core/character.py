@@ -23,6 +23,12 @@ class Character:
     created_at: str = None  # Creation timestamp
     last_used: str = None  # Last interaction timestamp
     
+    # Model parameters
+    temperature: float = 0.7  # Controls randomness (0-2)
+    top_p: float = 0.9  # Controls diversity (0-1)
+    repeat_penalty: float = 1.1  # Penalizes repetition (1-2)
+    top_k: int = 40  # Limits token selection pool (5-100)
+    
     def __post_init__(self):
         """Initialize timestamp fields"""
         if self.created_at is None:
@@ -119,44 +125,52 @@ def get_character(character_id: str) -> Optional[Dict]:
     return get_character_by_id(character_id)
 
 def create_character(data: Dict) -> Dict:
-    """
-    Create a new character
-    
-    Args:
-        data: Character data dictionary
+    """Create a new character in the database"""
+    try:
+        # Generate ID from name if not provided
+        if 'id' not in data:
+            data['id'] = data['name'].lower().replace(' ', '_')
         
-    Returns:
-        The created character dictionary
+        # Get current LLM provider from app config
+        provider = current_app.config.get('LLM_PROVIDER', 'ollama')
         
-    Raises:
-        ValueError: If invalid data or character already exists
-    """
-    from app.memory.sql import add_character
-    
-    # Generate ID from name
-    if 'id' not in data:
-        data['id'] = data['name'].lower().replace(' ', '_')
-    
-    # Normalize character data
-    char_data = {
-        'id': data['id'],
-        'name': data['name'],
-        'role': data['role'],
-        'personality': data['personality'],
-        'system_prompt': data.get('system_prompt', f"You are {data['name']}, a {data['role']}. {data['personality']}"),
-        'model': data.get('model', current_app.config['LLM_MODEL']),
-        'llm_provider': data.get('llm_provider', current_app.config['LLM_PROVIDER']),
-        'gender': data.get('gender', ''),
-        'backstory': data.get('backstory', ''),
-        'created_at': datetime.now().isoformat(),
-        'last_used': datetime.now().isoformat()
-    }
-    
-    # Create character object
-    character = Character(**char_data)
-    
-    # Save to database
-    return add_character(character.to_dict())
+        # If no model specified, use default for provider
+        if 'model' not in data:
+            if provider == 'ollama':
+                data['model'] = 'mistral'
+            elif provider == 'openai':
+                data['model'] = 'gpt-3.5-turbo'
+            elif provider == 'anthropic':
+                data['model'] = 'claude-2'
+            else:
+                data['model'] = 'mistral'  # Default fallback
+        
+        # Set default values
+        character_data = {
+            'id': data['id'],
+            'name': data['name'],
+            'role': data['role'],
+            'personality': data['personality'],
+            'system_prompt': data.get('system_prompt', f"You are {data['name']}, a {data['role']}. {data['personality']}"),
+            'model': data['model'],
+            'llm_provider': provider,
+            'gender': data.get('gender', ''),
+            'backstory': data.get('backstory', ''),
+            'temperature': float(data.get('temperature', 0.7)),
+            'top_p': float(data.get('top_p', 0.9)),
+            'repeat_penalty': float(data.get('repeat_penalty', 1.1)),
+            'top_k': int(data.get('top_k', 40)),
+            'created_at': datetime.now().isoformat(),
+            'last_used': datetime.now().isoformat()
+        }
+        
+        # Add character to database
+        from app.memory.sql import add_character
+        return add_character(character_data)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating character: {str(e)}")
+        raise
 
 def update_character(character_id: str, data: Dict) -> Optional[Dict]:
     """
@@ -181,7 +195,8 @@ def update_character(character_id: str, data: Dict) -> Optional[Dict]:
     
     # Update only provided fields
     updated_data = existing.copy()
-    for field in ['name', 'role', 'personality', 'system_prompt', 'model', 'gender', 'backstory']:
+    for field in ['name', 'role', 'personality', 'system_prompt', 'model', 'llm_provider', 'gender', 'backstory', 
+                 'temperature', 'top_p', 'repeat_penalty', 'top_k']:
         if field in data:
             updated_data[field] = data[field]
     
@@ -203,10 +218,13 @@ def delete_character(character_id: str) -> bool:
     """
     from app.memory.sql import delete_character_by_id
     
-    # Check if character is a default one
+    # Check if character is a default one (either by original ID or prefixed ID)
     default_ids = [char['id'] for char in DEFAULT_CHARACTERS]
-    if character_id in default_ids:
-        # Don't allow deleting default characters, just reset them
+    prefixed_default_ids = [f"default-{id}" for id in default_ids]
+    
+    # Don't allow deleting default characters
+    if character_id.startswith('default-') or character_id in default_ids:
+        # Just reset their memory instead
         return reset_character_memory(character_id)
     
     return delete_character_by_id(character_id)
@@ -229,57 +247,72 @@ def _create_default_characters():
     from app.memory.sql import add_character, get_character_by_id
     
     for char_data in DEFAULT_CHARACTERS:
-        # Check if character already exists
-        existing = get_character_by_id(char_data['id'])
-        if existing:
-            continue
-            
-        char_data['created_at'] = datetime.now().isoformat()
-        char_data['last_used'] = datetime.now().isoformat()
-        add_character(char_data)
-
-def restore_default_characters() -> List[str]:
-    """
-    Restore all default characters
-    
-    Returns:
-        List of restored character IDs
-    """
-    from app.memory.sql import get_character_by_id, add_character, update_character_by_id, delete_character_by_id, get_all_characters
-    
-    restored = []
-    
-    # First, get all characters to check for duplicates
-    all_characters = get_all_characters()
-    
-    # Process each default character
-    for char_data in DEFAULT_CHARACTERS:
-        # Look for existing characters with both the original ID and prefixed ID
+        # Create prefixed ID for default characters
         original_id = char_data['id']
         prefixed_id = f"default-{original_id}"
         
-        # Check if a non-prefixed version exists (old format)
-        original_char = next((c for c in all_characters if c['id'] == original_id), None)
-        if original_char:
-            # Delete the non-prefixed version to avoid duplicates
-            delete_character_by_id(original_id)
-        
-        # Check if prefixed version exists
+        # Check if prefixed character already exists
         existing = get_character_by_id(prefixed_id)
+        if existing:
+            continue
         
-        # Prepare character data with proper ID
+        # Create a copy of character data with prefixed ID
         character_data = char_data.copy()
         character_data['id'] = prefixed_id
         character_data['created_at'] = datetime.now().isoformat()
         character_data['last_used'] = datetime.now().isoformat()
         
-        if existing:
-            # Update existing character to defaults
-            update_character_by_id(prefixed_id, character_data)
-        else:
-            # Create new character with default settings
-            add_character(character_data)
-        
-        restored.append(prefixed_id)
+        # Add character to database
+        add_character(character_data)
+
+def restore_default_characters() -> List[str]:
+    """
+    Restore all default characters to their original state
     
-    return restored 
+    Returns:
+        List of restored character IDs
+    """
+    from app.memory.sql import get_db, add_character
+    
+    restored = []
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        # First, remove any existing default characters
+        cursor.execute("DELETE FROM characters WHERE id LIKE 'default-%'")
+        db.commit()
+        
+        # Create each default character with proper prefix
+        for char_data in DEFAULT_CHARACTERS:
+            prefixed_id = f"default-{char_data['id']}"
+            
+            # Create a copy of character data with prefixed ID and default values
+            character_data = {
+                'id': prefixed_id,
+                'name': char_data['name'],
+                'role': char_data['role'],
+                'personality': char_data['personality'],
+                'system_prompt': char_data['system_prompt'],
+                'model': char_data.get('model', 'mistral'),
+                'llm_provider': char_data.get('llm_provider', 'ollama'),
+                'gender': char_data.get('gender', ''),
+                'backstory': char_data.get('backstory', ''),
+                'temperature': 0.7,
+                'top_p': 0.9,
+                'repeat_penalty': 1.1,
+                'top_k': 40,
+                'created_at': datetime.now().isoformat(),
+                'last_used': datetime.now().isoformat()
+            }
+            
+            # Add character to database
+            add_character(character_data)
+            restored.append(prefixed_id)
+        
+        return restored
+        
+    except Exception as e:
+        current_app.logger.error(f"Error restoring default characters: {str(e)}")
+        db.rollback()
+        raise 

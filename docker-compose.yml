@@ -1,44 +1,51 @@
-version: '3.8'
-
 services:
   # Main MiaAI application
   miaai:
     build: .
     container_name: miaai-app
     restart: unless-stopped
-    depends_on:
-      - ollama
     ports:
-      - "${PORT:-8080}:8080"
+      - "8080:8080"
     volumes:
-      - miaai-data:/data
+      - ./app:/app/app
+      - ./data:/app/data      # Persistent data directory
+      - ./documents:/app/documents
+      - ./output_documents:/app/output_documents
+      - ./config:/app/config  # Configuration files
     environment:
-      - DATABASE_PATH=/data/memories.db
-      - PORT=${PORT:-8080}
-      - DEBUG=${DEBUG:-false}
-      - SECRET_KEY=${SECRET_KEY:-change_this_to_a_random_string}
-      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
-      - LLM_API_URL=${LLM_API_URL:-http://ollama:11434/api}
-      - LLM_MODEL=${LLM_MODEL:-mistral}
-      - LLM_API_KEY=${LLM_API_KEY:-}
+      - FLASK_APP=app
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - DATABASE_PATH=/app/data/memories.db
+      
+      # LLM Provider Configuration
+      - LLM_PROVIDER=ollama
+      - OLLAMA_HOST=host.docker.internal
+      - OLLAMA_PORT=11434
+      
+      # OpenAI Configuration (optional)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
+      
+      # Anthropic Configuration (optional)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-instant-1}
     networks:
       - miaai-network
-
-  # Ollama LLM server 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama-server
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-models:/root/.ollama
-    networks:
-      - miaai-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Optional Ngrok tunnel for remote access
+  # To use this, add NGROK_AUTH_TOKEN to your .env file and
+  # run with: docker-compose --profile with-ngrok up -d
   ngrok:
-    image: ngrok/ngrok:latest
+    image: ngrok/ngrok:alpine
     container_name: ngrok-tunnel
     restart: unless-stopped
     depends_on:
@@ -46,8 +53,7 @@ services:
     ports:
       - "4040:4040"
     environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTH_TOKEN}
-      - NGROK_DOMAIN=${NGROK_DOMAIN:-}
+      - NGROK_AUTHTOKEN=${NGROK_AUTH_TOKEN:-}
     command: http miaai:8080
     networks:
       - miaai-network
@@ -55,10 +61,8 @@ services:
       - with-ngrok
 
 volumes:
-  miaai-data:
-    driver: local
-  ollama-models:
-    driver: local
+  ollama_data:
+    name: miaai-ollama-data
 
 networks:
   miaai-network:

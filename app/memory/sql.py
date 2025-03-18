@@ -7,96 +7,105 @@ import json
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 from contextlib import contextmanager
-from flask import current_app
-
-def init_db(app):
-    """
-    Initialize the database with necessary tables
-    
-    Args:
-        app: Flask application context
-    """
-    with _db_conn(app.config['DATABASE_PATH']) as conn:
-        # Characters table
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS characters (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                role TEXT NOT NULL,
-                personality TEXT NOT NULL,
-                system_prompt TEXT NOT NULL,
-                model TEXT NOT NULL,
-                llm_provider TEXT NOT NULL DEFAULT 'ollama',
-                gender TEXT,
-                backstory TEXT,
-                created_at TEXT NOT NULL,
-                last_used TEXT NOT NULL
-            )
-        """)
-        
-        # Check if llm_provider column exists, add it if it doesn't
-        cursor = conn.execute("PRAGMA table_info(characters)")
-        columns = [column[1] for column in cursor.fetchall()]
-        if 'llm_provider' not in columns:
-            conn.execute("ALTER TABLE characters ADD COLUMN llm_provider TEXT NOT NULL DEFAULT 'ollama'")
-        
-        # Conversations table
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                character_id TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
-                conversation TEXT NOT NULL,
-                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-                CONSTRAINT valid_json CHECK (json_valid(conversation))
-            )
-        """)
-        
-        # Create index for faster queries
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_character_id ON conversations(character_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_timestamp ON conversations(timestamp)")
-
-    # Create default characters if they don't exist
-    from app.core.character import _create_default_characters
-    
-    with app.app_context():
-        # Check if characters already exist
-        characters_exist = False
-        with _db_conn(app.config['DATABASE_PATH']) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM characters")
-            count = cursor.fetchone()[0]
-            characters_exist = count > 0
-            
-        # Only create default characters if none exist
-        if not characters_exist:
-            _create_default_characters()
+from flask import current_app, g
+import os
+import logging
 
 @contextmanager
-def _db_conn(db_path=None):
-    """
-    Context manager for database connections
-    
-    Args:
-        db_path: Path to database file, uses app config if None
-        
-    Yields:
-        SQLite connection object
-    """
-    if db_path is None:
-        db_path = current_app.config['DATABASE_PATH']
-        
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
-    
+def _db_conn(db_path):
+    """Context manager for database connections outside of Flask request context"""
+    conn = None
     try:
+        # Ensure the data directory exists
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
+        # Connect to the database
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        
+        # Enable foreign keys
+        conn.execute("PRAGMA foreign_keys = ON")
+        
         yield conn
         conn.commit()
     except Exception as e:
-        conn.rollback()
-        current_app.logger.error(f"Database error: {str(e)}")
+        if conn:
+            conn.rollback()
+        logging.error(f"Database error: {e}")
         raise
     finally:
-        conn.close()
+        if conn:
+            conn.close()
+
+def get_db():
+    """Get the database connection"""
+    if 'db' not in g:
+        # Ensure the data directory exists
+        db_path = current_app.config['DATABASE']
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
+        g.db = sqlite3.connect(
+            db_path,
+            detect_types=sqlite3.PARSE_DECLTYPES
+        )
+        g.db.row_factory = sqlite3.Row
+
+    return g.db
+
+def close_db(e=None):
+    """Close the database connection"""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+def init_db():
+    """Initialize the database"""
+    db = get_db()
+    
+    try:
+        # Create characters table
+        db.execute('''CREATE TABLE IF NOT EXISTS characters (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            personality TEXT NOT NULL,
+            system_prompt TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT 'mistral',
+            llm_provider TEXT NOT NULL DEFAULT 'ollama',
+            gender TEXT DEFAULT '',
+            backstory TEXT DEFAULT '',
+            temperature REAL NOT NULL DEFAULT 0.7,
+            top_p REAL NOT NULL DEFAULT 0.9,
+            repeat_penalty REAL NOT NULL DEFAULT 1.1,
+            top_k INTEGER DEFAULT 40,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_used DATETIME DEFAULT CURRENT_TIMESTAMP
+        )''')
+
+        # Create memories table
+        db.execute('''CREATE TABLE IF NOT EXISTS memories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (character_id) REFERENCES characters (id)
+        )''')
+
+        # Create conversations table
+        db.execute('''CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (character_id) REFERENCES characters (id)
+        )''')
+
+        db.commit()
+        current_app.logger.info("Database initialized successfully")
+    except Exception as e:
+        current_app.logger.error(f"Error initializing database: {str(e)}")
+        raise
 
 def get_all_characters() -> List[Dict]:
     """
@@ -105,9 +114,20 @@ def get_all_characters() -> List[Dict]:
     Returns:
         List of character dictionaries
     """
-    with _db_conn() as conn:
-        cursor = conn.execute("SELECT * FROM characters ORDER BY last_used DESC")
-        return [dict(row) for row in cursor.fetchall()]
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('SELECT * FROM characters ORDER BY name')
+    rows = cursor.fetchall()
+    
+    characters = []
+    for row in rows:
+        char_dict = {}
+        for key in row.keys():
+            char_dict[key] = row[key]
+        characters.append(char_dict)
+    
+    return characters
 
 def get_character_by_id(character_id: str) -> Optional[Dict]:
     """
@@ -119,10 +139,18 @@ def get_character_by_id(character_id: str) -> Optional[Dict]:
     Returns:
         Character dictionary or None if not found
     """
-    with _db_conn() as conn:
-        cursor = conn.execute("SELECT * FROM characters WHERE id = ?", (character_id,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('SELECT * FROM characters WHERE id = ?', (character_id,))
+    row = cursor.fetchone()
+    
+    if row:
+        char_dict = {}
+        for key in row.keys():
+            char_dict[key] = row[key]
+        return char_dict
+    return None
 
 def add_character(character_data: Dict) -> Dict:
     """
@@ -137,22 +165,42 @@ def add_character(character_data: Dict) -> Dict:
     Raises:
         ValueError: If character ID already exists
     """
-    with _db_conn() as conn:
-        # Check if character already exists
-        cursor = conn.execute("SELECT id FROM characters WHERE id = ?", (character_data['id'],))
-        if cursor.fetchone():
-            raise ValueError(f"Character with ID '{character_data['id']}' already exists")
-        
-        # Insert character
-        fields = ", ".join(character_data.keys())
-        placeholders = ", ".join(["?"] * len(character_data))
-        values = tuple(character_data.values())
-        
-        conn.execute(f"INSERT INTO characters ({fields}) VALUES ({placeholders})", values)
-        
-        return character_data
+    db = get_db()
+    cursor = db.cursor()
+    
+    # Get all column names from the characters table
+    cursor.execute('PRAGMA table_info(characters)')
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    # Build the SQL query dynamically
+    fields = []
+    values = []
+    params = []
+    
+    for col in columns:
+        if col in character_data:
+            fields.append(col)
+            values.append('?')
+            params.append(character_data[col])
+    
+    query = f'''
+        INSERT INTO characters (
+            {', '.join(fields)}
+        ) VALUES (
+            {', '.join(values)}
+        )
+    '''
+    
+    try:
+        cursor.execute(query, params)
+        db.commit()
+        return get_character_by_id(character_data['id'])
+    except Exception as e:
+        current_app.logger.error(f"Error adding character: {str(e)}")
+        db.rollback()
+        raise
 
-def update_character_by_id(character_id: str, character_data: Dict) -> Dict:
+def update_character_by_id(character_id: str, character_data: Dict) -> Optional[Dict]:
     """
     Update an existing character
     
@@ -166,19 +214,35 @@ def update_character_by_id(character_id: str, character_data: Dict) -> Dict:
     Raises:
         ValueError: If character not found
     """
-    with _db_conn() as conn:
-        # Check if character exists
-        cursor = conn.execute("SELECT id FROM characters WHERE id = ?", (character_id,))
-        if not cursor.fetchone():
-            raise ValueError(f"Character with ID '{character_id}' not found")
-        
-        # Update character
-        updates = ", ".join([f"{key} = ?" for key in character_data.keys()])
-        values = tuple(character_data.values()) + (character_id,)
-        
-        conn.execute(f"UPDATE characters SET {updates} WHERE id = ?", values)
-        
-        return character_data
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('''
+        UPDATE characters 
+        SET name = ?, role = ?, personality = ?, system_prompt = ?,
+            model = ?, llm_provider = ?, gender = ?, backstory = ?,
+            temperature = ?, top_p = ?, repeat_penalty = ?, top_k = ?,
+            last_used = ?
+        WHERE id = ?
+    ''', (
+        character_data['name'],
+        character_data['role'],
+        character_data['personality'],
+        character_data['system_prompt'],
+        character_data.get('model', 'mistral'),
+        character_data.get('llm_provider', 'ollama'),
+        character_data.get('gender', ''),
+        character_data.get('backstory', ''),
+        character_data.get('temperature', 0.7),
+        character_data.get('top_p', 0.9),
+        character_data.get('repeat_penalty', 1.1),
+        character_data.get('top_k', 40),
+        character_data['last_used'],
+        character_id
+    ))
+    
+    db.commit()
+    return get_character_by_id(character_id)
 
 def update_character_last_used(character_id: str) -> bool:
     """
@@ -190,19 +254,20 @@ def update_character_last_used(character_id: str) -> bool:
     Returns:
         True if successful, False if character not found
     """
-    with _db_conn() as conn:
-        # Check if character exists
-        cursor = conn.execute("SELECT id FROM characters WHERE id = ?", (character_id,))
-        if not cursor.fetchone():
-            return False
-        
-        # Update timestamp
-        conn.execute(
-            "UPDATE characters SET last_used = ? WHERE id = ?",
-            (datetime.now().isoformat(), character_id)
-        )
-        
-        return True
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('''
+        UPDATE characters 
+        SET last_used = ?
+        WHERE id = ?
+    ''', (
+        datetime.now().isoformat(),
+        character_id
+    ))
+    
+    db.commit()
+    return cursor.rowcount > 0
 
 def delete_character_by_id(character_id: str) -> bool:
     """
@@ -214,94 +279,114 @@ def delete_character_by_id(character_id: str) -> bool:
     Returns:
         True if successful, False if character not found
     """
-    with _db_conn() as conn:
-        # Check if character exists
-        cursor = conn.execute("SELECT id FROM characters WHERE id = ?", (character_id,))
-        if not cursor.fetchone():
-            return False
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        # First delete related memories and chat history
+        cursor.execute('DELETE FROM memories WHERE character_id = ?', (character_id,))
         
-        # Delete character (will cascade to conversations)
-        conn.execute("DELETE FROM characters WHERE id = ?", (character_id,))
+        # Leave enhanced_memories intact
+        # We only clear the conversation history, not the long-term memories
+        # This ensures that important information is preserved even when 
+        # conversation history is cleared
+
         
+        # Then delete the character
+        cursor.execute('DELETE FROM characters WHERE id = ?', (character_id,))
+        
+        db.commit()
         return True
+    except:
+        db.rollback()
+        return False
 
 def clear_character_memory(character_id: str) -> bool:
     """
-    Clear all conversations for a character
+    Clear all conversation history for a character
     
     Args:
         character_id: Character's unique identifier
         
     Returns:
-        True if successful, False if character not found
+        Success status
     """
-    with _db_conn() as conn:
-        # Check if character exists
-        cursor = conn.execute("SELECT id FROM characters WHERE id = ?", (character_id,))
-        if not cursor.fetchone():
-            return False
+    try:
+        db = get_db()
+        cursor = db.cursor()
         
-        # Delete conversations
-        conn.execute("DELETE FROM conversations WHERE character_id = ?", (character_id,))
+        # Delete from conversations table
+        cursor.execute('DELETE FROM conversations WHERE character_id = ?', (character_id,))
         
+        # Delete from memories table if it exists
+        cursor.execute('DELETE FROM memories WHERE character_id = ?', (character_id,))
+        
+        db.commit()
         return True
+    except Exception as e:
+        current_app.logger.error(f"Error clearing character memory: {str(e)}")
+        return False
 
-def save_conversation(character_id: str, messages: List[Dict]) -> bool:
+def save_conversation(character_id: str, role: str, content: str) -> bool:
     """
-    Save a conversation with a character
+    Save a conversation message
     
     Args:
         character_id: Character's unique identifier
-        messages: List of message dictionaries
+        role: Message role ('user' or 'assistant')
+        content: Message content
         
     Returns:
-        True if successful, False if character not found
+        Success status
     """
-    with _db_conn() as conn:
-        # Check if character exists
-        cursor = conn.execute("SELECT id FROM characters WHERE id = ?", (character_id,))
-        if not cursor.fetchone():
-            return False
+    try:
+        db = get_db()
+        cursor = db.cursor()
         
-        # Save conversation
-        timestamp = datetime.now().isoformat()
-        conn.execute(
-            "INSERT INTO conversations (character_id, timestamp, conversation) VALUES (?, ?, ?)",
-            (character_id, timestamp, json.dumps(messages))
+        cursor.execute(
+            'INSERT INTO conversations (character_id, role, content) VALUES (?, ?, ?)',
+            (character_id, role, content)
         )
         
+        db.commit()
         return True
+    except Exception as e:
+        current_app.logger.error(f"Error saving conversation: {str(e)}")
+        return False
 
-def get_recent_conversations(character_id: str, limit: int = 10, offset: int = 0) -> List[Dict]:
+def get_recent_conversations(character_id: str, limit: int = 20, offset: int = 0) -> List[Dict]:
     """
     Get recent conversations with a character
     
     Args:
         character_id: Character's unique identifier
-        limit: Maximum number of conversations to retrieve
+        limit: Maximum number of messages to retrieve
         offset: Offset for pagination
         
     Returns:
         List of conversation dictionaries
     """
-    with _db_conn() as conn:
-        cursor = conn.execute(
-            """
-            SELECT id, timestamp, conversation 
-            FROM conversations 
-            WHERE character_id = ? 
-            ORDER BY timestamp DESC
-            LIMIT ? OFFSET ?
-            """, 
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        
+        cursor.execute(
+            'SELECT * FROM conversations WHERE character_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?',
             (character_id, limit, offset)
         )
         
+        rows = cursor.fetchall()
+        
+        # Convert to dictionaries and reverse to get chronological order
         conversations = []
-        for row in cursor:
-            conversation_dict = dict(row)
-            # Parse conversation JSON
-            conversation_dict['messages'] = json.loads(conversation_dict['conversation'])
-            del conversation_dict['conversation']  # Remove raw JSON
-            conversations.append(conversation_dict)
-            
-        return conversations 
+        for row in rows:
+            conv_dict = {}
+            for key in row.keys():
+                conv_dict[key] = row[key]
+            conversations.append(conv_dict)
+        
+        # Return in chronological order (oldest first)
+        return list(reversed(conversations))
+    except Exception as e:
+        current_app.logger.error(f"Error getting conversations: {str(e)}")
+        return [] 

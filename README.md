@@ -1,6 +1,44 @@
-# MiaAI - AI Character Chat Application
+# MiaAI: Personal AI Assistant with Memory
 
-MiaAI is a web application that allows users to create and chat with AI characters. It uses language models to generate responses and maintains memory of conversations.
+MiaAI is a personal AI assistant platform that allows you to create and interact with AI characters that have persistent memory and can analyze documents.
+
+## 🚀 Quick Start (Docker)
+
+The easiest way to get started with MiaAI is using Docker:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/miaai.git
+cd miaai
+
+# Create a .env file with your API key
+echo "OPENAI_API_KEY=your_api_key_here" > .env
+
+# Start MiaAI
+docker compose up -d
+
+# Access at http://localhost:8080
+```
+
+For detailed installation instructions, see [QUICKSTART.md](QUICKSTART.md).
+
+## ✨ Features
+
+- **AI Characters**: Create and interact with customizable AI personas
+- **Memory System**: Characters remember conversations and can retrieve relevant information
+- **Document Analysis**: Upload documents for AI to reference
+- **Multiple LLM Providers**: Support for OpenAI, Anthropic, and Ollama (local models)
+- **Docker Ready**: Simple containerized deployment
+
+## 💾 Installation Options
+
+MiaAI can be installed in several ways:
+
+- **Standard Docker** (recommended): Simple setup with your API key
+- **Local Models**: Use with Ollama for fully local deployment
+- **Remote Access**: Optional Ngrok integration for access from anywhere
+
+For complete setup instructions, see [QUICKSTART.md](QUICKSTART.md).
 
 ## Features
 
@@ -127,3 +165,32 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - This project uses various open-source libraries and frameworks
 - Inspired by the growing interest in personalized AI assistants 
+
+## Database Initialization
+
+MiaAI uses SQLite for storing character data and conversation history. The database is automatically initialized when:
+
+1. Running the application with Docker using the provided `docker-compose.yml`
+2. Running the application directly with `python web_app.py` (if the database doesn't exist)
+
+If you encounter issues with missing characters or database errors, you can manually initialize the database:
+
+```bash
+# Set the database path (optional, defaults to memories.db)
+export DATABASE_PATH=data/memories.db
+
+# Run the initialization script
+python init_db.py
+```
+
+### Troubleshooting Database Issues
+
+If you see errors like "no such table: characters" or if no characters appear in the UI:
+
+1. Make sure the database file exists and is accessible
+2. Try restoring default characters through the UI or API:
+   ```bash
+   curl -X POST http://localhost:8080/api/characters/restore-defaults
+   ```
+3. Check that the `DATABASE_PATH` environment variable is set correctly
+4. For Docker installations, ensure the data volume is properly mounted 

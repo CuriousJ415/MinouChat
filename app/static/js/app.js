@@ -3,87 +3,151 @@
  * Handles UI interaction, character management, and API communication
  */
 
-class MiaAIApp {
+class App {
     constructor() {
-        // UI Elements
-        this.characterList = document.getElementById('character-list');
-        this.chatHeader = document.getElementById('chat-header');
-        this.chatMessages = document.getElementById('chat-messages');
-        this.messageInput = document.getElementById('message-input');
-        this.sendButton = document.getElementById('send-button');
-        this.newCharacterButton = document.getElementById('new-character-button');
-        this.characterModal = document.getElementById('character-modal');
-        this.characterForm = document.getElementById('character-form');
-        this.closeModalButton = document.getElementById('close-modal');
-        this.memorySearchModal = document.getElementById('memory-search-modal');
-        this.memorySearchForm = document.getElementById('memory-search-form');
-        this.memorySearchResults = document.getElementById('memory-search-results');
-        this.closeMemoryModalButton = document.getElementById('close-memory-modal');
-        this.errorToast = document.getElementById('error-toast');
-        this.errorMessage = document.getElementById('error-message');
-        this.closeErrorButton = document.getElementById('close-error');
-        this.deleteCharacterButton = document.getElementById('delete-character-button');
-        this.clearMemoryButton = document.getElementById('clear-memory-button');
-        
-        // State
+        // Initialize properties
         this.characters = [];
         this.selectedCharacter = null;
-        this.editingCharacter = null;
-        
-        // Initialize chat manager
+        this.chatManager = null;
+        this.documentManager = null;
+        this.settings = {
+            llmProvider: 'ollama',
+            model: 'mistral',
+            apiKey: ''
+        };
+        this.usingDocumentContext = false;
+
+        // DOM elements
+        this.characterList = document.getElementById('character-list');
+        this.messageInput = document.getElementById('message-input');
+        this.sendButton = document.getElementById('send-button');
+        this.documentButton = document.getElementById('document-button');
+        this.clearChatButton = document.getElementById('clear-chat-button');
+        this.recallConversationButton = document.getElementById('recall-conversation-button');
+        this.searchMemoriesButton = document.getElementById('search-memories-button');
+        this.documentContextIndicator = document.getElementById('document-context-indicator');
+        this.characterLlmProviderSelect = document.getElementById('character-llm-provider');
+        this.characterModelSelect = document.getElementById('character-model');
+        this.characterApiKeyInput = document.getElementById('character-api-key');
+        this.settingsLlmProviderSelect = document.getElementById('settings-llm-provider');
+        this.settingsModelSelect = document.getElementById('settings-model');
+        this.settingsApiKeyInput = document.getElementById('settings-api-key');
+
+        // Buttons
+        this.addCharacterBtn = document.getElementById('add-character-btn');
+        this.createCharacterBtn = document.getElementById('create-character-btn');
+        this.settingsBtn = document.getElementById('settings-btn');
+        this.saveSettingsBtn = document.getElementById('save-settings-btn');
+        this.restoreDefaultsBtn = document.getElementById('restore-defaults-btn');
+
+        // Modals
+        this.createCharacterModal = document.getElementById('create-character-modal');
+        this.characterSettingsModal = document.getElementById('character-settings-modal');
+        this.settingsModal = document.getElementById('settings-modal');
+
+        // Bind event listeners
+        this.bindEventListeners();
+
+        // Initialize Chat Manager
         this.chatManager = new ChatManager(this);
-        
-        // Initialize the application
-        this.init();
+
+        // Initialize Document Manager
+        this.documentManager = new DocumentManager(this);
+
+        // Load characters and settings
+        this.loadCharacters();
+        this.loadSettings();
     }
     
-    init() {
-        // Set up event listeners
-        this.newCharacterButton.addEventListener('click', () => this.openCharacterModal());
-        this.closeModalButton.addEventListener('click', () => this.closeCharacterModal());
-        this.characterForm.addEventListener('submit', (e) => this.saveCharacter(e));
-        this.deleteCharacterButton.addEventListener('click', () => {
-            if (this.editingCharacter) {
-                this.deleteCharacter(this.editingCharacter.id);
-            }
+    bindEventListeners() {
+        // Character management
+        if (this.addCharacterBtn) {
+            this.addCharacterBtn.addEventListener('click', () => this.showNewCharacterModal());
+        }
+        if (this.restoreDefaultsBtn) {
+            this.restoreDefaultsBtn.addEventListener('click', () => this.restoreDefaultCharacters());
+        }
+        
+        // Chat actions
+        if (this.settingsBtn) {
+            this.settingsBtn.addEventListener('click', () => this.showSettingsModal());
+        }
+        
+        // Memory actions
+        if (this.searchMemoriesButton) {
+            this.searchMemoriesButton.addEventListener('click', () => this.openMemorySearchModal());
+        }
+        
+        // LLM provider change in character settings
+        const settingsLlmProvider = document.getElementById('settings-llm-provider');
+        const settingsModel = document.getElementById('settings-model');
+        if (settingsLlmProvider && settingsModel) {
+            settingsLlmProvider.addEventListener('change', () => {
+                // Add a loading placeholder
+                settingsModel.innerHTML = '<option value="">Loading models...</option>';
+                
+                // Load models for the selected provider
+                loadModelsForProvider(settingsLlmProvider.value, settingsModel);
+            });
+        }
+        
+        // Message sending
+        if (this.messageInput) {
+            this.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+        }
+        
+        if (this.sendButton) {
+            this.sendButton.addEventListener('click', () => this.sendMessage());
+        }
+        
+        // Modal handling
+        const closeButtons = document.querySelectorAll('.close-btn');
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.closeModals());
         });
-        this.clearMemoryButton.addEventListener('click', () => {
-            if (this.editingCharacter) {
-                this.clearCharacterMemory(this.editingCharacter.id);
+        
+        // New character form
+        const newCharacterForm = document.getElementById('new-character-form');
+        if (newCharacterForm) {
+            newCharacterForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.createCharacter(new FormData(newCharacterForm));
+            });
+        }
+        
+        // Character settings form
+        const characterSettingsForm = document.getElementById('character-settings-form');
+        if (characterSettingsForm) {
+            characterSettingsForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateCharacterSettings(new FormData(characterSettingsForm));
+            });
+            
+            // Reset memory button
+            const resetMemoryButton = document.getElementById('reset-memory-button');
+            if (resetMemoryButton) {
+                resetMemoryButton.addEventListener('click', () => this.resetCharacterMemory());
             }
-        });
-        this.closeMemoryModalButton.addEventListener('click', () => this.closeMemorySearchModal());
-        this.memorySearchForm.addEventListener('submit', (e) => this.searchMemories(e));
-        this.closeErrorButton.addEventListener('click', () => this.hideError());
-        
-        // Restore defaults button
-        document.getElementById('restore-defaults-button').addEventListener('click', () => this.restoreDefaultCharacters());
-        
-        // Ensure the message input and send button are disabled initially
-        document.getElementById('message-input').disabled = true;
-        document.getElementById('send-button').disabled = true;
-        
-        // Load characters
-        this.loadCharacters();
+        }
         
         // Close modals when clicking outside
         window.addEventListener('click', (e) => {
-            if (e.target === this.characterModal) {
-                this.closeCharacterModal();
-            }
-            if (e.target === this.memorySearchModal) {
-                this.closeMemorySearchModal();
+            if (e.target.classList.contains('modal')) {
+                this.closeModals();
             }
         });
     }
     
     loadCharacters() {
-        fetch('/api/characters/')
+        fetch('/api/characters')
             .then(response => response.json())
             .then(data => {
-                console.log('Characters loaded:', data);
-                // The API returns an array directly, not wrapped in a characters object
-                this.characters = Array.isArray(data) ? data : data.characters || [];
+                this.characters = data;
                 this.renderCharacterList();
             })
             .catch(error => {
@@ -93,15 +157,12 @@ class MiaAIApp {
     }
     
     renderCharacterList() {
-        // Clear the list
         this.characterList.innerHTML = '';
         
-        // Add each character
         this.characters.forEach(character => {
             const characterElement = document.createElement('div');
             characterElement.className = 'character-item';
             characterElement.dataset.id = character.id;
-            
             if (this.selectedCharacter && this.selectedCharacter.id === character.id) {
                 characterElement.classList.add('selected');
             }
@@ -113,108 +174,31 @@ class MiaAIApp {
                     <div class="character-role">${character.role}</div>
                 </div>
                 <div class="character-actions">
-                    <button class="character-action-button history-button" title="Show recent conversation" data-id="${character.id}">
-                        <i class="fas fa-comments"></i>
-                    </button>
-                    <button class="character-action-button edit-button" title="Edit ${character.name}" data-id="${character.id}">
-                        <i class="fas fa-edit"></i>
+                    <button class="character-settings-button" title="Settings">
+                        <i class="fas fa-cog"></i>
                     </button>
                 </div>
             `;
             
-            // Add history button functionality
-            const historyButton = characterElement.querySelector('.history-button');
-            historyButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.showHistoryPreview(character.id, character.name);
+            // Add click event to select character
+            characterElement.addEventListener('click', (e) => {
+                // Don't select if clicking the settings button
+                if (!e.target.closest('.character-settings-button')) {
+                    this.selectCharacter(character);
+                }
             });
             
-            // Add edit button functionality
-            const editButton = characterElement.querySelector('.edit-button');
-            editButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openCharacterModal(character);
-            });
-            
-            // Add click event to the character item itself for selection
-            characterElement.addEventListener('click', () => {
-                this.selectCharacter(character);
-            });
+            // Add click event for settings button
+            const settingsButton = characterElement.querySelector('.character-settings-button');
+            if (settingsButton) {
+                settingsButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showCharacterSettings(character);
+                });
+            }
             
             this.characterList.appendChild(characterElement);
         });
-    }
-    
-    // Add a new method to show history preview
-    showHistoryPreview(characterId, characterName) {
-        // Fetch recent messages (last 3)
-        fetch(`/api/chat/${characterId}/history?limit=3`)
-            .then(response => response.json())
-            .then(data => {
-                // Check if there are any conversation messages
-                if (!data.conversations || data.conversations.length === 0 || 
-                    !data.conversations[0].messages || data.conversations[0].messages.length === 0) {
-                    this.showError('No conversation history available');
-                    return;
-                }
-                
-                // Get the messages
-                const messages = data.conversations[0].messages;
-                
-                // Create the preview element
-                const previewElement = document.createElement('div');
-                previewElement.className = 'history-preview';
-                
-                // Add preview header
-                previewElement.innerHTML = `
-                    <div class="history-preview-header">
-                        <h3>Recent conversation with ${characterName}</h3>
-                        <button class="close-preview">&times;</button>
-                    </div>
-                    <div class="history-preview-content"></div>
-                `;
-                
-                // Add messages to preview content
-                const contentElement = previewElement.querySelector('.history-preview-content');
-                
-                // Show last 3 messages or all if less than 3
-                const recentMessages = messages.slice(-3);
-                recentMessages.forEach(msg => {
-                    const messageElement = document.createElement('div');
-                    messageElement.className = `preview-message ${msg.role}`;
-                    
-                    let sender = msg.role === 'user' ? 'You' : characterName;
-                    
-                    messageElement.innerHTML = `
-                        <div class="preview-message-header">${sender}</div>
-                        <div class="preview-message-content">${this.chatManager.formatMessageContent(msg.content)}</div>
-                    `;
-                    
-                    contentElement.appendChild(messageElement);
-                });
-                
-                // Add close functionality
-                previewElement.querySelector('.close-preview').addEventListener('click', () => {
-                    if (previewElement.parentNode) {
-                        previewElement.parentNode.removeChild(previewElement);
-                    }
-                });
-                
-                // Add to chat messages container at the top
-                const messagesContainer = document.getElementById('chat-messages');
-                messagesContainer.insertBefore(previewElement, messagesContainer.firstChild);
-                
-                // Auto-dismiss after 20 seconds
-                setTimeout(() => {
-                    if (previewElement.parentNode) {
-                        previewElement.parentNode.removeChild(previewElement);
-                    }
-                }, 20000);
-            })
-            .catch(error => {
-                console.error('Error loading history preview:', error);
-                this.showError('Could not load conversation history');
-            });
     }
     
     selectCharacter(character) {
@@ -223,426 +207,646 @@ class MiaAIApp {
         // Update UI
         document.querySelectorAll('.character-item').forEach(item => {
             item.classList.remove('selected');
-            if (item.dataset.id === character.id.toString()) {
-                item.classList.add('selected');
-            }
         });
         
-        // Update chat header
-        this.chatHeader.innerHTML = `
-            <div class="chat-avatar">${character.name.charAt(0)}</div>
-            <div class="chat-info">
-                <div class="chat-name">${character.name}</div>
-                <div class="chat-role">${character.role}</div>
-            </div>
-        `;
+        const selectedItem = this.characterList.querySelector(`[data-id="${character.id}"]`);
+        if (selectedItem) {
+            selectedItem.classList.add('selected');
+        }
         
-        // Enable chat input and send button
-        document.getElementById('message-input').disabled = false;
-        document.getElementById('send-button').disabled = false;
+        // Update chat header
+        const chatHeader = document.querySelector('.chat-header');
+        if (chatHeader) {
+            const chatPlaceholder = chatHeader.querySelector('.chat-placeholder');
+            if (chatPlaceholder) {
+                chatPlaceholder.innerHTML = `
+                    <div class="chat-avatar">${character.name.charAt(0)}</div>
+                    <div class="chat-info">
+                        <div class="chat-name">${character.name}</div>
+                        <div class="chat-role">${character.role}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Enable chat input and buttons
+        if (this.messageInput) {
+            this.messageInput.disabled = false;
+            this.messageInput.placeholder = `Message ${character.name}...`;
+            this.messageInput.focus(); // Add focus to show cursor
+        }
+        
+        // Enable buttons
+        if (this.sendButton) {
+            this.sendButton.disabled = false;
+        }
+        if (this.documentButton) {
+            this.documentButton.disabled = false;
+        }
+        if (this.clearChatButton) {
+            this.clearChatButton.disabled = false;
+        }
+        if (this.recallConversationButton) {
+            this.recallConversationButton.disabled = false;
+        }
+        if (this.searchMemoriesButton) {
+            this.searchMemoriesButton.disabled = false;
+        }
         
         // Load chat history
-        this.chatManager.loadChatHistory(character.id);
-    }
-    
-    openCharacterModal(character = null) {
-        // Store the editing character
-        this.editingCharacter = character;
-        
-        // Reset form
-        this.characterForm.reset();
-        
-        // Set form title
-        document.getElementById('character-modal-title').textContent = character ? 'Edit Character' : 'Create New Character';
-        
-        // Fill form if editing
-        if (character) {
-            document.getElementById('character-id').value = character.id;
-            document.getElementById('character-name').value = character.name;
-            document.getElementById('character-role').value = character.role;
-            document.getElementById('character-personality').value = character.personality || '';
-            document.getElementById('character-backstory').value = character.backstory || '';
-            document.getElementById('character-system-prompt').value = character.system_prompt || '';
-            
-            // Set LLM provider and model
-            const llmProviderSelect = document.getElementById('character-llm-provider');
-            llmProviderSelect.value = character.llm_provider || 'ollama';
-            document.getElementById('character-model').value = character.model || 'mistral';
-            
-            // Check if this is a default character (based on ID prefix 'default-')
-            const isDefaultCharacter = character.id.startsWith('default-');
-            
-            // Show delete button for non-default characters
-            document.getElementById('delete-character-button').style.display = isDefaultCharacter ? 'none' : 'block';
-            if (!isDefaultCharacter) {
-                document.getElementById('delete-character-button').onclick = () => this.deleteCharacter(character.id);
-            }
-            
-            // Clear memory button is always available for existing characters
-            document.getElementById('clear-memory-button').style.display = 'block';
-        } else {
-            // New character - hide delete and clear memory buttons
-            document.getElementById('delete-character-button').style.display = 'none';
-            document.getElementById('clear-memory-button').style.display = 'none';
+        if (this.chatManager) {
+            this.chatManager.loadChatHistory(character.id);
         }
         
-        // Fetch available models for the selected provider
-        this.fetchAndPopulateModels();
-        
-        // Add event listener to provider dropdown to update models when changed
-        const providerSelect = document.getElementById('character-llm-provider');
-        providerSelect.addEventListener('change', () => this.fetchAndPopulateModels());
-        
-        // Show modal
-        this.characterModal.classList.add('active');
-    }
-    
-    async fetchAndPopulateModels() {
-        try {
-            const provider = document.getElementById('character-llm-provider').value;
-            const modelContainer = document.getElementById('character-model-container');
-            
-            // Show loading indicator
-            modelContainer.innerHTML = '<select id="character-model" disabled><option>Loading models...</option></select>';
-            
-            // Fetch models from server
-            const response = await fetch(`/api/settings/llm/models?provider=${provider}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch models');
-            }
-            
-            const data = await response.json();
-            
-            // Create select dropdown
-            let modelSelect = '<select id="character-model" required>';
-            if (data.models && data.models.length > 0) {
-                data.models.forEach(model => {
-                    modelSelect += `<option value="${model}">${model}</option>`;
-                });
-            } else {
-                modelSelect += '<option value="">No models available</option>';
-            }
-            modelSelect += '</select>';
-            
-            // Update the container
-            modelContainer.innerHTML = modelSelect;
-            
-            // If editing a character, set the model
-            if (this.editingCharacter && this.editingCharacter.model) {
-                const selectElement = document.getElementById('character-model');
-                // Try to find the model in the options
-                const modelExists = Array.from(selectElement.options).some(option => option.value === this.editingCharacter.model);
-                
-                if (modelExists) {
-                    selectElement.value = this.editingCharacter.model;
-                } else if (selectElement.options.length > 0) {
-                    // Add the model if it doesn't exist in the list but is set for the character
-                    const option = document.createElement('option');
-                    option.value = this.editingCharacter.model;
-                    option.text = `${this.editingCharacter.model} (not found locally)`;
-                    selectElement.add(option, 0);
-                    selectElement.value = this.editingCharacter.model;
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching models:', error);
-            // Fallback to text input
-            document.getElementById('character-model-container').innerHTML = 
-                '<input type="text" id="character-model" placeholder="e.g. mistral, llama2, gpt-4, claude-3" required>';
-                
-            // If editing, set the model value
-            if (this.editingCharacter && this.editingCharacter.model) {
-                document.getElementById('character-model').value = this.editingCharacter.model;
-            }
+        // Update document manager
+        if (this.documentManager) {
+            this.documentManager.updateUIForSelectedCharacter();
         }
     }
     
-    closeCharacterModal() {
-        this.characterModal.classList.remove('active');
-        this.editingCharacter = null;
+    showNewCharacterModal() {
+        const modal = document.getElementById('new-character-modal');
+        modal.style.display = 'block';
     }
     
-    saveCharacter(event) {
-        event.preventDefault();
-        
-        const characterId = document.getElementById('character-id').value;
-        const isNewCharacter = !characterId;
-        
-        const characterData = {
-            name: document.getElementById('character-name').value,
-            role: document.getElementById('character-role').value,
-            personality: document.getElementById('character-personality').value,
-            backstory: document.getElementById('character-backstory').value,
-            system_prompt: document.getElementById('character-system-prompt').value,
-            llm_provider: document.getElementById('character-llm-provider').value,
-            model: document.getElementById('character-model').value
+    closeModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+        });
+    }
+    
+    createCharacter(formData) {
+        const character = {
+            name: formData.get('name'),
+            role: formData.get('role'),
+            personality: formData.get('personality'),
+            backstory: formData.get('backstory'),
+            system_prompt: formData.get('system_prompt'),
+            llm_provider: formData.get('llm_provider'),
+            model: formData.get('model'),
+            temperature: parseFloat(formData.get('temperature')),
+            top_p: parseFloat(formData.get('top_p')),
+            repeat_penalty: parseFloat(formData.get('repeat_penalty')),
+            top_k: parseInt(formData.get('top_k'))
         };
         
-        const url = isNewCharacter ? '/api/characters' : `/api/characters/${characterId}`;
-        const method = isNewCharacter ? 'POST' : 'PUT';
-        
-        fetch(url, {
-            method: method,
+        fetch('/api/characters', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(characterData)
+            body: JSON.stringify(character)
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                this.closeCharacterModal();
-                this.loadCharacters();
-                
-                // Select the new/edited character
-                if (isNewCharacter && data.character) {
-                    this.selectCharacter(data.character);
-                } else if (!isNewCharacter) {
-                    // Update the selected character if it was edited
-                    if (this.selectedCharacter && this.selectedCharacter.id === parseInt(characterId)) {
-                        this.selectCharacter({...this.selectedCharacter, ...characterData, id: parseInt(characterId)});
-                    }
-                }
-            } else {
-                this.showError(data.error || 'Failed to save character');
-            }
+            this.closeModals();
+            this.loadCharacters();
+            this.selectCharacter(data);
         })
         .catch(error => {
-            console.error('Error saving character:', error);
-            this.showError('Failed to save character');
+            console.error('Error creating character:', error);
+            this.showError('Failed to create character');
         });
     }
     
-    deleteCharacter(characterId) {
-        if (!confirm('Are you sure you want to delete this character? This action cannot be undone.')) {
+    restoreDefaultCharacters() {
+        if (!confirm('This will restore the default characters. Continue?')) {
             return;
         }
         
+        fetch('/api/characters/restore-defaults', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.characters = data;
+            this.renderCharacterList();
+        })
+        .catch(error => {
+            console.error('Error restoring default characters:', error);
+            this.showError('Failed to restore default characters');
+        });
+    }
+    
+    showCharacterSettings(character) {
+        // Set form values
+        const form = document.getElementById('character-settings-form');
+        if (form) {
+            const llmProvider = form.querySelector('#settings-llm-provider');
+            const model = form.querySelector('#settings-model');
+            const temperature = form.querySelector('#settings-temperature');
+            const topP = form.querySelector('#settings-top-p');
+            const repeatPenalty = form.querySelector('#settings-repeat-penalty');
+            const topK = form.querySelector('#settings-top-k');
+            
+            // Set values from character
+            if (llmProvider) llmProvider.value = character.llm_provider || 'ollama';
+            
+            // Load models for the selected provider
+            if (llmProvider && model) {
+                // Add a loading placeholder
+                model.innerHTML = '<option value="">Loading models...</option>';
+                
+                // Load models for the selected provider
+                loadModelsForProvider(llmProvider.value, model).then(() => {
+                    // Set the model value after models are loaded
+                    model.value = character.model || 'mistral';
+                });
+            }
+            
+            if (temperature) {
+                temperature.value = character.temperature || 0.7;
+                document.getElementById('settings-temperature-value').textContent = temperature.value;
+            }
+            if (topP) {
+                topP.value = character.top_p || 0.9;
+                document.getElementById('settings-top-p-value').textContent = topP.value;
+            }
+            if (repeatPenalty) {
+                repeatPenalty.value = character.repeat_penalty || 1.1;
+                document.getElementById('settings-repeat-penalty-value').textContent = repeatPenalty.value;
+            }
+            if (topK) {
+                topK.value = character.top_k || 40;
+                document.getElementById('settings-top-k-value').textContent = topK.value;
+            }
+            
+            // Store the character ID
+            form.dataset.characterId = character.id;
+        }
+        
+        // Show the modal
+        const modal = document.getElementById('character-settings-modal');
+        if (modal) modal.style.display = 'block';
+    }
+    
+    updateCharacterSettings(formData) {
+        const form = document.getElementById('character-settings-form');
+        const characterId = form.dataset.characterId;
+        
+        if (!characterId) {
+            this.showError('Character ID not found');
+            return;
+        }
+        
+        const settings = {
+            llm_provider: formData.get('llm_provider'),
+            model: formData.get('model'),
+            temperature: parseFloat(formData.get('temperature')),
+            top_p: parseFloat(formData.get('top_p')),
+            repeat_penalty: parseFloat(formData.get('repeat_penalty')),
+            top_k: parseInt(formData.get('top_k'))
+        };
+        
         fetch(`/api/characters/${characterId}`, {
-            method: 'DELETE'
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.closeModals();
+            this.loadCharacters();
+            this.showNotification('Character settings updated');
+        })
+        .catch(error => {
+            console.error('Error updating character settings:', error);
+            this.showError('Failed to update character settings');
+        });
+    }
+    
+    resetCharacterMemory() {
+        const form = document.getElementById('character-settings-form');
+        const characterId = form.dataset.characterId;
+        
+        if (!characterId) {
+            this.showError('Character ID not found');
+            return;
+        }
+        
+        if (!confirm('This will COMPLETELY reset all memories for this character including long-term memories. This cannot be undone. Continue?')) {
+            return;
+        }
+        
+        fetch(`/api/characters/${characterId}/reset_memories`, {
+            method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                this.closeCharacterModal();
+                this.closeModals();
+                this.showNotification('Character memory has been completely reset');
                 
-                // If the deleted character was selected, clear the chat
+                // Reload chat history if this is the selected character
                 if (this.selectedCharacter && this.selectedCharacter.id === characterId) {
-                    this.selectedCharacter = null;
-                    this.chatHeader.innerHTML = '<div class="chat-placeholder">Select a character to start chatting</div>';
-                    this.chatMessages.innerHTML = '';
+                    this.chatManager.loadChatHistory(characterId);
                 }
-                
-                this.loadCharacters();
             } else {
-                this.showError(data.error || 'Failed to delete character');
+                this.showError(data.error || 'Failed to reset memory');
             }
         })
         .catch(error => {
-            console.error('Error deleting character:', error);
-            this.showError('Failed to delete character');
+            console.error('Error resetting memory:', error);
+            this.showError('Failed to reset memory');
         });
     }
     
+    showSettingsModal() {
+        const modal = document.getElementById('settings-modal');
+        modal.style.display = 'block';
+    }
+    
+    loadSettings() {
+        // Implementation of loadSettings method
+    }
+    
+    showNotification(message) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'notification success-notification';
+        
+        notification.innerHTML = `
+            <div class="notification-content">
+                <i class="fas fa-check-circle"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove notification after 3 seconds
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+    
+    showError(message) {
+        const errorToast = document.getElementById('error-toast');
+        const errorMessage = document.getElementById('error-message');
+        
+        errorMessage.textContent = message;
+        errorToast.classList.add('show');
+        
+        setTimeout(() => {
+            errorToast.classList.remove('show');
+        }, 3000);
+    }
+
     sendMessageToAPI(message) {
         if (!this.selectedCharacter) {
             this.showError('Please select a character first');
             return;
         }
-        
-        fetch(`/api/chat/send`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                character_id: this.selectedCharacter.id,
-                message: message 
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Hide typing indicator
-            this.chatManager.hideTypingIndicator();
-            
-            if (data.success) {
-                // Display AI response
-                this.chatManager.displayMessage('ai', data.response);
-            } else {
-                this.showError(data.error || 'Failed to get response');
-            }
-        })
-        .catch(error => {
-            console.error('Error sending message:', error);
-            this.chatManager.hideTypingIndicator();
-            this.showError('Failed to get response');
-        });
+
+        this.chatManager.showTypingIndicator();
+
+        // Check if this character has documents
+        this.checkForCharacterDocuments(this.selectedCharacter.id)
+            .then(hasDocuments => {
+                // Show document context indicator if using documents
+                if (hasDocuments) {
+                    this.usingDocumentContext = true;
+                    if (this.documentContextIndicator) {
+                        this.documentContextIndicator.style.display = 'flex';
+                        this.documentContextIndicator.title = `Using document context for ${this.selectedCharacter.name}`;
+                    }
+                }
+                
+                const payload = {
+                    character_id: this.selectedCharacter.id,
+                    message: message,
+                    use_documents: hasDocuments, // Only use documents if they exist
+                    context_type: 'full' // Request the LLM to use full context including documents
+                };
+
+                console.log("Sending message with payload:", payload);
+
+                // Create a timeout for the request
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000)
+                );
+
+                // Main fetch request
+                const fetchPromise = fetch(`/api/chat/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => {
+                    console.log("Response status:", response.status);
+                    // Try to get the response body even if it's an error
+                    return response.text().then(text => {
+                        console.log("Raw response:", text);
+                        
+                        try {
+                            // Try to parse as JSON
+                            const data = JSON.parse(text);
+                            
+                            // Check if it's an error response
+                            if (!response.ok) {
+                                // Format Ollama connection error in a more user-friendly way
+                                if (data.error && data.error.includes("Failed to connect to Ollama")) {
+                                    throw new Error("Could not connect to the AI service. Please check if Ollama is running.");
+                                }
+                                throw new Error(`Server error: ${data.error || response.statusText}`);
+                            }
+                            
+                            return data;
+                        } catch (e) {
+                            console.error("Error parsing JSON:", e);
+                            // If parsing failed, throw with the raw text
+                            if (!response.ok) {
+                                // Format connection error in a more user-friendly way
+                                if (text.includes("Failed to connect to Ollama") || text.includes("HTTPConnectionPool")) {
+                                    throw new Error("Could not connect to the AI service. Please check if Ollama is running.");
+                                }
+                                throw new Error(`Server error (${response.status}): ${text}`);
+                            }
+                            throw new Error(`Invalid JSON response: ${text}`);
+                        }
+                    });
+                });
+
+                // Race between the fetch and the timeout
+                Promise.race([fetchPromise, timeoutPromise])
+                    .then(data => {
+                        console.log("Response data:", data);
+                        this.chatManager.hideTypingIndicator();
+                        if (!data.success) {
+                            this.showError(data.error || 'Unknown error');
+                            return;
+                        }
+                        this.chatManager.displayMessage('assistant', data.response);
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+                        this.chatManager.hideTypingIndicator();
+                        
+                        // Show a more user-friendly error message
+                        let errorMessage = error.message;
+                        if (errorMessage.includes("Failed to fetch") || 
+                            errorMessage.includes("NetworkError") ||
+                            errorMessage.includes("network") ||
+                            errorMessage.includes("HTTPConnectionPool")) {
+                            errorMessage = "Connection to AI service failed. Please make sure Ollama is running.";
+                        }
+                        
+                        this.showError('Failed to send message: ' + errorMessage);
+                    });
+            });
     }
-    
+
+    // Add method to check if character has documents
+    async checkForCharacterDocuments(characterId) {
+        try {
+            const response = await fetch(`/api/documents/character/${characterId}`);
+            
+            if (!response.ok) {
+                console.error(`Failed to check documents: ${response.status}`);
+                return false;
+            }
+            
+            const data = await response.json();
+            return data.documents && data.documents.length > 0;
+        } catch (error) {
+            console.error('Error checking for character documents:', error);
+            return false;
+        }
+    }
+
+    // Add sendMessage method to handle sending messages
+    sendMessage() {
+        if (!this.selectedCharacter) {
+            this.showError('Please select a character first');
+            return;
+        }
+        
+        const messageText = this.messageInput.value.trim();
+        if (!messageText) {
+            return; // Don't send empty messages
+        }
+        
+        // Display user message
+        this.chatManager.displayMessage('user', messageText);
+        
+        // Clear input
+        this.messageInput.value = '';
+        
+        // Send message to API
+        this.sendMessageToAPI(messageText);
+    }
+
+    // Add memory search methods
     openMemorySearchModal() {
         if (!this.selectedCharacter) {
             this.showError('Please select a character first');
             return;
         }
         
-        // Reset form and results
-        this.memorySearchForm.reset();
-        this.memorySearchResults.innerHTML = '';
+        // Get the modal and form
+        const modal = document.getElementById('memory-search-modal');
+        const form = document.getElementById('memory-search-form');
+        const resultsContainer = document.getElementById('search-results-container');
         
-        // Show modal
-        this.memorySearchModal.style.display = 'flex';
-    }
-    
-    closeMemorySearchModal() {
-        this.memorySearchModal.style.display = 'none';
-    }
-    
-    searchMemories(event) {
-        event.preventDefault();
-        
-        const query = document.getElementById('memory-search-query').value;
-        
-        if (!query || !this.selectedCharacter) {
+        if (!modal || !form) {
+            console.error('Memory search modal or form not found');
             return;
         }
         
-        fetch(`/api/chat/${this.selectedCharacter.id}/search?query=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                this.memorySearchResults.innerHTML = '';
-                
-                if (data.results && data.results.length > 0) {
-                    data.results.forEach(memory => {
-                        const memoryElement = document.createElement('div');
-                        memoryElement.className = 'memory-result';
-                        
-                        memoryElement.innerHTML = `
-                            <div class="memory-content">${memory.content}</div>
-                            <div class="memory-metadata">
-                                <span class="memory-date">${new Date(memory.timestamp).toLocaleString()}</span>
-                                <span class="memory-score">Score: ${memory.score.toFixed(2)}</span>
-                            </div>
-                        `;
-                        
-                        this.memorySearchResults.appendChild(memoryElement);
-                    });
-                } else {
-                    this.memorySearchResults.innerHTML = '<div class="no-results">No memories found</div>';
+        // Clear previous results
+        if (resultsContainer) {
+            resultsContainer.innerHTML = '';
+        }
+        
+        // Clear the form
+        form.reset();
+        
+        // Show the modal
+        modal.style.display = 'block';
+        
+        // Add form submission handler
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            const query = document.getElementById('memory-search-query').value.trim();
+            if (query) {
+                this.searchMemories(query);
+            }
+        };
+    }
+    
+    async searchMemories(query) {
+        if (!this.selectedCharacter) {
+            this.showError('Please select a character first');
+            return;
+        }
+        
+        // Get the results container
+        const resultsContainer = document.getElementById('search-results-container');
+        if (!resultsContainer) return;
+        
+        // Show loading state
+        resultsContainer.innerHTML = '<div class="loading">Searching memories...</div>';
+        
+        try {
+            console.log(`Searching memories for character ${this.selectedCharacter.id} with query: ${query}`);
+            
+            // Make API request
+            const response = await fetch(`/api/chat/direct-search/${this.selectedCharacter.id}?q=${encodeURIComponent(query)}`);
+            
+            console.log(`Search response status: ${response.status}`);
+            
+            // Handle non-successful response
+            if (!response.ok) {
+                let errorMessage = `Search failed: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData && errorData.error) {
+                        errorMessage = errorData.error;
+                    }
+                } catch (e) {
+                    console.error('Error parsing error response:', e);
                 }
-            })
-            .catch(error => {
-                console.error('Error searching memories:', error);
-                this.showError('Failed to search memories');
+                
+                resultsContainer.innerHTML = `<div class="error">Error: ${errorMessage}</div>`;
+                return;
+            }
+            
+            // Parse JSON response
+            const data = await response.json();
+            console.log('Search results:', data);
+            
+            // Display results
+            if (data.success === false) {
+                resultsContainer.innerHTML = `<div class="error">${data.error || 'Search failed'}</div>`;
+                return;
+            }
+            
+            if (!data.results || data.results.length === 0) {
+                resultsContainer.innerHTML = '<div class="no-results">No memories found</div>';
+                return;
+            }
+            
+            // Display results
+            let html = '<div class="search-results">';
+            data.results.forEach(result => {
+                // Format the score percentage (handling both 'score' and 'relevance' properties)
+                const score = result.score !== undefined ? result.score : (result.relevance || 0);
+                const scorePercent = Math.round(parseFloat(score) * 100);
+                
+                html += `
+                    <div class="memory-item">
+                        <div class="memory-content">${result.content}</div>
+                        <div class="memory-meta">
+                            <span class="memory-score">Relevance: ${scorePercent}%</span>
+                            ${result.timestamp ? `<span class="memory-time">${result.timestamp}</span>` : ''}
+                        </div>
+                    </div>
+                `;
             });
-    }
-    
-    showError(message) {
-        this.errorMessage.textContent = message;
-        this.errorToast.classList.add('show');
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            this.hideError();
-        }, 5000);
-    }
-    
-    hideError() {
-        this.errorToast.classList.remove('show');
-    }
-    
-    // Add a new method to clear character memory
-    clearCharacterMemory(characterId) {
-        if (!confirm("This will clear all conversation history for this character. Continue?")) {
-            return;
+            html += '</div>';
+            
+            resultsContainer.innerHTML = html;
+        } catch (error) {
+            console.error('Error searching memories:', error);
+            resultsContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
         }
-        
-        fetch(`/api/chat/${characterId}/clear`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Character memory cleared:', characterId);
-                // Show success message
-                this.showNotification('Conversation history cleared successfully!');
-                // Close the modal
-                this.closeCharacterModal();
-                
-                // If this character is currently selected, reload the chat
-                if (this.selectedCharacter && this.selectedCharacter.id === characterId) {
-                    this.chatManager.loadChatHistory(characterId);
-                }
-            } else {
-                throw new Error(data.error || 'Failed to clear memory');
-            }
-        })
-        .catch(error => {
-            console.error('Error clearing memory:', error);
-            this.showError('Failed to clear conversation history');
-        });
-    }
-    
-    restoreDefaultCharacters() {
-        if (!confirm("This will restore all default characters to their original settings. Continue?")) {
-            return;
-        }
-        
-        fetch('/api/characters/restore-defaults', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Default characters restored:', data.restored);
-                // Show success message
-                this.showNotification('Default characters restored successfully!');
-                // Reload characters to update the UI
-                this.loadCharacters();
-            } else {
-                throw new Error(data.error || 'Failed to restore defaults');
-            }
-        })
-        .catch(error => {
-            console.error('Error restoring defaults:', error);
-            this.showError('Failed to restore default characters');
-        });
-    }
-    
-    showNotification(message, duration = 3000) {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = 'notification success-notification';
-        
-        const content = document.createElement('div');
-        content.className = 'notification-content';
-        
-        const icon = document.createElement('i');
-        icon.className = 'fas fa-check-circle';
-        
-        content.appendChild(icon);
-        content.appendChild(document.createTextNode(message));
-        
-        notification.appendChild(content);
-        
-        // Add to page
-        document.body.appendChild(notification);
-        
-        // Remove after duration
-        setTimeout(() => {
-            if (notification.parentNode === document.body) {
-                document.body.removeChild(notification);
-            }
-        }, duration);
     }
 }
 
 // Initialize the application when the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    window.app = new MiaAIApp();
-}); 
+document.addEventListener('DOMContentLoaded', () => {
+    // Create and initialize the app
+    window.app = new App();
+    
+    // Close modals when clicking outside
+    window.addEventListener('click', (e) => {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+});
+
+// Provider change handlers
+function handleLlmProviderChange(providerSelect, modelSelect, apiKeyInput) {
+    const provider = providerSelect.value;
+    
+    // Show/hide API key field based on provider
+    if (provider === 'ollama') {
+        apiKeyInput.parentElement.style.display = 'none';
+    } else {
+        apiKeyInput.parentElement.style.display = 'block';
+    }
+    
+    // Update models for the selected provider
+    loadModelsForProvider(provider, modelSelect);
+}
+
+// Load models for the selected provider
+async function loadModelsForProvider(provider, modelSelect) {
+    // Clear current options except the loading placeholder
+    while (modelSelect.options.length > 1) {
+        modelSelect.remove(1);
+    }
+    
+    try {
+        console.log(`Loading models for provider: ${provider}`);
+        const response = await fetch(`/api/settings/llm/models?provider=${provider}`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to load models: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`Received models:`, data);
+        
+        // Remove loading placeholder
+        if (modelSelect.options.length > 0) {
+            modelSelect.remove(0);
+        }
+        
+        // Check if the response has the expected format
+        if (data.success && Array.isArray(data.models)) {
+            // Add models to dropdown
+            data.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+            
+            // If no models were returned, show a message
+            if (data.models.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No models available';
+                modelSelect.appendChild(option);
+            }
+        } else {
+            throw new Error('Invalid response format');
+        }
+        
+        return true; // Return success
+    } catch (error) {
+        console.error('Error loading models:', error);
+        
+        // Show error option
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Failed to load models';
+        modelSelect.appendChild(option);
+        
+        return false; // Return failure
+    }
+} 
