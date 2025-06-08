@@ -2,12 +2,14 @@
 Settings API
 Handles application and LLM configuration
 """
+
 from flask import jsonify, request, current_app, Blueprint
-from app.api import settings_bp
 from app.llm.adapter import update_llm_config, get_llm_config, test_llm_connection, fetch_available_models
 from app.core.character import create_character, get_characters, DEFAULT_CHARACTERS
 from app.core.settings import get_llm_models, save_llm_settings
 from app.llm.adapter import get_llm_adapter
+
+settings_bp = Blueprint('settings', __name__)
 
 @settings_bp.route('/llm', methods=['GET'])
 def get_configuration():
@@ -21,6 +23,16 @@ def get_configuration():
         secure_config['api_key'] = secure_config['api_key'] is not None
         
     return jsonify(secure_config)
+
+@settings_bp.route('/get_config', methods=['GET'])
+def get_config():
+    """Get current LLM configuration (for config page JS)"""
+    config = get_llm_config()
+    # Hide the actual API key value
+    safe_config = config.copy()
+    if 'api_key' in safe_config:
+        safe_config['api_key'] = '[hidden]' if safe_config['api_key'] else None
+    return jsonify(safe_config)
 
 @settings_bp.route('/llm/models', methods=['GET'])
 def get_models():

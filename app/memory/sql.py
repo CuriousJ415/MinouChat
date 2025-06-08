@@ -11,6 +11,9 @@ from flask import current_app, g
 import os
 import logging
 
+# Feature flags
+HAS_ENHANCED_MEMORY = False  # Set to True when enhanced memory features are implemented
+
 @contextmanager
 def _db_conn(db_path):
     """Context manager for database connections outside of Flask request context"""

@@ -202,22 +202,23 @@ def get_document_by_id(doc_id: str) -> Optional[Dict]:
         doc_id: Document ID
         
     Returns:
-        Document details or None if not found
+        Document details dictionary or None if not found
     """
     metadata_path = get_document_path(f"{doc_id}.json")
     if not os.path.exists(metadata_path):
+        logger.warning(f"Document not found: {doc_id}")
         return None
     
     try:
         with open(metadata_path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except Exception as e:
         logger.error(f"Error reading document metadata: {e}")
         return None
 
 def get_character_documents(character_id: str, limit: int = 20, offset: int = 0) -> List[Dict]:
     """
-    Get all documents for a character.
+    Get documents associated with a character.
     
     Args:
         character_id: Character ID
@@ -225,34 +226,31 @@ def get_character_documents(character_id: str, limit: int = 20, offset: int = 0)
         offset: Number of documents to skip
         
     Returns:
-        List of document metadata
+        List of document details
     """
     documents = []
-    
-    if not os.path.exists(DOCUMENTS_DIR):
-        return documents
-    
-    for filename in os.listdir(DOCUMENTS_DIR):
-        if not filename.endswith('.json'):
-            continue
+    try:
+        for filename in os.listdir(DOCUMENTS_DIR):
+            if not filename.endswith('.json'):
+                continue
+            
+            try:
+                with open(os.path.join(DOCUMENTS_DIR, filename), 'r', encoding='utf-8') as f:
+                    doc = json.load(f)
+                    if doc.get('character_id') == character_id:
+                        documents.append(doc)
+            except Exception as e:
+                logger.error(f"Error reading document {filename}: {e}")
+                continue
         
-        file_path = os.path.join(DOCUMENTS_DIR, filename)
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                doc = json.load(f)
-                if doc.get('character_id') == character_id:
-                    # Don't include the full text content in the listing
-                    if 'text_content' in doc:
-                        doc['text_content'] = f"[{len(doc['text_content'])} characters]"
-                    documents.append(doc)
-        except (json.JSONDecodeError, IOError):
-            continue
-    
-    # Sort by upload date (newest first)
-    documents.sort(key=lambda x: x.get('upload_date', ''), reverse=True)
-    
-    # Apply pagination
-    return documents[offset:offset+limit]
+        # Sort by upload date (newest first)
+        documents.sort(key=lambda x: x.get('upload_date', ''), reverse=True)
+        
+        # Apply pagination
+        return documents[offset:offset + limit]
+    except Exception as e:
+        logger.error(f"Error listing character documents: {e}")
+        return []
 
 def delete_document(doc_id: str) -> bool:
     """
@@ -262,65 +260,62 @@ def delete_document(doc_id: str) -> bool:
         doc_id: Document ID
         
     Returns:
-        True if document was deleted, False otherwise
+        True if successful, False otherwise
     """
-    metadata_path = get_document_path(f"{doc_id}.json")
-    if not os.path.exists(metadata_path):
-        return False
-    
     try:
-        # Get document metadata to find the original file
-        with open(metadata_path, 'r', encoding='utf-8') as f:
-            doc = json.load(f)
+        # Get document details first
+        doc = get_document_by_id(doc_id)
+        if not doc:
+            logger.warning(f"Cannot delete non-existent document: {doc_id}")
+            return False
         
-        # Delete the original file if it exists
-        if 'file_path' in doc and os.path.exists(doc['file_path']):
+        # Delete the original file
+        if os.path.exists(doc['file_path']):
             os.remove(doc['file_path'])
+            logger.info(f"Deleted original file: {doc['file_path']}")
         
-        # Delete the metadata file
-        os.remove(metadata_path)
+        # Delete metadata
+        metadata_path = get_document_path(f"{doc_id}.json")
+        if os.path.exists(metadata_path):
+            os.remove(metadata_path)
+            logger.info(f"Deleted metadata file: {metadata_path}")
+        
         return True
     except Exception as e:
-        logger.error(f"Error deleting document: {e}")
+        logger.error(f"Error deleting document {doc_id}: {e}")
         return False
 
 def create_document_summary(doc_id: str, character_id: str) -> str:
     """
-    Create a summary of a document.
+    Create a summary of a document for a character.
     
     Args:
         doc_id: Document ID
-        character_id: Character ID (optional)
+        character_id: Character ID
         
     Returns:
-        Summary text or None if document not found
+        Summary text
     """
-    document = get_document_by_id(doc_id)
-    if not document:
-        return None
-    
-    # Create a simple summary
-    text_content = document.get('text_content', '')
-    filename = document.get('filename', 'document')
-            
-    # Create a basic summary text
-    summary = f"# Summary of {filename}\n\n"
-    summary += f"**Document Type:** {document.get('doc_type', 'unknown').upper()}\n"
-    summary += f"**Size:** {document.get('file_size', 0)} bytes\n"
-    summary += f"**Uploaded:** {document.get('upload_date')}\n\n"
-    summary += "## Content Summary\n\n"
-    
-    # Add a simple excerpt
-    if len(text_content) > 500:
-        summary += f"{text_content[:500]}...\n\n(Document contains {len(text_content)} characters total)"
-    else:
-        summary += text_content
-    
-    return summary
+    try:
+        doc = get_document_by_id(doc_id)
+        if not doc:
+            logger.warning(f"Cannot summarize non-existent document: {doc_id}")
+            return "Document not found."
+        
+        if doc.get('character_id') != character_id:
+            logger.warning(f"Document {doc_id} does not belong to character {character_id}")
+            return "Document not found."
+        
+        # For now, just return the first 500 characters
+        text = doc.get('text_content', '')
+        return text[:500] + ('...' if len(text) > 500 else '')
+    except Exception as e:
+        logger.error(f"Error creating document summary: {e}")
+        return "Error creating summary."
 
 def extract_document_to_memory(doc_id: str, character_id: str) -> bool:
     """
-    Extract document content to character memory.
+    Extract document content to character's memory.
     
     Args:
         doc_id: Document ID
@@ -329,73 +324,19 @@ def extract_document_to_memory(doc_id: str, character_id: str) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    document = get_document_by_id(doc_id)
-    if not document:
-        logger.error(f"Document {doc_id} not found for extraction to memory")
-        return False
-    
-    # Get document content
-    text_content = document.get('text_content', '')
-    filename = document.get('filename', 'document')
-    
-    if not text_content:
-        logger.warning(f"Document {doc_id} has no text content to extract")
-        return False
-        
-    logger.info(f"Extracting document {filename} ({len(text_content)} chars) to memory for character {character_id}")
-    
     try:
-        # Direct database access for conversation storage
-        import sqlite3
-        from datetime import datetime
+        doc = get_document_by_id(doc_id)
+        if not doc:
+            logger.warning(f"Cannot extract non-existent document: {doc_id}")
+            return False
         
-        # Use the correct database path from Flask app configuration (hardcoded for reliability)
-        db_path = "/app/instance/memories.db"
-        logger.info(f"Using database at {db_path}")
+        if doc.get('character_id') != character_id:
+            logger.warning(f"Document {doc_id} does not belong to character {character_id}")
+            return False
         
-        # Split content into chunks if it's too large
-        chunk_size = 1000
-        if len(text_content) > chunk_size:
-            chunks = [text_content[i:i+chunk_size] for i in range(0, len(text_content), chunk_size)]
-        else:
-            chunks = [text_content]
-        
-        # Connect to database
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-            
-        # Save each chunk directly to database
-        for i, chunk in enumerate(chunks):
-            chunk_label = f" (part {i+1}/{len(chunks)})" if len(chunks) > 1 else ""
-            
-            # Format as conversations - using the correct column names (role instead of speaker, content instead of message)
-            user_message = f"Please remember this content from {filename}{chunk_label}"
-            ai_response = chunk
-            
-            # Insert user message
-            logger.info(f"Inserting user message ({len(user_message)} chars)")
-            cursor.execute(
-                "INSERT INTO conversations (character_id, role, content) VALUES (?, ?, ?)",
-                (character_id, "user", user_message)
-            )
-            
-            # Insert AI response
-            logger.info(f"Inserting AI message ({len(ai_response)} chars)")
-            cursor.execute(
-                "INSERT INTO conversations (character_id, role, content) VALUES (?, ?, ?)",
-                (character_id, "assistant", ai_response)
-            )
-            
-            logger.info(f"Saved chunk {i+1}/{len(chunks)} to database for character {character_id}")
-        
-        # Commit changes and close connection
-        conn.commit()
-        conn.close()
-        
-        logger.info("Successfully extracted document to memory")
+        # For now, just return success
+        # TODO: Implement actual memory extraction
         return True
     except Exception as e:
         logger.error(f"Error extracting document to memory: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
         return False 

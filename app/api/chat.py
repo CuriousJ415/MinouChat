@@ -5,8 +5,8 @@ import os
 Chat API
 Handles sending and receiving messages with characters
 """
-from flask import jsonify, request, current_app
-from app.api import chat_bp
+from flask import jsonify, request, current_app, Blueprint
+# from app.api import chat_bp
 from app.memory.sql import clear_character_memory
 import json
 import logging
@@ -34,6 +34,8 @@ except ImportError:
     # For backward compatibility
     from app.core.chat import send_message, get_conversation_history
     HAS_FORGET = False
+
+chat_bp = Blueprint('chat', __name__)
 
 @chat_bp.route('/send', methods=['POST'])
 def send_chat_message():

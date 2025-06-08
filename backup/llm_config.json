@@ -1,0 +1,5 @@
+{
+  "provider": "ollama",
+  "api_url": "http://localhost:11434/api",
+  "model": "mistral"
+}

@@ -45,18 +45,20 @@ def create_app(test_config=None):
     except Exception as e:
         app.logger.error(f"Error initializing API features: {e}")
 
-    # Register blueprints
-    from app.api import api_bp, chat_bp, characters_bp, memories_bp, settings_bp
+    # Register blueprints (handled by app.api.init_app)
+    # from app.api import api_bp, chat_bp, characters_bp, memories_bp, settings_bp
+    # from app.api.models import models_bp
     
     # Main API blueprint serves static files and index
-    app.register_blueprint(api_bp, url_prefix='/')
+    # app.register_blueprint(api_bp, url_prefix='/')
     
     # Feature-specific blueprints
-    app.register_blueprint(chat_bp, url_prefix='/api/chat')
-    app.register_blueprint(characters_bp, url_prefix='/api/characters')
-    app.register_blueprint(memories_bp, url_prefix='/api/memories')
+    # app.register_blueprint(chat_bp, url_prefix='/api/chat')
+    # app.register_blueprint(characters_bp, url_prefix='/api/characters')
+    # app.register_blueprint(memories_bp, url_prefix='/api/memories')
+    # app.register_blueprint(models_bp, url_prefix='/api/models')
     # Documents blueprint is registered in its init_app function
-    app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    # app.register_blueprint(settings_bp, url_prefix='/api/settings')
 
     # Initialize enhanced components
     initialize_enhanced_components(app)
@@ -68,21 +70,8 @@ def create_app(test_config=None):
 
 def initialize_enhanced_components(app):
     """Initialize optional enhanced features"""
-    # Initialize memory system
-    try:
-        from app.api.memories import init_app as init_memory
-        init_memory(app)
-        app.logger.info("Memory system initialized successfully")
-    except Exception as e:
-        app.logger.warning(f"Enhanced memory functions not available: {e}")
-
-    # Initialize document processor
-    try:
-        from app.api.documents import init_app as init_documents
-        init_documents(app)
-        app.logger.info("Document system initialized successfully")
-    except Exception as e:
-        app.logger.warning(f"Document system not available: {e}")
+    # All initialization is now handled by init_api
+    pass
 
 def register_commands(app):
     """Register CLI commands"""

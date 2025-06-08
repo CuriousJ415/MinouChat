@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - ollama_network
+
+  ngrok:
+    image: wernight/ngrok:latest
+    container_name: ngrok
+    environment:
+      - NGROK_AUTH=${NGROK_AUTH_TOKEN}
+      - NGROK_PORT=ollama:11434
+    ports:
+      - "4040:4040"
+    depends_on:
+      - ollama
+    networks:
+      - ollama_network
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+    name: ollama_data
+
+networks:
+  ollama_network:
+    name: ollama_network 

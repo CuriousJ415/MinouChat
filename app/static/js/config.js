@@ -1,3 +1,5 @@
+console.log('Config JS loaded');
+
 document.addEventListener('DOMContentLoaded', function() {
     const providerSelect = document.getElementById('provider-select');
     const providerForms = document.querySelectorAll('.provider-form');

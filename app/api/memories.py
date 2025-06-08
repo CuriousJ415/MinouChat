@@ -2,57 +2,19 @@
 Memory API
 Handles memory management operations
 """
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 from app.memory.sql import get_db
-
-# Try to import enhanced memory functions
-try:
-    from app.memory.enhanced_memory import (
-        get_memory_settings,
-        update_memory_settings,
-        search_memories_by_text,
-        forget_memories_by_search,
-        get_memory_stats,
-        reset_character_memories
-    )
-    HAS_ENHANCED_MEMORY = True
-except ImportError:
-    HAS_ENHANCED_MEMORY = False
 
 memories_bp = Blueprint('memories', __name__)
 
 def init_app(app):
     """Initialize memory functions with app context"""
-    with app.app_context():
-        try:
-            # Create the memories table
-            db = get_db()
-            db.execute('''CREATE TABLE IF NOT EXISTS memories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                character_id INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (character_id) REFERENCES characters (id)
-            )''')
-            db.commit()
-            app.logger.info("Memory system initialized successfully")
-            
-            # Log enhanced memory status
-            if not HAS_ENHANCED_MEMORY:
-                app.logger.warning("Enhanced memory functions not available")
-                
-        except Exception as e:
-            app.logger.error(f"Error initializing memory system: {str(e)}")
+    app.logger.info("Memory system initialized successfully")
+    return app
 
 @memories_bp.route('/settings/<character_id>', methods=['GET'])
 def get_character_memory_settings(character_id):
     """Get memory settings for a character"""
-    if not HAS_ENHANCED_MEMORY:
-        return jsonify({
-            "success": False,
-            "error": "Enhanced memory not available"
-        }), 501
-        
     try:
         settings = get_memory_settings(character_id)
         return jsonify({
@@ -60,7 +22,7 @@ def get_character_memory_settings(character_id):
             "settings": settings
         })
     except Exception as e:
-        current_app.logger.error(f"Error getting memory settings: {str(e)}")
+        app.logger.error(f"Error getting memory settings: {str(e)}")
         return jsonify({
             "success": False,
             "error": f"Failed to get memory settings: {str(e)}"
@@ -69,12 +31,6 @@ def get_character_memory_settings(character_id):
 @memories_bp.route('/settings/<character_id>', methods=['PUT'])
 def update_character_memory_settings(character_id):
     """Update memory settings for a character"""
-    if not HAS_ENHANCED_MEMORY:
-        return jsonify({
-            "success": False,
-            "error": "Enhanced memory not available"
-        }), 501
-        
     data = request.json
     if not data:
         return jsonify({
@@ -95,7 +51,7 @@ def update_character_memory_settings(character_id):
                 "error": "Failed to update settings"
             }), 500
     except Exception as e:
-        current_app.logger.error(f"Error updating memory settings: {str(e)}")
+        app.logger.error(f"Error updating memory settings: {str(e)}")
         return jsonify({
             "success": False,
             "error": f"Failed to update memory settings: {str(e)}"
@@ -104,12 +60,6 @@ def update_character_memory_settings(character_id):
 @memories_bp.route('/stats/<character_id>', methods=['GET'])
 def get_character_memory_stats(character_id):
     """Get memory statistics for a character"""
-    if not HAS_ENHANCED_MEMORY:
-        return jsonify({
-            "success": False,
-            "error": "Enhanced memory not available"
-        }), 501
-        
     try:
         stats = get_memory_stats(character_id)
         return jsonify({
@@ -117,44 +67,39 @@ def get_character_memory_stats(character_id):
             "stats": stats
         })
     except Exception as e:
-        current_app.logger.error(f"Error getting memory stats: {str(e)}")
+        app.logger.error(f"Error getting memory stats: {str(e)}")
         return jsonify({
             "success": False,
             "error": f"Failed to get memory stats: {str(e)}"
         }), 500
 
-@memories_bp.route('/memories/<int:character_id>', methods=['GET'])
-def get_memories(character_id):
+@memories_bp.route('/<character_id>/memories', methods=['GET'])
+def get_character_memories(character_id):
     """Get memories for a character"""
-    try:
-        db = get_db()
-        memories = db.execute(
-            'SELECT * FROM memories WHERE character_id = ? ORDER BY timestamp DESC',
-            (character_id,)
-        ).fetchall()
-        return jsonify([dict(memory) for memory in memories])
-    except Exception as e:
-        current_app.logger.error(f"Error getting memories: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM memories WHERE character_id = ? ORDER BY timestamp DESC', (character_id,))
+    rows = cursor.fetchall()
+    memories = []
+    for row in rows:
+        memories.append({
+            'id': row['id'],
+            'content': row['content'],
+            'timestamp': row['timestamp']
+        })
+    return jsonify(memories)
 
-@memories_bp.route('/memories/<int:character_id>', methods=['POST'])
-def add_memory(character_id):
+@memories_bp.route('/<character_id>/memories', methods=['POST'])
+def add_character_memory(character_id):
     """Add a memory for a character"""
-    try:
-        content = request.json.get('content')
-        if not content:
-            return jsonify({"error": "Content is required"}), 400
-        
-        db = get_db()
-        db.execute(
-            'INSERT INTO memories (character_id, content) VALUES (?, ?)',
-            (character_id, content)
-        )
-        db.commit()
-        return jsonify({"message": "Memory added successfully"})
-    except Exception as e:
-        current_app.logger.error(f"Error adding memory: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data or 'content' not in data:
+        return jsonify({"error": "No content provided"}), 400
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('INSERT INTO memories (character_id, content) VALUES (?, ?)', (character_id, data['content']))
+    db.commit()
+    return jsonify({"success": True}), 201
 
 @memories_bp.route('/memories/<int:character_id>', methods=['DELETE'])
 def clear_memories(character_id):
@@ -165,7 +110,7 @@ def clear_memories(character_id):
         db.commit()
         return jsonify({"message": "Memories cleared successfully"})
     except Exception as e:
-        current_app.logger.error(f"Error clearing memories: {str(e)}")
+        app.logger.error(f"Error clearing memories: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 # Add the reset_all_memories endpoint
@@ -178,7 +123,7 @@ def reset_all_memories(character_id):
     """
     try:
         # Connect to database
-        db_path = current_app.config.get('DATABASE_PATH', '/app/data/memories.db')
+        db_path = app.config.get('DATABASE_PATH', '/app/data/memories.db')
         
         # Use enhanced memory system if available
         if HAS_ENHANCED_MEMORY:
@@ -229,7 +174,9 @@ def reset_all_memories(character_id):
             })
             
     except Exception as e:
-        current_app.logger.error(f"Error resetting all memories: {str(e)}")
+        app.logger.error(f"Error resetting all memories: {str(e)}")
         import traceback
-        current_app.logger.error(traceback.format_exc())
-        return jsonify({"success": False, "error": str(e)}), 500 
+        app.logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+__all__ = ['init_app'] 

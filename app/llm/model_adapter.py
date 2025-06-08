@@ -4,6 +4,7 @@ import json
 import requests
 from typing import Dict, List, Optional, Any
 import logging
+from urllib.parse import urlparse
 
 class ModelAdapter:
     """Adapter for different LLM providers"""
@@ -12,7 +13,22 @@ class ModelAdapter:
         self.config_path = config_path
         self.config = self._load_config()
         self._ensure_config_dir()
+        self._validate_config()
         
+    def _validate_config(self) -> None:
+        """Validate and normalize configuration"""
+        if 'api_url' in self.config:
+            # Ensure API URL has no trailing slash
+            self.config['api_url'] = self.config['api_url'].rstrip('/')
+            
+            # If using Ollama, ensure proper URL format
+            if self.config.get('provider') == 'ollama':
+                parsed = urlparse(self.config['api_url'])
+                if not parsed.scheme:
+                    self.config['api_url'] = f"http://{self.config['api_url']}"
+                if not parsed.path or parsed.path == '/':
+                    self.config['api_url'] = f"{self.config['api_url']}/api"
+    
     def _ensure_config_dir(self) -> None:
         """Ensure config directory exists"""
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
@@ -22,17 +38,23 @@ class ModelAdapter:
         # Default configuration
         default_config = {
             'provider': 'ollama',
-            'api_url': 'http://ollama:11434/api',
+            'api_url': 'http://localhost:11434/api',
             'model': 'mistral',
             'api_key': None,
-            'headers': {}
+            'headers': {},
+            'available_models': []
         }
         
         # Try to load from file
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, 'r') as f:
-                    return json.load(f)
+                    config = json.load(f)
+                    # Ensure all default keys exist
+                    for key, value in default_config.items():
+                        if key not in config:
+                            config[key] = value
+                    return config
             except Exception as e:
                 logging.error(f"Error loading config: {str(e)}")
         
@@ -41,10 +63,11 @@ class ModelAdapter:
         if env_provider:
             config = {
                 'provider': env_provider,
-                'api_url': os.environ.get('LLM_API_URL'),
-                'model': os.environ.get('LLM_MODEL'),
+                'api_url': os.environ.get('LLM_API_URL', 'http://localhost:11434/api'),
+                'model': os.environ.get('LLM_MODEL', 'mistral'),
                 'api_key': os.environ.get('LLM_API_KEY'),
-                'headers': {}
+                'headers': {},
+                'available_models': []
             }
             try:
                 headers_str = os.environ.get('LLM_HEADERS', '{}')
@@ -513,3 +536,51 @@ class ModelAdapter:
         except Exception as e:
             logging.error(f"Error generating response with custom API: {str(e)}")
             return None
+
+    def get_available_models(self) -> List[str]:
+        """Get list of available models for current provider"""
+        provider = self.config.get('provider', 'ollama')
+        
+        if provider == 'ollama':
+            try:
+                api_url = self.config.get('api_url', 'http://localhost:11434/api').rstrip('/')
+                response = requests.get(f"{api_url}/tags", timeout=5)
+                
+                if response.status_code == 200:
+                    models = response.json().get("models", [])
+                    model_names = [model.get("name") for model in models if model.get("name")]
+                    # Update available models in config
+                    self.config['available_models'] = model_names
+                    self.save_config(self.config)
+                    return model_names
+                else:
+                    logging.error(f"Failed to fetch models: {response.status_code} - {response.text}")
+                    return []
+            except requests.exceptions.ConnectionError:
+                logging.error("Could not connect to Ollama. Is it running?")
+                return []
+            except Exception as e:
+                logging.error(f"Error fetching available models: {str(e)}")
+                return []
+        
+        # For other providers, return empty list as we don't have a way to fetch models
+        return []
+
+    def switch_model(self, model_name: str) -> bool:
+        """Switch to a different model"""
+        if not model_name:
+            return False
+            
+        # For Ollama, verify model exists
+        if self.config.get('provider') == 'ollama':
+            available_models = self.get_available_models()
+            if not available_models:
+                logging.error("Could not fetch available models. Is Ollama running?")
+                return False
+            if model_name not in available_models:
+                logging.error(f"Model {model_name} not available")
+                return False
+        
+        # Update model in config
+        self.config['model'] = model_name
+        return self.save_config(self.config)

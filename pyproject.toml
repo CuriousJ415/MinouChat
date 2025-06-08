@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "miachat"
+version = "0.1.0"
+description = "A sophisticated AI personality application capable of sustained, meaningful dialogue"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    { name = "MiaAI Team" }
+]
+dependencies = [
+    "flask>=2.0.0",
+    "flask-cors>=3.0.0",
+    "python-dotenv>=0.19.0",
+    "sqlalchemy>=1.4.0",
+    "pydantic>=2.0.0",
+    "lxml>=4.9.0",
+    "requests>=2.26.0",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",
+    "bcrypt>=3.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "flake8>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src/miachat"
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3 

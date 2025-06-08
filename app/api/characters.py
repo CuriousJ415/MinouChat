@@ -2,8 +2,8 @@
 Character Management API
 Handles CRUD operations for characters
 """
-from flask import jsonify, request, current_app
-from app.api import characters_bp
+
+from flask import jsonify, request, current_app, Blueprint
 from app.core.character import get_characters, get_character, create_character, update_character, delete_character, reset_character_memory, restore_default_characters
 
 # Import personalization functions
@@ -27,6 +27,8 @@ except ImportError:
         return False
     def get_memory_stats(character_id):
         return {}
+
+characters_bp = Blueprint('characters', __name__)
 
 @characters_bp.route('/', methods=['GET'])
 def list_characters():

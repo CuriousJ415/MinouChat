@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiaAI Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <div class="model-controls">
+                <h3>Model Settings</h3>
+                <div class="model-selector">
+                    <label for="model-select">Select Model:</label>
+                    <select id="model-select">
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                <div class="model-actions">
+                    <button id="test-connection-btn" class="btn">Test Connection</button>
+                </div>
+                <div id="model-status" class="model-status"></div>
+            </div>
+            
+            <div class="character-controls">
+                <h3>Character Settings</h3>
+                <div class="character-selector">
+                    <label for="character-select">Select Character:</label>
+                    <select id="character-select">
+                        <option value="default">Default</option>
+                    </select>
+                </div>
+                <button id="switch-btn" class="btn">Switch Character</button>
+            </div>
+            
+            <div class="theme-controls">
+                <h3>Theme</h3>
+                <label class="switch">
+                    <input type="checkbox" id="theme-switch">
+                    <span class="slider round"></span>
+                </label>
+                <span class="theme-label">Dark Mode</span>
+            </div>
+        </div>
+        
+        <div class="chat-main">
+            <div id="messages" class="messages"></div>
+            
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type your message...">
+                <button id="send-btn" class="btn">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/models.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html> 

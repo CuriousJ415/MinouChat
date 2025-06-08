@@ -1,64 +1,41 @@
 """
-API endpoints for MiaAI
+API Blueprint Initialization
 """
-from flask import Blueprint, send_from_directory, current_app
-import os
+# Only import blueprints, no routes or registration here
+from flask import Blueprint, current_app
+from .chat import chat_bp
+from .characters import characters_bp
+from .memories import memories_bp, init_app as init_memories
+from .settings import settings_bp
+from .documents import documents_bp, init_app as init_documents
+from .models import models_bp
+from .root import root_bp
 
-# Create blueprints
-api_bp = Blueprint('api', __name__)
-chat_bp = Blueprint('chat', __name__)
-characters_bp = Blueprint('characters', __name__)
-memories_bp = Blueprint('memories', __name__)
-documents_bp = Blueprint('documents', __name__)
-settings_bp = Blueprint('settings', __name__)
-
-@api_bp.route('/')
-def index():
-    """Serve the main application page"""
-    return send_from_directory(current_app.static_folder, 'index.html')
-
-@api_bp.route('/js/<path:filename>')
-def serve_js(filename):
-    """Serve JavaScript files"""
-    return send_from_directory(os.path.join(current_app.static_folder, 'js'), filename)
-
-@api_bp.route('/css/<path:filename>')
-def serve_css(filename):
-    """Serve CSS files"""
-    return send_from_directory(os.path.join(current_app.static_folder, 'css'), filename)
-
-@api_bp.route('/img/<path:filename>')
-def serve_img(filename):
-    """Serve image files"""
-    return send_from_directory(os.path.join(current_app.static_folder, 'img'), filename)
-
-@api_bp.route('/favicon.ico')
-def favicon():
-    """Serve favicon"""
-    return send_from_directory(current_app.static_folder, 'favicon.ico')
-
-# Import core routes
-from app.api import chat
-from app.api import characters
-from app.api import settings
-from app.api import documents  # Explicitly import documents module
-
-# Import optional features
 def init_app(app):
-    """Initialize API features"""
+    """Centralized blueprint registration and initialization"""
+    # Register blueprints first
+    app.register_blueprint(root_bp)
+    app.register_blueprint(chat_bp, url_prefix='/api/chat')
+    app.register_blueprint(characters_bp, url_prefix='/api/characters')
+    app.register_blueprint(memories_bp, url_prefix='/api/memories')
+    app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    app.register_blueprint(documents_bp, url_prefix='/api/documents')
+    app.register_blueprint(models_bp, url_prefix='/api/models')
+
+    # Initialize features within app context
     with app.app_context():
         # Initialize memory system
         try:
-            from app.api.memories import init_app as init_memory
-            init_memory(app)
+            init_memories(app)
+            app.logger.info("Memory system initialized successfully")
         except Exception as e:
-            app.logger.warning(f"Memory system not available: {str(e)}")
+            app.logger.warning(f"Enhanced memory functions not available: {e}")
 
         # Initialize document system
         try:
-            from app.api.documents import init_app as init_documents
             init_documents(app)
+            app.logger.info("Document system initialized successfully")
         except Exception as e:
-            app.logger.warning(f"Document system not available: {str(e)}")
+            app.logger.warning(f"Document system not available: {e}")
 
     return app

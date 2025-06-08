@@ -41,8 +41,8 @@ async function testConnection(provider) {
         // Get configuration for selected provider
         const config = getProviderConfig(provider);
         
-        // Send test request to server
-        const response = await fetch('/api/test_connection', {
+        // Send test request to server (updated endpoint)
+        const response = await fetch('/api/settings/llm/test', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -57,10 +57,10 @@ async function testConnection(provider) {
         
         if (result.success) {
             resultElement.className = 'test-result success';
-            resultElement.textContent = '✓ Connection successful: ' + result.message;
+            resultElement.textContent = '✓ Connection successful: ' + (result.message || '');
         } else {
             resultElement.className = 'test-result error';
-            resultElement.textContent = '✗ Connection failed: ' + result.error;
+            resultElement.textContent = '✗ Connection failed: ' + (result.error || '');
         }
     } catch (error) {
         resultElement.className = 'test-result error';
@@ -71,15 +71,16 @@ async function testConnection(provider) {
 // Save configuration
 async function saveConfiguration(provider) {
     const config = getProviderConfig(provider);
-    config.provider = provider;
+    // Compose payload as expected by backend
+    const payload = { provider, ...config };
     
     try {
-        const response = await fetch('/api/save_config', {
+        const response = await fetch('/api/settings/llm', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(config),
+            body: JSON.stringify(payload),
         });
         
         const result = await response.json();
@@ -88,7 +89,7 @@ async function saveConfiguration(provider) {
             alert('Configuration saved successfully!');
             loadConfiguration();
         } else {
-            alert('Failed to save configuration: ' + result.error);
+            alert('Failed to save configuration: ' + (result.error || ''));
         }
     } catch (error) {
         alert('Error saving configuration: ' + error.message);
