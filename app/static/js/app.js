@@ -3,6 +3,8 @@
  * Handles UI interaction, character management, and API communication
  */
 
+console.log('app.js loaded');
+
 class App {
     constructor() {
         // Initialize properties
@@ -60,17 +62,28 @@ class App {
     }
     
     bindEventListeners() {
-        // Character management
-        if (this.addCharacterBtn) {
-            this.addCharacterBtn.addEventListener('click', () => this.showNewCharacterModal());
+        // Character management (event delegation)
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            sidebar.addEventListener('click', (e) => {
+                console.log('Sidebar clicked! Event target:', e.target);
+                if (e.target && e.target.id === 'new-character-btn') {
+                    console.log('🎉 Hell yes! + New Character button clicked!');
+                    this.showNewCharacterModal();
+                } else {
+                    console.log('🤬 WTF?! Not the + New Character button. Target id:', e.target.id);
+                }
+            });
         }
+        
         if (this.restoreDefaultsBtn) {
             this.restoreDefaultsBtn.addEventListener('click', () => this.restoreDefaultCharacters());
         }
         
-        // Chat actions
-        if (this.settingsBtn) {
-            this.settingsBtn.addEventListener('click', () => this.showSettingsModal());
+        // Configuration
+        const configButton = document.getElementById('config-button');
+        if (configButton) {
+            configButton.addEventListener('click', () => this.showConfigModal());
         }
         
         // Memory actions
@@ -91,6 +104,35 @@ class App {
             });
         }
         
+        // LLM provider change in new character form
+        const llmProvider = document.getElementById('llm_provider');
+        const model = document.getElementById('model');
+        if (llmProvider && model) {
+            llmProvider.addEventListener('change', () => {
+                // Add a loading placeholder
+                model.innerHTML = '<option value="">Loading models...</option>';
+                
+                // Load models for the selected provider
+                loadModelsForProvider(llmProvider.value, model);
+            });
+        }
+        
+        // Config form LLM provider change
+        const configLlmProvider = document.getElementById('config-llm-provider');
+        const configDefaultModel = document.getElementById('config-default-model');
+        if (configLlmProvider && configDefaultModel) {
+            configLlmProvider.addEventListener('change', () => {
+                // Add a loading placeholder
+                configDefaultModel.innerHTML = '<option value="">Loading models...</option>';
+                
+                // Load models for the selected provider
+                loadModelsForProvider(configLlmProvider.value, configDefaultModel);
+            });
+        }
+        
+        // Range input value updates
+        this.bindRangeInputs();
+        
         // Message sending
         if (this.messageInput) {
             this.messageInput.addEventListener('keypress', (e) => {
@@ -106,7 +148,7 @@ class App {
         }
         
         // Modal handling
-        const closeButtons = document.querySelectorAll('.close-btn');
+        const closeButtons = document.querySelectorAll('.close-btn, .close-button');
         closeButtons.forEach(btn => {
             btn.addEventListener('click', () => this.closeModals());
         });
@@ -133,6 +175,27 @@ class App {
             if (resetMemoryButton) {
                 resetMemoryButton.addEventListener('click', () => this.resetCharacterMemory());
             }
+            
+            // Delete character button
+            const deleteCharacterButton = document.getElementById('delete-character-button');
+            if (deleteCharacterButton) {
+                deleteCharacterButton.addEventListener('click', () => this.deleteCharacter());
+            }
+        }
+        
+        // Config form
+        const configForm = document.getElementById('config-form');
+        if (configForm) {
+            configForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveConfiguration(new FormData(configForm));
+            });
+            
+            // Test connection button
+            const testConnectionButton = document.getElementById('test-connection-button');
+            if (testConnectionButton) {
+                testConnectionButton.addEventListener('click', () => this.testConnection());
+            }
         }
         
         // Close modals when clicking outside
@@ -141,6 +204,74 @@ class App {
                 this.closeModals();
             }
         });
+    }
+    
+    bindRangeInputs() {
+        // Bind range inputs for new character form
+        const temperatureInput = document.getElementById('temperature');
+        const temperatureValue = document.getElementById('temperature-value');
+        if (temperatureInput && temperatureValue) {
+            temperatureInput.addEventListener('input', () => {
+                temperatureValue.textContent = temperatureInput.value;
+            });
+        }
+        
+        const topPInput = document.getElementById('top_p');
+        const topPValue = document.getElementById('top-p-value');
+        if (topPInput && topPValue) {
+            topPInput.addEventListener('input', () => {
+                topPValue.textContent = topPInput.value;
+            });
+        }
+        
+        const repeatPenaltyInput = document.getElementById('repeat_penalty');
+        const repeatPenaltyValue = document.getElementById('repeat-penalty-value');
+        if (repeatPenaltyInput && repeatPenaltyValue) {
+            repeatPenaltyInput.addEventListener('input', () => {
+                repeatPenaltyValue.textContent = repeatPenaltyInput.value;
+            });
+        }
+        
+        const topKInput = document.getElementById('top_k');
+        const topKValue = document.getElementById('top-k-value');
+        if (topKInput && topKValue) {
+            topKInput.addEventListener('input', () => {
+                topKValue.textContent = topKInput.value;
+            });
+        }
+        
+        // Bind range inputs for character settings form
+        const settingsTemperatureInput = document.getElementById('settings-temperature');
+        const settingsTemperatureValue = document.getElementById('settings-temperature-value');
+        if (settingsTemperatureInput && settingsTemperatureValue) {
+            settingsTemperatureInput.addEventListener('input', () => {
+                settingsTemperatureValue.textContent = settingsTemperatureInput.value;
+            });
+        }
+        
+        const settingsTopPInput = document.getElementById('settings-top-p');
+        const settingsTopPValue = document.getElementById('settings-top-p-value');
+        if (settingsTopPInput && settingsTopPValue) {
+            settingsTopPInput.addEventListener('input', () => {
+                settingsTopPValue.textContent = settingsTopPInput.value;
+            });
+        }
+        
+        const settingsRepeatPenaltyInput = document.getElementById('settings-repeat-penalty');
+        const settingsRepeatPenaltyValue = document.getElementById('settings-repeat-penalty-value');
+        if (settingsRepeatPenaltyInput && settingsRepeatPenaltyValue) {
+            settingsRepeatPenaltyInput.addEventListener('input', () => {
+                settingsRepeatPenaltyValue.textContent = settingsRepeatPenaltyInput.value;
+            });
+        }
+        
+        const settingsTopKInput = document.getElementById('settings-top-k');
+        const settingsTopKValue = document.getElementById('settings-top-k-value');
+        if (settingsTopKInput && settingsTopKValue) {
+            settingsTopKInput.addEventListener('input', () => {
+                settingsTopKValue.textContent = settingsTopKInput.value;
+            });
+        }
     }
     
     loadCharacters() {
@@ -265,8 +396,18 @@ class App {
     }
     
     showNewCharacterModal() {
+        console.log('showNewCharacterModal called');
         const modal = document.getElementById('new-character-modal');
-        modal.style.display = 'block';
+        if (modal) {
+            document.getElementById('new-character-form').reset();
+            // Load default models
+            const llmProvider = document.getElementById('llm_provider');
+            const model = document.getElementById('model');
+            if (llmProvider && model) {
+                loadModelsForProvider(llmProvider.value, model);
+            }
+            modal.style.display = 'block';
+        }
     }
     
     closeModals() {
@@ -301,7 +442,7 @@ class App {
         .then(data => {
             this.closeModals();
             this.loadCharacters();
-            this.selectCharacter(data);
+            this.selectCharacter(data.character);
         })
         .catch(error => {
             console.error('Error creating character:', error);
@@ -332,12 +473,22 @@ class App {
         // Set form values
         const form = document.getElementById('character-settings-form');
         if (form) {
+            // Basic character info
+            const name = form.querySelector('#settings-name');
+            const role = form.querySelector('#settings-role');
+            const personality = form.querySelector('#settings-personality');
+            const backstory = form.querySelector('#settings-backstory');
+            const systemPrompt = form.querySelector('#settings-system-prompt');
+            
+            if (name) name.value = character.name || '';
+            if (role) role.value = character.role || '';
+            if (personality) personality.value = character.personality || '';
+            if (backstory) backstory.value = character.backstory || '';
+            if (systemPrompt) systemPrompt.value = character.system_prompt || '';
+            
+            // LLM settings
             const llmProvider = form.querySelector('#settings-llm-provider');
             const model = form.querySelector('#settings-model');
-            const temperature = form.querySelector('#settings-temperature');
-            const topP = form.querySelector('#settings-top-p');
-            const repeatPenalty = form.querySelector('#settings-repeat-penalty');
-            const topK = form.querySelector('#settings-top-k');
             
             // Set values from character
             if (llmProvider) llmProvider.value = character.llm_provider || 'ollama';
@@ -354,21 +505,31 @@ class App {
                 });
             }
             
+            // Model parameters
+            const temperature = form.querySelector('#settings-temperature');
+            const topP = form.querySelector('#settings-top-p');
+            const repeatPenalty = form.querySelector('#settings-repeat-penalty');
+            const topK = form.querySelector('#settings-top-k');
+            
             if (temperature) {
                 temperature.value = character.temperature || 0.7;
-                document.getElementById('settings-temperature-value').textContent = temperature.value;
+                const tempValue = document.getElementById('settings-temperature-value');
+                if (tempValue) tempValue.textContent = temperature.value;
             }
             if (topP) {
                 topP.value = character.top_p || 0.9;
-                document.getElementById('settings-top-p-value').textContent = topP.value;
+                const topPValue = document.getElementById('settings-top-p-value');
+                if (topPValue) topPValue.textContent = topP.value;
             }
             if (repeatPenalty) {
                 repeatPenalty.value = character.repeat_penalty || 1.1;
-                document.getElementById('settings-repeat-penalty-value').textContent = repeatPenalty.value;
+                const repeatValue = document.getElementById('settings-repeat-penalty-value');
+                if (repeatValue) repeatValue.textContent = repeatPenalty.value;
             }
             if (topK) {
                 topK.value = character.top_k || 40;
-                document.getElementById('settings-top-k-value').textContent = topK.value;
+                const topKValue = document.getElementById('settings-top-k-value');
+                if (topKValue) topKValue.textContent = topK.value;
             }
             
             // Store the character ID
@@ -390,6 +551,11 @@ class App {
         }
         
         const settings = {
+            name: formData.get('name'),
+            role: formData.get('role'),
+            personality: formData.get('personality'),
+            backstory: formData.get('backstory'),
+            system_prompt: formData.get('system_prompt'),
             llm_provider: formData.get('llm_provider'),
             model: formData.get('model'),
             temperature: parseFloat(formData.get('temperature')),
@@ -397,6 +563,13 @@ class App {
             repeat_penalty: parseFloat(formData.get('repeat_penalty')),
             top_k: parseInt(formData.get('top_k'))
         };
+        
+        console.log('DEBUG: Character ID:', characterId);
+        console.log('DEBUG: Form data entries:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`  ${key}: ${value}`);
+        }
+        console.log('DEBUG: Parsed settings:', settings);
         
         fetch(`/api/characters/${characterId}`, {
             method: 'PUT',
@@ -407,9 +580,19 @@ class App {
         })
         .then(response => response.json())
         .then(data => {
-            this.closeModals();
-            this.loadCharacters();
-            this.showNotification('Character settings updated');
+            console.log('DEBUG: Server response:', data);
+            if (data.success) {
+                this.closeModals();
+                this.loadCharacters();
+                this.showNotification('Character settings updated');
+                
+                // Update selected character if this was the one being edited
+                if (this.selectedCharacter && this.selectedCharacter.id === characterId) {
+                    this.selectedCharacter = data.character || {...this.selectedCharacter, ...settings};
+                }
+            } else {
+                this.showError(data.error || 'Failed to update character settings');
+            }
         })
         .catch(error => {
             console.error('Error updating character settings:', error);
@@ -759,6 +942,151 @@ class App {
             console.error('Error searching memories:', error);
             resultsContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
         }
+    }
+
+    showConfigModal() {
+        const modal = document.getElementById('config-modal');
+        if (modal) {
+            this.loadCurrentConfiguration();
+            modal.style.display = 'block';
+        }
+    }
+    
+    loadCurrentConfiguration() {
+        // Load current configuration values
+        fetch('/api/settings/llm')
+            .then(response => response.json())
+            .then(data => {
+                const form = document.getElementById('config-form');
+                if (form && data) {
+                    const llmProvider = form.querySelector('#config-llm-provider');
+                    const ollamaHost = form.querySelector('#config-ollama-host');
+                    const openaiApiKey = form.querySelector('#config-openai-api-key');
+                    const anthropicApiKey = form.querySelector('#config-anthropic-api-key');
+                    
+                    if (llmProvider) llmProvider.value = data.provider || 'ollama';
+                    if (ollamaHost) ollamaHost.value = data.ollama_host || 'localhost:11434';
+                    if (openaiApiKey && data.api_key && data.provider === 'openai') {
+                        openaiApiKey.value = '***masked***';
+                    }
+                    if (anthropicApiKey && data.api_key && data.provider === 'anthropic') {
+                        anthropicApiKey.value = '***masked***';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading configuration:', error);
+            });
+    }
+    
+    saveConfiguration(formData) {
+        const config = {
+            provider: formData.get('llm_provider'),
+            ollama_host: formData.get('ollama_host'),
+            api_key: formData.get('openai_api_key') || formData.get('anthropic_api_key'),
+            default_model: formData.get('default_model')
+        };
+        
+        fetch('/api/settings/llm/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.closeModals();
+                this.showNotification('Configuration saved successfully');
+                this.loadCharacters(); // Reload characters to reflect new settings
+            } else {
+                this.showError(data.error || 'Failed to save configuration');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving configuration:', error);
+            this.showError('Failed to save configuration');
+        });
+    }
+    
+    testConnection() {
+        const form = document.getElementById('config-form');
+        const provider = form.querySelector('#config-llm-provider').value;
+        const ollamaHost = form.querySelector('#config-ollama-host').value;
+        const apiKey = form.querySelector(`#config-${provider}-api-key`).value;
+        
+        const testButton = document.getElementById('test-connection-button');
+        testButton.disabled = true;
+        testButton.textContent = 'Testing...';
+        
+        const testConfig = {
+            provider: provider,
+            ollama_host: ollamaHost,
+            api_key: apiKey
+        };
+        
+        fetch('/api/settings/llm/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(testConfig)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.showNotification('Connection test successful!');
+            } else {
+                this.showError(data.error || 'Connection test failed');
+            }
+        })
+        .catch(error => {
+            console.error('Error testing connection:', error);
+            this.showError('Connection test failed');
+        })
+        .finally(() => {
+            testButton.disabled = false;
+            testButton.textContent = 'Test Connection';
+        });
+    }
+    
+    deleteCharacter() {
+        const form = document.getElementById('character-settings-form');
+        const characterId = form.dataset.characterId;
+        
+        if (!characterId) {
+            this.showError('Character ID not found');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to delete this character? This action cannot be undone.')) {
+            return;
+        }
+        
+        fetch(`/api/characters/${characterId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.closeModals();
+                this.loadCharacters();
+                this.showNotification('Character deleted successfully');
+                
+                // Clear selection if this was the selected character
+                if (this.selectedCharacter && this.selectedCharacter.id === characterId) {
+                    this.selectedCharacter = null;
+                    this.chatManager.clearChat();
+                }
+            } else {
+                this.showError(data.error || 'Failed to delete character');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting character:', error);
+            this.showError('Failed to delete character');
+        });
     }
 }
 

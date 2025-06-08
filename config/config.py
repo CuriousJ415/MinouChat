@@ -23,7 +23,7 @@ if LLM_PROVIDER == 'openai':
 elif LLM_PROVIDER == 'ollama':
     LLM_MODEL = os.environ.get('OLLAMA_MODEL', 'mistral')
     LLM_API_KEY = None
-    LLM_API_URL = os.environ.get('OLLAMA_API_URL', 'http://host.docker.internal:11434/api')
+    LLM_API_URL = os.environ.get('OLLAMA_API_URL', 'http://localhost:11434/api')
 
 # Path configuration
 UPLOADS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'documents')

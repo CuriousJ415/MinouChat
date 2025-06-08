@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MiaAI - Personal AI Assistant</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.0">
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <!-- Add Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
@@ -31,9 +31,9 @@
             </button>
             
             <div class="sidebar-footer">
-                <a href="/settings" class="settings-button">
-                    <i class="fas fa-cog"></i> Settings
-                </a>
+                <button id="config-button" class="settings-button">
+                    <i class="fas fa-cog"></i> Configuration
+                </button>
                 <div class="app-version">v1.0.0</div>
             </div>
         </div>
@@ -71,6 +71,210 @@
         </div>
     </div>
     
+    <!-- Character Creation Modal -->
+    <div id="new-character-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Character</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="new-character-form">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <input type="text" id="role" name="role" placeholder="e.g. Helpful Assistant, Life Coach" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="personality">Personality</label>
+                    <textarea id="personality" name="personality" placeholder="Describe the character's personality traits" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="backstory">Backstory (Optional)</label>
+                    <textarea id="backstory" name="backstory" placeholder="Provide background information"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="system_prompt">System Prompt</label>
+                    <textarea id="system_prompt" name="system_prompt" placeholder="Custom system prompt for the AI" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="llm_provider">LLM Provider</label>
+                    <select id="llm_provider" name="llm_provider" required>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="model">Model</label>
+                    <select id="model" name="model" required>
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="temperature">Temperature (<span id="temperature-value">0.7</span>)</label>
+                    <input type="range" id="temperature" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                </div>
+                
+                <div class="form-group">
+                    <label for="top_p">Top P (<span id="top-p-value">0.9</span>)</label>
+                    <input type="range" id="top_p" name="top_p" min="0" max="1" step="0.1" value="0.9">
+                </div>
+                
+                <div class="form-group">
+                    <label for="repeat_penalty">Repeat Penalty (<span id="repeat-penalty-value">1.1</span>)</label>
+                    <input type="range" id="repeat_penalty" name="repeat_penalty" min="1" max="2" step="0.1" value="1.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="top_k">Top K (<span id="top-k-value">40</span>)</label>
+                    <input type="range" id="top_k" name="top_k" min="1" max="100" step="1" value="40">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">Create Character</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Character Settings Modal -->
+    <div id="character-settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Character Settings</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="character-settings-form">
+                <div class="form-group">
+                    <label for="settings-name">Name</label>
+                    <input type="text" id="settings-name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-role">Role</label>
+                    <input type="text" id="settings-role" name="role" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-personality">Personality</label>
+                    <textarea id="settings-personality" name="personality" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-backstory">Backstory</label>
+                    <textarea id="settings-backstory" name="backstory"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-system-prompt">System Prompt</label>
+                    <textarea id="settings-system-prompt" name="system_prompt"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-llm-provider">LLM Provider</label>
+                    <select id="settings-llm-provider" name="llm_provider" required>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-model">Model</label>
+                    <select id="settings-model" name="model" required>
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-temperature">Temperature (<span id="settings-temperature-value">0.7</span>)</label>
+                    <input type="range" id="settings-temperature" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-top-p">Top P (<span id="settings-top-p-value">0.9</span>)</label>
+                    <input type="range" id="settings-top-p" name="top_p" min="0" max="1" step="0.1" value="0.9">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-repeat-penalty">Repeat Penalty (<span id="settings-repeat-penalty-value">1.1</span>)</label>
+                    <input type="range" id="settings-repeat-penalty" name="repeat_penalty" min="1" max="2" step="0.1" value="1.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="settings-top-k">Top K (<span id="settings-top-k-value">40</span>)</label>
+                    <input type="range" id="settings-top-k" name="top_k" min="1" max="100" step="1" value="40">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="reset-memory-button" class="secondary-button">Reset Memory</button>
+                    <button type="button" id="delete-character-button" class="danger-button">Delete Character</button>
+                    <button type="submit" class="primary-button">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="config-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Configuration</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="config-form">
+                <h3>LLM Provider Settings</h3>
+                <div class="form-group">
+                    <label for="config-llm-provider">Default LLM Provider</label>
+                    <select id="config-llm-provider" name="llm_provider" required>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="config-ollama-host">Ollama Host</label>
+                    <input type="text" id="config-ollama-host" name="ollama_host" value="localhost:11434" placeholder="localhost:11434">
+                    <small>Host and port for your Ollama installation</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="config-openai-api-key">OpenAI API Key</label>
+                    <input type="password" id="config-openai-api-key" name="openai_api_key" placeholder="sk-...">
+                </div>
+                
+                <div class="form-group">
+                    <label for="config-anthropic-api-key">Anthropic API Key</label>
+                    <input type="password" id="config-anthropic-api-key" name="anthropic_api_key" placeholder="sk-ant-...">
+                </div>
+                
+                <h3>Model Defaults</h3>
+                <div class="form-group">
+                    <label for="config-default-model">Default Model</label>
+                    <select id="config-default-model" name="default_model">
+                        <option value="">Select a model...</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="test-connection-button" class="secondary-button">Test Connection</button>
+                    <button type="submit" class="primary-button">Save Configuration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Character Modal -->
     <div id="character-modal" class="modal">
         <div class="modal-content">
@@ -216,7 +420,8 @@
     </div>
     
     <!-- Load JavaScript -->
-    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}?v=2.0"></script>
+    <script src="{{ url_for('static', filename='js/documents.js') }}?v=2.0"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=2.0"></script>
 </body>
 </html> 

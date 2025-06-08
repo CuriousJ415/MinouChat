@@ -18,6 +18,18 @@ class PersonalityLoader:
         self.personality_dir = personality_dir or settings.CONFIG_DIR / "personalities"
         self.personality_dir.mkdir(parents=True, exist_ok=True)
         self._personalities: Dict[str, PersonalityDefinition] = {}
+        self._schema = None
+    
+    @property
+    def schema(self) -> etree.XMLSchema:
+        """Get the XML schema for personality definitions"""
+        if self._schema is None:
+            schema_path = self.personality_dir / "personality.xsd"
+            if not schema_path.exists():
+                raise ValueError("Personality schema file not found")
+            schema_doc = etree.parse(str(schema_path))
+            self._schema = etree.XMLSchema(schema_doc)
+        return self._schema
     
     def load_personality(self, name: str) -> PersonalityDefinition:
         """Load a personality definition by name"""
@@ -44,74 +56,85 @@ class PersonalityLoader:
     
     def _load_from_xml(self, path: Path) -> PersonalityDefinition:
         """Load personality definition from XML file"""
-        tree = etree.parse(str(path))
-        root = tree.getroot()
-        
-        # Convert XML to dictionary
-        data = {
-            "name": root.get("name"),
-            "version": root.get("version", "1.0"),
-            "traits": [],
-            "backstory": {
-                "background": "",
-                "experiences": [],
-                "relationships": {},
-                "goals": []
-            },
-            "knowledge": {
-                "domains": [],
-                "skills": [],
-                "interests": []
-            },
-            "style": {
-                "tone": "",
-                "vocabulary_level": "moderate",
-                "formality": 0.5,
-                "humor_level": 0.5
-            }
-        }
-        
-        # Parse traits
-        for trait in root.findall(".//trait"):
-            data["traits"].append({
-                "name": trait.get("name"),
-                "value": float(trait.get("value", 0.5)),
-                "description": trait.text
-            })
-        
-        # Parse backstory
-        backstory = root.find(".//backstory")
-        if backstory is not None:
-            data["backstory"]["background"] = backstory.findtext("background", "")
-            data["backstory"]["experiences"] = [exp.text for exp in backstory.findall("experiences/experience")]
-            data["backstory"]["goals"] = [goal.text for goal in backstory.findall("goals/goal")]
+        # Parse and validate XML
+        try:
+            tree = etree.parse(str(path))
+            root = tree.getroot()
             
-            for rel in backstory.findall("relationships/relationship"):
-                data["backstory"]["relationships"][rel.get("type")] = rel.text
-        
-        # Parse knowledge
-        knowledge = root.find(".//knowledge")
-        if knowledge is not None:
-            data["knowledge"]["domains"] = [domain.text for domain in knowledge.findall("domains/domain")]
-            data["knowledge"]["skills"] = [skill.text for skill in knowledge.findall("skills/skill")]
-            data["knowledge"]["interests"] = [interest.text for interest in knowledge.findall("interests/interest")]
-        
-        # Parse style
-        style = root.find(".//style")
-        if style is not None:
-            data["style"]["tone"] = style.findtext("tone", "")
-            data["style"]["vocabulary_level"] = style.findtext("vocabulary_level", "moderate")
-            data["style"]["formality"] = float(style.findtext("formality", "0.5"))
-            data["style"]["humor_level"] = float(style.findtext("humor_level", "0.5"))
-        
-        return PersonalityDefinition(**data)
+            # Validate against schema
+            if not self.schema.validate(root):
+                raise ValueError(f"Invalid personality definition: {self.schema.error_log}")
+            
+            # Convert XML to dictionary
+            data = {
+                "name": root.get("name"),
+                "version": root.get("version", "1.0"),
+                "traits": [],
+                "backstory": {
+                    "background": "",
+                    "experiences": [],
+                    "relationships": {},
+                    "goals": []
+                },
+                "knowledge": {
+                    "domains": [],
+                    "skills": [],
+                    "interests": []
+                },
+                "style": {
+                    "tone": "",
+                    "vocabulary_level": "moderate",
+                    "formality": 0.5,
+                    "humor_level": 0.5
+                }
+            }
+            
+            # Parse traits
+            for trait in root.findall(".//trait"):
+                data["traits"].append({
+                    "name": trait.get("name"),
+                    "value": float(trait.get("value", 0.5)),
+                    "description": trait.text
+                })
+            
+            # Parse backstory
+            backstory = root.find(".//backstory")
+            if backstory is not None:
+                data["backstory"]["background"] = backstory.findtext("background", "")
+                data["backstory"]["experiences"] = [exp.text for exp in backstory.findall("experiences/experience")]
+                data["backstory"]["goals"] = [goal.text for goal in backstory.findall("goals/goal")]
+                
+                for rel in backstory.findall("relationships/relationship"):
+                    data["backstory"]["relationships"][rel.get("type")] = rel.text
+            
+            # Parse knowledge
+            knowledge = root.find(".//knowledge")
+            if knowledge is not None:
+                data["knowledge"]["domains"] = [domain.text for domain in knowledge.findall("domains/domain")]
+                data["knowledge"]["skills"] = [skill.text for skill in knowledge.findall("skills/skill")]
+                data["knowledge"]["interests"] = [interest.text for interest in knowledge.findall("interests/interest")]
+            
+            # Parse style
+            style = root.find(".//style")
+            if style is not None:
+                data["style"]["tone"] = style.findtext("tone", "")
+                data["style"]["vocabulary_level"] = style.findtext("vocabulary_level", "moderate")
+                data["style"]["formality"] = float(style.findtext("formality", "0.5"))
+                data["style"]["humor_level"] = float(style.findtext("humor_level", "0.5"))
+            
+            return PersonalityDefinition(**data)
+            
+        except etree.XMLSyntaxError as e:
+            raise ValueError(f"Invalid XML file: {e}")
+        except Exception as e:
+            raise ValueError(f"Error loading personality definition: {e}")
     
     def save_personality(self, personality: PersonalityDefinition) -> None:
         """Save a personality definition to disk"""
         # Save as JSON
         json_path = self.personality_dir / f"{personality.name}.json"
         with open(json_path, "w") as f:
-            json.dump(personality.dict(), f, indent=2)
+            json.dump(personality.model_dump(), f, indent=2)
         
         # Save as XML
         xml_path = self.personality_dir / f"{personality.name}.xml"
@@ -161,6 +184,10 @@ class PersonalityLoader:
         etree.SubElement(style_elem, "vocabulary_level").text = personality.style.vocabulary_level
         etree.SubElement(style_elem, "formality").text = str(personality.style.formality)
         etree.SubElement(style_elem, "humor_level").text = str(personality.style.humor_level)
+        
+        # Validate against schema before saving
+        if not self.schema.validate(root):
+            raise ValueError(f"Invalid personality definition: {self.schema.error_log}")
         
         # Write XML file
         tree = etree.ElementTree(root)

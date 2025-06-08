@@ -17,7 +17,7 @@ def create_app(test_config=None):
         DATABASE=os.path.join(app.instance_path, 'memories.db'),
         DATABASE_PATH=os.environ.get('DATABASE_PATH', '/app/data/memories.db'),
         LLM_PROVIDER=os.getenv('LLM_PROVIDER', 'ollama'),
-        OLLAMA_HOST=os.getenv('OLLAMA_HOST', 'host.docker.internal'),
+        OLLAMA_HOST=os.getenv('OLLAMA_HOST', 'localhost'),
         OLLAMA_PORT=os.getenv('OLLAMA_PORT', '11434')
     )
 

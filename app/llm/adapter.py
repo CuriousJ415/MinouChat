@@ -204,10 +204,10 @@ def _generate_ollama_response(
     try:
         # Try multiple possible hostnames for Ollama
         hosts_to_try = [
-            os.environ.get('OLLAMA_HOST', 'host.docker.internal'),  # From env or default
-            'host.docker.internal',  # Docker Desktop standard for host machine
+            os.environ.get('OLLAMA_HOST', 'localhost'),  # From env or default
             'localhost',  # Direct localhost
             '127.0.0.1',  # Explicit localhost IP
+            'host.docker.internal',  # Docker Desktop standard for host machine
             'ollama',     # Service name if using docker-compose
             'host-gateway'  # Linux Docker
         ]
@@ -223,6 +223,16 @@ def _generate_ollama_response(
                 current_app.logger.info(f"Trying Ollama connection at {host}:{port}")
                 api_url = f"http://{host}:{port}/api"
                 generate_url = f"{api_url}/chat"
+                
+                # First try a simple GET request to check if Ollama is running
+                try:
+                    health_check = requests.get(f"{api_url}/tags", timeout=5)
+                    if not health_check.ok:
+                        current_app.logger.warning(f"Ollama health check failed at {host}: {health_check.status_code}")
+                        continue
+                except requests.RequestException as e:
+                    current_app.logger.warning(f"Ollama health check failed at {host}: {str(e)}")
+                    continue
                 
                 # Format request
                 data = {
@@ -254,7 +264,10 @@ def _generate_ollama_response(
                 continue
                 
         # If we get here, all hosts failed
-        raise ValueError(f"Failed to connect to Ollama on any host: {str(last_error)}")
+        error_msg = "Failed to connect to Ollama. Please ensure Ollama is running and accessible."
+        if last_error:
+            error_msg += f" Last error: {str(last_error)}"
+        raise ValueError(error_msg)
         
     except Exception as e:
         current_app.logger.error(f"Ollama request failed: {str(e)}")
@@ -383,7 +396,7 @@ def _generate_anthropic_response(
 
 def get_ollama_base_url():
     """Get the base URL for Ollama API"""
-    host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
+    host = os.environ.get('OLLAMA_HOST', 'localhost')
     port = os.environ.get('OLLAMA_PORT', '11434')
     return f"http://{host}:{port}/api"
 
@@ -392,12 +405,17 @@ def fetch_available_models(provider):
     try:
         if provider == 'ollama':
             base_url = get_ollama_base_url()
-            response = requests.get(f"{base_url}/tags")
-            if response.ok:
-                data = response.json()
-                return [model['name'].split(':')[0] for model in data['models']]
-            else:
-                raise Exception(f"Failed to fetch Ollama models: {response.text}")
+            try:
+                response = requests.get(f"{base_url}/tags", timeout=5)
+                if response.ok:
+                    data = response.json()
+                    return [model['name'].split(':')[0] for model in data['models']]
+                else:
+                    current_app.logger.error(f"Failed to fetch Ollama models: {response.text}")
+                    return []
+            except requests.RequestException as e:
+                current_app.logger.error(f"Failed to connect to Ollama: {str(e)}")
+                return []
         elif provider == 'openai':
             # Add OpenAI model fetching if needed
             return ['gpt-3.5-turbo', 'gpt-4']
@@ -408,7 +426,7 @@ def fetch_available_models(provider):
             raise ValueError(f"Unsupported provider: {provider}")
     except Exception as e:
         current_app.logger.error(f"Error fetching models: {str(e)}")
-        raise
+        return []
 
 def get_llm_adapter():
     """Get the appropriate LLM adapter based on configuration"""

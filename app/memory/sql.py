@@ -220,32 +220,60 @@ def update_character_by_id(character_id: str, character_data: Dict) -> Optional[
     db = get_db()
     cursor = db.cursor()
     
-    cursor.execute('''
-        UPDATE characters 
-        SET name = ?, role = ?, personality = ?, system_prompt = ?,
-            model = ?, llm_provider = ?, gender = ?, backstory = ?,
-            temperature = ?, top_p = ?, repeat_penalty = ?, top_k = ?,
-            last_used = ?
-        WHERE id = ?
-    ''', (
-        character_data['name'],
-        character_data['role'],
-        character_data['personality'],
-        character_data['system_prompt'],
-        character_data.get('model', 'mistral'),
-        character_data.get('llm_provider', 'ollama'),
-        character_data.get('gender', ''),
-        character_data.get('backstory', ''),
-        character_data.get('temperature', 0.7),
-        character_data.get('top_p', 0.9),
-        character_data.get('repeat_penalty', 1.1),
-        character_data.get('top_k', 40),
-        character_data['last_used'],
-        character_id
-    ))
-    
-    db.commit()
-    return get_character_by_id(character_id)
+    try:
+        # First get the existing character data
+        existing = get_character_by_id(character_id)
+        if not existing:
+            raise ValueError(f"Character {character_id} not found")
+        
+        # Merge existing data with updates, preserving required fields
+        merged_data = existing.copy()
+        
+        # Only update fields that are provided and not empty
+        for field, value in character_data.items():
+            if value is not None and value != '':
+                merged_data[field] = value
+        
+        # Ensure required fields are present and not empty
+        required_fields = ['name', 'role', 'personality', 'system_prompt', 'model', 'llm_provider']
+        for field in required_fields:
+            if field not in merged_data or not merged_data[field]:
+                raise ValueError(f"Required field '{field}' cannot be empty when updating character.")
+
+        # Debug: print merged_data before update
+        print(f"[DEBUG] merged_data before update: {merged_data}")
+        current_app.logger.error(f"[DEBUG] merged_data before update: {merged_data}")
+
+        cursor.execute('''
+            UPDATE characters 
+            SET name = ?, role = ?, personality = ?, system_prompt = ?,
+                model = ?, llm_provider = ?, gender = ?, backstory = ?,
+                temperature = ?, top_p = ?, repeat_penalty = ?, top_k = ?,
+                last_used = ?
+            WHERE id = ?
+        ''', (
+            merged_data['name'],
+            merged_data['role'],
+            merged_data['personality'],
+            merged_data['system_prompt'],
+            merged_data['model'],
+            merged_data['llm_provider'],
+            merged_data.get('gender', ''),
+            merged_data.get('backstory', ''),
+            merged_data.get('temperature', 0.7),
+            merged_data.get('top_p', 0.9),
+            merged_data.get('repeat_penalty', 1.1),
+            merged_data.get('top_k', 40),
+            datetime.now().isoformat(),
+            character_id
+        ))
+        
+        db.commit()
+        return get_character_by_id(character_id)
+    except Exception as e:
+        current_app.logger.error(f"Error updating character {character_id}: {str(e)}")
+        db.rollback()
+        raise
 
 def update_character_last_used(character_id: str) -> bool:
     """

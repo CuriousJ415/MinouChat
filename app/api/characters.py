@@ -5,6 +5,7 @@ Handles CRUD operations for characters
 
 from flask import jsonify, request, current_app, Blueprint
 from app.core.character import get_characters, get_character, create_character, update_character, delete_character, reset_character_memory, restore_default_characters
+from app.core.personality import analyze_character_description, save_personality_definition
 
 # Import personalization functions
 try:
@@ -73,7 +74,20 @@ def add_character():
 def modify_character(character_id):
     """Update an existing character"""
     data = request.json
-    current_app.logger.info(f"Updating character {character_id} with data: {data}")
+    # Debug: Check if data is None or empty
+    if not data:
+        current_app.logger.error(f"No data received for character update: {character_id}")
+        return jsonify({"error": "No data provided"}), 400
+
+    # Explicitly check required fields
+    required_fields = ['name', 'role', 'personality']
+    missing_fields = [field for field in required_fields if field not in data or not data[field]]
+    if missing_fields:
+        current_app.logger.error(f"Missing required fields in update: {missing_fields}")
+        return jsonify({
+            "error": f"Missing required fields for update: {', '.join(missing_fields)}"
+        }), 400
+
     try:
         character = update_character(character_id, data)
         if not character:
@@ -257,4 +271,53 @@ def reset_memories_complete(character_id):
         current_app.logger.error(f"Error resetting character memories: {str(e)}")
         import traceback
         current_app.logger.error(traceback.format_exc())
-        return jsonify({"success": False, "error": str(e)}), 500 
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@characters_bp.route('/analyze-character', methods=['POST'])
+def analyze_character():
+    """Analyze a character description and suggest personality traits"""
+    data = request.json
+    if not data or 'description' not in data:
+        return jsonify({
+            "success": False,
+            "error": "Character description is required"
+        }), 400
+    
+    try:
+        analysis = analyze_character_description(data['description'])
+        return jsonify({
+            "success": True,
+            "traits": analysis.traits,
+            "style": analysis.style,
+            "knowledge": analysis.knowledge,
+            "backstory": analysis.backstory
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error analyzing character: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to analyze character: {str(e)}"
+        }), 500
+
+@characters_bp.route('/save-personality', methods=['POST'])
+def save_personality():
+    """Save a personality definition"""
+    data = request.json
+    if not data:
+        return jsonify({
+            "success": False,
+            "error": "Personality data is required"
+        }), 400
+    
+    try:
+        success = save_personality_definition(data)
+        return jsonify({
+            "success": success,
+            "message": "Personality saved successfully" if success else "Failed to save personality"
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error saving personality: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to save personality: {str(e)}"
+        }), 500 

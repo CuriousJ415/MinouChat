@@ -193,11 +193,11 @@ def update_character(character_id: str, data: Dict) -> Optional[Dict]:
     if not existing:
         return None
     
-    # Update only provided fields
+    # Update only provided fields, but only if not None or empty string
     updated_data = existing.copy()
     for field in ['name', 'role', 'personality', 'system_prompt', 'model', 'llm_provider', 'gender', 'backstory', 
                  'temperature', 'top_p', 'repeat_penalty', 'top_k']:
-        if field in data:
+        if field in data and data[field] is not None and data[field] != '':
             updated_data[field] = data[field]
     
     # Update timestamp
