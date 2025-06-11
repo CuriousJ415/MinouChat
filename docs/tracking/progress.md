@@ -1,9 +1,11 @@
 # Project Progress Tracking
 
+> **See also:** [Project Documentation README](../README.md) and [Implementation Roadmap](../implementation/roadmap.md)
+
 ## Current Status
 - Phase: 1
 - Status: In Progress
-- Last Updated: 2024-03-26
+- Last Updated: 2024-06-11
 
 ## Milestones
 
@@ -137,6 +139,13 @@
    - Enhance relationship dynamics
    - Add NPC interaction generation
    - Create NPC visualization
+
+4. Restore or scaffold missing code files (e.g., `core/conversation.py`)
+5. Initialize the database (`python -m src.miachat.cli init_database`)
+6. Add/restore any missing templates
+7. Add automated tests for routes and models
+8. Add Dockerfile and .dockerignore for containerization
+9. Update documentation as features are added
 
 ## Completed Features
 - Basic character creation and management

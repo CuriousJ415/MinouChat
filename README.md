@@ -11,6 +11,56 @@ MiaChat is an AI personality system that enables natural, context-aware conversa
 - Conversation management with personality integration
 - Extensible architecture for future enhancements
 
+## Quick Start
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/CuriousJ415/MiaAI.git
+cd MiaAI
+```
+
+### 2. Create and activate a Python 3.11 virtual environment
+
+```bash
+python3.11 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Initialize the database
+
+```bash
+python -m src.miachat.cli init_database
+```
+
+### 5. Run the application
+
+```bash
+python -m src.miachat.web.run
+```
+
+Visit [http://localhost:5001](http://localhost:5001) in your browser.
+
+---
+
+### 6. Static Files
+
+- Place images and other static assets in `src/miachat/web/static/`.
+- Example: `src/miachat/web/static/images/ai_face_glow.jpg`
+
+---
+
+### 7. Troubleshooting
+
+- If you see `ModuleNotFoundError`, ensure all dependencies are installed and you are using Python 3.11.
+- For database issues, re-run the `init_database` command.
+
 ## Project Structure
 
 ```

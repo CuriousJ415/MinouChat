@@ -125,10 +125,34 @@ class Conversation(Base):
     personality_id = Column(Integer, ForeignKey('personalities.id'), nullable=False)
     started_at = Column(DateTime, default=datetime.utcnow)
     ended_at = Column(DateTime)
-    context = Column(MutableDict.as_mutable(JSON))
+    conversation_data = Column(MutableDict.as_mutable(JSON), default=dict)
 
     personality = relationship('Personality', back_populates='conversations')
-    messages = relationship('Message', back_populates='conversation')
+    messages = relationship('Message', back_populates='conversation', order_by='Message.timestamp')
+
+    @classmethod
+    def create(cls, personality_id: int, metadata: Optional[dict] = None) -> 'Conversation':
+        """Create a new conversation."""
+        conversation = cls(
+            personality_id=personality_id,
+            conversation_data=metadata or {}
+        )
+        return conversation
+
+    def end(self) -> None:
+        """End the conversation."""
+        self.ended_at = datetime.utcnow()
+
+    def is_active(self) -> bool:
+        """Check if the conversation is active."""
+        return self.ended_at is None
+
+    def get_messages(self, limit: Optional[int] = None) -> List['Message']:
+        """Get conversation messages, optionally limited to the most recent ones."""
+        messages = self.messages
+        if limit:
+            messages = messages[-limit:]
+        return messages
 
 class Message(Base):
     """Message model."""
@@ -139,9 +163,36 @@ class Message(Base):
     role = Column(String(20), nullable=False)  # 'user' or 'assistant'
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    meta_data = Column(MutableDict.as_mutable(JSON))
+    message_data = Column(MutableDict.as_mutable(JSON), default=dict)
 
     conversation = relationship('Conversation', back_populates='messages')
+
+    @classmethod
+    def create(
+        cls,
+        conversation_id: int,
+        content: str,
+        role: str,
+        metadata: Optional[dict] = None
+    ) -> 'Message':
+        """Create a new message."""
+        message = cls(
+            conversation_id=conversation_id,
+            content=content,
+            role=role,
+            message_data=metadata or {}
+        )
+        return message
+
+    def to_dict(self) -> dict:
+        """Convert message to dictionary format."""
+        return {
+            'id': self.id,
+            'role': self.role,
+            'content': self.content,
+            'timestamp': self.timestamp.isoformat(),
+            'metadata': self.message_data
+        }
 
 class User(Base):
     """User model for authentication."""

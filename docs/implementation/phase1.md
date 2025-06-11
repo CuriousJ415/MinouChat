@@ -1,5 +1,7 @@
 # Phase 1 Implementation Plan
 
+> **Note:** Phase 1 status and ongoing work are now tracked in [roadmap.md](roadmap.md) and [progress.md](../tracking/progress.md). Refer to those files for the latest updates and next actions.
+
 ## Overview
 Phase 1 focuses on establishing the foundation of the MiaAI system, implementing core components and basic functionality.
 

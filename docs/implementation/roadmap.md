@@ -1,5 +1,7 @@
 # MiaChat Implementation Roadmap
 
+> **For up-to-date project status and next actions, see [Progress Tracking](../tracking/progress.md) and the main [Project Documentation README](../README.md).**
+
 ## Phase 1: Core Personality Framework (Current)
 - [x] Basic project structure
 - [x] Core personality classes

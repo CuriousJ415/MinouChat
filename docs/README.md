@@ -4,18 +4,38 @@
 This documentation tracks the development and implementation of the MiaAI system, a sophisticated AI personality application capable of sustained, meaningful dialogue.
 
 ## Documentation Structure
-- `architecture/`: Contains system design documents, component diagrams, and API specifications
-- `implementation/`: Detailed implementation plans for each phase
-- `tracking/`: Progress tracking and issue management
+- [System Design](architecture/system-design.md): Architecture, design principles, and requirements
+- [Implementation Roadmap](implementation/roadmap.md): Phase-by-phase plan, milestones, and implementation details
+- [Progress Tracking](tracking/progress.md): Ongoing progress, completed and pending features, blockers, next actions
+- [Personality Framework](../personality_framework.md): In-depth technical documentation for the personality system and API
 
-## Current Status
-- Phase: Planning
-- Status: Initial setup
+## Project Status & Next Steps
+**Last updated: 2024-06-11**
+
+### Immediate Next Steps
+- [ ] Restore or scaffold missing code files (e.g., `core/conversation.py`)
+- [ ] Initialize the database (`python -m src.miachat.cli init_database`)
+- [ ] Add/restore any missing templates
+- [ ] Add automated tests for routes and models
+- [ ] Add Dockerfile and .dockerignore for containerization
+- [ ] Update documentation as features are added
+
+### In Progress
+- [ ] Review and polish UI/UX
+- [ ] Expand personality framework
+
+### Completed
+- [x] Fix dependency and environment issues
+- [x] Restore and test web routes
+- [x] Static image loading
+
+---
 
 ## Quick Links
 - [System Design](architecture/system-design.md)
-- [Implementation Plan](implementation/phase1.md)
+- [Implementation Roadmap](implementation/roadmap.md)
 - [Progress Tracking](tracking/progress.md)
+- [Personality Framework](../personality_framework.md)
 
 # MiaChat Personality Framework
 

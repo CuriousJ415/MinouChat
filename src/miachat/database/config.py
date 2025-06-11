@@ -77,4 +77,8 @@ def get_db():
     try:
         yield db
     finally:
-        db.close() 
+        db.close()
+
+def get_database_url() -> str:
+    """Return the current database URL."""
+    return db_config.database_url 

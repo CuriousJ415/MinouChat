@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MiaChat{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6">Dashboard</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Recent Conversations Section -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Recent Conversations</h2>
+            <ul class="space-y-2">
+                <li class="border-b pb-2">
+                    <a href="#" class="text-blue-600 hover:underline">Conversation with Mia</a>
+                    <p class="text-sm text-gray-500">Last updated: 2025-06-11 10:30 AM</p>
+                </li>
+                <li class="border-b pb-2">
+                    <a href="#" class="text-blue-600 hover:underline">Conversation with Alex</a>
+                    <p class="text-sm text-gray-500">Last updated: 2025-06-10 3:45 PM</p>
+                </li>
+                <li class="border-b pb-2">
+                    <a href="#" class="text-blue-600 hover:underline">Conversation with Sam</a>
+                    <p class="text-sm text-gray-500">Last updated: 2025-06-09 9:15 AM</p>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Quick Links Section -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Quick Links</h2>
+            <ul class="space-y-2">
+                <li><a href="{{ url_for('root.index') }}" class="text-blue-600 hover:underline">Home</a></li>
+                <li><a href="{{ url_for('personality.list_personalities') }}" class="text-blue-600 hover:underline">Personalities</a></li>
+                {# <li><a href="{{ url_for('root.chat') }}" class="text-blue-600 hover:underline">Chat</a></li> #}
+                {# <li><a href="{{ url_for('root.settings') }}" class="text-blue-600 hover:underline">Settings</a></li> #}
+            </ul>
+        </div>
+        
+        <!-- Personality Stats Section -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Personality Stats</h2>
+            <ul class="space-y-2">
+                <li class="flex justify-between">
+                    <span>Total Personalities:</span>
+                    <span class="font-bold">3</span>
+                </li>
+                <li class="flex justify-between">
+                    <span>Active Conversations:</span>
+                    <span class="font-bold">2</span>
+                </li>
+                <li class="flex justify-between">
+                    <span>Total Messages:</span>
+                    <span class="font-bold">42</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %} 
