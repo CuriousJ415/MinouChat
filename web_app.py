@@ -12,7 +12,7 @@ load_dotenv()
 
 # Create the application, explicitly set the template folder
 app = create_app()
-app.template_folder = os.path.join(os.path.dirname(__file__), 'templates')
+# app.template_folder = os.path.join(os.path.dirname(__file__), 'templates')
 
 # Add health check endpoint
 @app.route('/health')
@@ -30,7 +30,7 @@ def config():
 
 if __name__ == "__main__":
     # Get port from environment or use default
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 5001))
     
     # Get debug mode from environment or use default
     debug = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")

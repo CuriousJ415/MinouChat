@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personality Customization</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .trait-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .trait-value {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+            margin-left: 10px;
+        }
+        
+        .trait-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .character-analysis {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        
+        .character-analysis textarea {
+            width: 100%;
+            min-height: 150px;
+            margin-bottom: 10px;
+        }
+        
+        .analysis-result {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .loading::after {
+            content: "...";
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: "."; }
+            40% { content: ".."; }
+            60% { content: "..."; }
+            80%, 100% { content: ""; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Personality Customization</h1>
+        
+        <div class="character-analysis">
+            <h2>Character Analysis</h2>
+            <p>Describe your character or reference a fictional/historical character. The AI will analyze the description and suggest personality traits.</p>
+            <textarea id="character-description" placeholder="Describe your character or reference a fictional/historical character..."></textarea>
+            <button id="analyze-character" class="primary">Analyze Character</button>
+            <div id="analysis-loading" class="loading">Analyzing character</div>
+            <div id="analysis-result" class="analysis-result"></div>
+        </div>
+        
+        <form id="personality-form">
+            <h2>Personality Traits</h2>
+            <div id="traits-container">
+                <!-- Traits will be dynamically added here -->
+            </div>
+            
+            <h2>Communication Style</h2>
+            <div class="form-group">
+                <label for="tone">Tone</label>
+                <input type="text" id="tone" name="tone" placeholder="e.g., warm, professional, casual">
+            </div>
+            
+            <div class="form-group">
+                <label for="vocabulary-level">Vocabulary Level</label>
+                <select id="vocabulary-level" name="vocabulary_level">
+                    <option value="simple">Simple</option>
+                    <option value="moderate" selected>Moderate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="formality">Formality Level</label>
+                <input type="range" id="formality" name="formality" min="0" max="1" step="0.1" value="0.5" class="trait-slider">
+                <span class="trait-value">0.5</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="humor-level">Humor Level</label>
+                <input type="range" id="humor-level" name="humor_level" min="0" max="1" step="0.1" value="0.5" class="trait-slider">
+                <span class="trait-value">0.5</span>
+            </div>
+            
+            <h2>Knowledge & Interests</h2>
+            <div class="form-group">
+                <label for="domains">Areas of Expertise</label>
+                <input type="text" id="domains" name="domains" placeholder="Comma-separated list of domains">
+            </div>
+            
+            <div class="form-group">
+                <label for="skills">Skills</label>
+                <input type="text" id="skills" name="skills" placeholder="Comma-separated list of skills">
+            </div>
+            
+            <div class="form-group">
+                <label for="interests">Interests</label>
+                <input type="text" id="interests" name="interests" placeholder="Comma-separated list of interests">
+            </div>
+            
+            <h2>Backstory</h2>
+            <div class="form-group">
+                <label for="background">Background</label>
+                <textarea id="background" name="background" placeholder="Character's background story"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="experiences">Key Experiences</label>
+                <textarea id="experiences" name="experiences" placeholder="One experience per line"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="goals">Goals</label>
+                <textarea id="goals" name="goals" placeholder="One goal per line"></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="primary">Save Personality</button>
+                <button type="button" id="reset-form" class="secondary">Reset to Default</button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        // Default personality traits
+        const defaultTraits = [
+            { name: 'empathy', description: 'Level of emotional understanding and compassion' },
+            { name: 'intelligence', description: 'Analytical and problem-solving abilities' },
+            { name: 'creativity', description: 'Ability to think outside the box and generate novel ideas' },
+            { name: 'adaptability', description: 'Flexibility and responsiveness to different situations' },
+            { name: 'reliability', description: 'Consistency and dependability in interactions' }
+        ];
+        
+        // Initialize trait sliders
+        function initializeTraits() {
+            const container = document.getElementById('traits-container');
+            container.innerHTML = '';
+            
+            defaultTraits.forEach(trait => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label for="${trait.name}">${trait.name.charAt(0).toUpperCase() + trait.name.slice(1)}</label>
+                    <input type="range" id="${trait.name}" name="${trait.name}" min="0" max="1" step="0.1" value="0.5" class="trait-slider">
+                    <span class="trait-value">0.5</span>
+                    <div class="trait-description">${trait.description}</div>
+                `;
+                container.appendChild(div);
+            });
+            
+            // Add event listeners for sliders
+            document.querySelectorAll('.trait-slider').forEach(slider => {
+                slider.addEventListener('input', function() {
+                    this.nextElementSibling.textContent = this.value;
+                });
+            });
+        }
+        
+        // Character analysis
+        document.getElementById('analyze-character').addEventListener('click', async function() {
+            const description = document.getElementById('character-description').value.trim();
+            if (!description) {
+                alert('Please enter a character description');
+                return;
+            }
+            
+            const loading = document.getElementById('analysis-loading');
+            const result = document.getElementById('analysis-result');
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/analyze-character', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ description })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update sliders with analyzed values
+                    Object.entries(data.traits).forEach(([name, value]) => {
+                        const slider = document.getElementById(name);
+                        if (slider) {
+                            slider.value = value;
+                            slider.nextElementSibling.textContent = value;
+                        }
+                    });
+                    
+                    // Update other fields
+                    if (data.style) {
+                        document.getElementById('tone').value = data.style.tone || '';
+                        document.getElementById('vocabulary-level').value = data.style.vocabulary_level || 'moderate';
+                        document.getElementById('formality').value = data.style.formality || 0.5;
+                        document.getElementById('humor-level').value = data.style.humor_level || 0.5;
+                    }
+                    
+                    if (data.knowledge) {
+                        document.getElementById('domains').value = data.knowledge.domains.join(', ');
+                        document.getElementById('skills').value = data.knowledge.skills.join(', ');
+                        document.getElementById('interests').value = data.knowledge.interests.join(', ');
+                    }
+                    
+                    if (data.backstory) {
+                        document.getElementById('background').value = data.backstory.background || '';
+                        document.getElementById('experiences').value = data.backstory.experiences.join('\n');
+                        document.getElementById('goals').value = data.backstory.goals.join('\n');
+                    }
+                    
+                    result.textContent = 'Character analysis complete! The form has been updated with suggested values.';
+                    result.style.display = 'block';
+                } else {
+                    throw new Error(data.message || 'Analysis failed');
+                }
+            } catch (error) {
+                result.textContent = `Error: ${error.message}`;
+                result.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+        
+        // Form submission
+        document.getElementById('personality-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                traits: defaultTraits.map(trait => ({
+                    name: trait.name,
+                    value: parseFloat(document.getElementById(trait.name).value),
+                    description: trait.description
+                })),
+                style: {
+                    tone: document.getElementById('tone').value,
+                    vocabulary_level: document.getElementById('vocabulary-level').value,
+                    formality: parseFloat(document.getElementById('formality').value),
+                    humor_level: parseFloat(document.getElementById('humor-level').value)
+                },
+                knowledge: {
+                    domains: document.getElementById('domains').value.split(',').map(d => d.trim()).filter(Boolean),
+                    skills: document.getElementById('skills').value.split(',').map(s => s.trim()).filter(Boolean),
+                    interests: document.getElementById('interests').value.split(',').map(i => i.trim()).filter(Boolean)
+                },
+                backstory: {
+                    background: document.getElementById('background').value,
+                    experiences: document.getElementById('experiences').value.split('\n').filter(Boolean),
+                    goals: document.getElementById('goals').value.split('\n').filter(Boolean)
+                }
+            };
+            
+            try {
+                const response = await fetch('/api/save-personality', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Personality saved successfully!');
+                } else {
+                    throw new Error(data.message || 'Failed to save personality');
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        });
+        
+        // Reset form
+        document.getElementById('reset-form').addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset the form to default values?')) {
+                initializeTraits();
+                document.getElementById('personality-form').reset();
+                document.getElementById('character-description').value = '';
+                document.getElementById('analysis-result').style.display = 'none';
+            }
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeTraits);
+    </script>
+</body>
+</html> 

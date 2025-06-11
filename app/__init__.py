@@ -8,7 +8,16 @@ from app.memory.sql import init_db
 
 def create_app(test_config=None):
     """Create and configure the app"""
-    app = Flask(__name__, instance_relative_config=True)
+    # Get the project root directory (two levels up from this file)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    app = Flask(
+        __name__,
+        instance_relative_config=True,
+        static_folder=os.path.join(project_root, 'static'),
+        template_folder=os.path.join(os.path.dirname(__file__), 'templates')
+    )
+    print("Flask template folder:", app.template_folder)
     CORS(app)
 
     # Default configuration

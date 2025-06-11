@@ -1,5 +1,5 @@
 """
-MiaChat - A sophisticated AI personality application
+MiaChat - A sophisticated AI personality application.
 """
 
 __version__ = "0.1.0" 

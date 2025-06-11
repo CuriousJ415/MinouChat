@@ -4,9 +4,17 @@ Unit tests for personality framework
 import pytest
 from pathlib import Path
 from lxml import etree
+from datetime import datetime
 
 from miachat.personality.loader import PersonalityLoader
 from miachat.personality.schema import PersonalityDefinition
+from miachat.core.personality import (
+    Personality,
+    Trait,
+    Style,
+    Knowledge,
+    Backstory
+)
 
 
 def test_load_personality():
@@ -358,4 +366,122 @@ def test_xml_schema_validation(tmp_path):
     # Should raise ValueError
     with pytest.raises(ValueError) as exc_info:
         loader._load_from_xml(xml_path)
-    assert "Invalid personality definition" in str(exc_info.value) 
+    assert "Invalid personality definition" in str(exc_info.value)
+
+def test_personality_creation():
+    """Test creating a new Personality instance."""
+    traits = {
+        "empathy": Trait("empathy", 0.8, "High emotional understanding"),
+        "intelligence": Trait("intelligence", 0.9, "High analytical capabilities")
+    }
+    
+    style = Style(
+        tone="warm",
+        vocabulary_level="advanced",
+        formality=0.7,
+        humor_level=0.6
+    )
+    
+    knowledge = Knowledge(
+        domains=["science", "technology"],
+        skills=["problem-solving", "communication"],
+        interests=["AI", "ethics"]
+    )
+    
+    backstory = Backstory(
+        background="An AI assistant designed for meaningful dialogue",
+        experiences=["Extensive interaction with humans"],
+        relationships=["Trusted companion to users"],
+        goals=["Provide helpful and engaging conversation"]
+    )
+    
+    personality = Personality(
+        name="TestAI",
+        traits=traits,
+        style=style,
+        knowledge=knowledge,
+        backstory=backstory
+    )
+    
+    assert personality.name == "TestAI"
+    assert len(personality.traits) == 2
+    assert personality.style.tone == "warm"
+    assert len(personality.knowledge.domains) == 2
+    assert personality.backstory.background == "An AI assistant designed for meaningful dialogue"
+
+def test_personality_serialization():
+    """Test personality serialization methods."""
+    # TODO: Implement tests for XML and JSON serialization
+    pass 
+
+def test_load_sample_personality():
+    """Test loading the sample personality definition."""
+    personality = Personality.from_xml("config/personalities/mia.xml")
+    
+    assert personality.name == "Mia"
+    assert len(personality.traits) == 5
+    assert personality.traits["empathy"].value == 0.9
+    assert personality.style.tone == "warm"
+    assert personality.style.vocabulary_level == "advanced"
+    assert len(personality.knowledge.domains) == 5
+    assert len(personality.knowledge.skills) == 5
+    assert len(personality.knowledge.interests) == 4
+    assert len(personality.backstory.experiences) == 3
+    assert len(personality.backstory.relationships) == 3
+    assert len(personality.backstory.goals) == 4
+
+def test_save_and_load_personality(tmp_path):
+    """Test saving and loading a personality definition."""
+    # Create a test personality
+    traits = {
+        "empathy": Trait("empathy", 0.8, "High emotional understanding")
+    }
+    style = Style(
+        tone="warm",
+        vocabulary_level="advanced",
+        formality=0.7,
+        humor_level=0.6
+    )
+    knowledge = Knowledge(
+        domains=["test"],
+        skills=["test"],
+        interests=["test"]
+    )
+    backstory = Backstory(
+        background="Test background",
+        experiences=["Test experience"],
+        relationships=["Test relationship"],
+        goals=["Test goal"]
+    )
+    
+    personality = Personality(
+        name="TestAI",
+        traits=traits,
+        style=style,
+        knowledge=knowledge,
+        backstory=backstory
+    )
+    
+    # Save to XML
+    xml_path = tmp_path / "test.xml"
+    personality.save_to_file(xml_path, format="xml")
+    
+    # Load from XML
+    loaded_personality = Personality.from_xml(xml_path)
+    assert loaded_personality.name == personality.name
+    assert len(loaded_personality.traits) == len(personality.traits)
+    assert loaded_personality.style.tone == personality.style.tone
+    assert len(loaded_personality.knowledge.domains) == len(personality.knowledge.domains)
+    assert loaded_personality.backstory.background == personality.backstory.background
+    
+    # Save to JSON
+    json_path = tmp_path / "test.json"
+    personality.save_to_file(json_path, format="json")
+    
+    # Load from JSON
+    loaded_personality = Personality.from_json(json_path)
+    assert loaded_personality.name == personality.name
+    assert len(loaded_personality.traits) == len(personality.traits)
+    assert loaded_personality.style.tone == personality.style.tone
+    assert len(loaded_personality.knowledge.domains) == len(personality.knowledge.domains)
+    assert loaded_personality.backstory.background == personality.backstory.background 

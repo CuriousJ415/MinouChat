@@ -1,0 +1,128 @@
+<!-- First Time Setup Modal -->
+<div id="first-time-setup-modal" class="modal">
+    <div class="modal-content">
+        <h2>Welcome to MiaAI!</h2>
+        <p>Let's set up your AI characters. First, we need to configure your preferred LLM settings.</p>
+
+        <div class="setup-step">
+            <h3>Step 1: Choose your LLM Provider</h3>
+            <select id="setup-llm-provider" required>
+                <option value="ollama">Ollama (Local)</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+            </select>
+        </div>
+
+        <div class="setup-step" id="ollama-setup">
+            <h3>Step 2: Select Available Models</h3>
+            <p>Choose which models to use for your characters:</p>
+            <div id="available-models">
+                <p>Loading available models...</p>
+            </div>
+        </div>
+
+        <div class="setup-step" id="api-key-setup" style="display: none;">
+            <h3>Step 2: Enter API Key</h3>
+            <input type="password" id="setup-api-key" placeholder="Enter your API key">
+            <p class="help-text">Your API key is stored locally and never shared.</p>
+        </div>
+
+        <div class="setup-step">
+            <h3>Step 3: Configure Default Characters</h3>
+            <p>Select which model to use for each character:</p>
+            <div class="character-model-setup">
+                <div class="character-setup">
+                    <h4>Mia (Assistant)</h4>
+                    <select class="character-model" data-character="mia"></select>
+                </div>
+                <div class="character-setup">
+                    <h4>Anna (Life Coach)</h4>
+                    <select class="character-model" data-character="anna"></select>
+                </div>
+                <div class="character-setup">
+                    <h4>Gordon (Business Coach)</h4>
+                    <select class="character-model" data-character="gordon"></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="setup-actions">
+            <button id="save-setup" class="primary-button">Save & Continue</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: var(--background-color);
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    color: var(--text-color);
+}
+
+.setup-step {
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: var(--background-color-light);
+}
+
+.character-model-setup {
+    display: grid;
+    gap: 15px;
+}
+
+.character-setup {
+    padding: 10px;
+    border-radius: 6px;
+    background-color: var(--background-color-dark);
+}
+
+select, input {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 4px;
+    background-color: var(--background-color-dark);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.setup-actions {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.primary-button {
+    padding: 10px 20px;
+    border-radius: 4px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.primary-button:hover {
+    background-color: var(--primary-color-hover);
+}
+
+.help-text {
+    font-size: 0.9em;
+    color: var(--text-color-muted);
+    margin-top: 5px;
+}
+</style> 

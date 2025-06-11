@@ -1,8 +1,8 @@
-from flask import Blueprint, send_from_directory, current_app
+from flask import Blueprint, render_template
 
 root_bp = Blueprint('root', __name__)
 
 @root_bp.route('/')
 def index():
     """Serve the main application page"""
-    return send_from_directory(current_app.static_folder, 'index.html') 
+    return render_template('index.html', characters={}) 

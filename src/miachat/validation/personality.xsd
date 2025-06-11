@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <!-- Personality root element -->
+    <xs:element name="personality">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="name" type="xs:string"/>
+                <xs:element name="version" type="xs:string"/>
+                <xs:element name="traits">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="trait" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="name" type="xs:string"/>
+                                        <xs:element name="value" type="xs:decimal">
+                                            <xs:restriction base="xs:decimal">
+                                                <xs:minInclusive value="0"/>
+                                                <xs:maxInclusive value="1"/>
+                                            </xs:restriction>
+                                        </xs:element>
+                                        <xs:element name="description" type="xs:string" minOccurs="0"/>
+                                    </xs:sequence>
+                                    <xs:attribute name="id" type="xs:string" use="required"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="style">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="tone" type="xs:string"/>
+                            <xs:element name="vocabulary_level">
+                                <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                        <xs:enumeration value="simple"/>
+                                        <xs:enumeration value="moderate"/>
+                                        <xs:enumeration value="advanced"/>
+                                    </xs:restriction>
+                                </xs:simpleType>
+                            </xs:element>
+                            <xs:element name="formality" type="xs:decimal">
+                                <xs:restriction base="xs:decimal">
+                                    <xs:minInclusive value="0"/>
+                                    <xs:maxInclusive value="1"/>
+                                </xs:restriction>
+                            </xs:element>
+                            <xs:element name="humor_level" type="xs:decimal">
+                                <xs:restriction base="xs:decimal">
+                                    <xs:minInclusive value="0"/>
+                                    <xs:maxInclusive value="1"/>
+                                </xs:restriction>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="knowledge">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="domains">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="domain" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="skills">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="skill" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="interests">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="interest" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="backstory">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="background" type="xs:string"/>
+                            <xs:element name="experiences">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="experience" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="relationships">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="relationship" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="goals">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="goal" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema> 

@@ -1,122 +1,178 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const messagesContainer = document.getElementById('messages');
-    const userInput = document.getElementById('user-input');
-    const sendButton = document.getElementById('send-btn');
-    const characterSelect = document.getElementById('character-select');
-    const switchButton = document.getElementById('switch-btn');
-    const themeSwitch = document.getElementById('theme-switch');
-    
-    // Theme switching
-    themeSwitch.addEventListener('change', function() {
-        if (this.checked) {
-            document.body.classList.remove('light-theme');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.body.classList.add('light-theme');
-            localStorage.setItem('theme', 'light');
-        }
-    });
-    
-    // Load saved theme preference
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    if (savedTheme === 'light') {
-        document.body.classList.add('light-theme');
-        themeSwitch.checked = false;
-    } else {
-        document.body.classList.remove('light-theme');
-        themeSwitch.checked = true;
+/**
+ * MiaAI Chat JavaScript
+ * Handles chat-specific functionality including message sending, receiving, and formatting
+ */
+
+class ChatManager {
+    constructor(app) {
+        this.app = app;
+        this.messageContainer = document.getElementById('chat-messages');
+        this.messageInput = document.getElementById('message-input');
+        this.sendButton = document.getElementById('send-button');
+        this.clearButton = document.getElementById('clear-chat-button');
+        this.searchButton = document.getElementById('search-memories-button');
+        this.typingIndicator = document.createElement('div');
+        this.typingIndicator.className = 'message ai typing-indicator';
+        this.typingIndicator.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        
+        this.init();
     }
     
-    // Send message function
-    async function sendMessage() {
-        const message = userInput.value.trim();
+    init() {
+        // Set up event listeners for required elements
+        if (this.messageInput) {
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+        }
+        
+        if (this.sendButton) {
+            this.sendButton.addEventListener('click', () => this.sendMessage());
+        }
+        
+        // Set up event listeners for optional elements
+        if (this.clearButton) {
+            this.clearButton.addEventListener('click', () => this.clearChat());
+        }
+        
+        if (this.searchButton) {
+            this.searchButton.addEventListener('click', () => this.app.openMemorySearchModal());
+        }
+    }
+    
+    sendMessage() {
+        const message = this.messageInput.value.trim();
         if (!message) return;
         
-        // Add user message to chat
-        addMessage(message, 'user');
-        userInput.value = '';
+        // Check if a character is selected
+        if (!this.app.selectedCharacter) {
+            this.app.showError('Please select a character first');
+            return;
+        }
         
-        try {
-            const response = await fetch('/api/send_message', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message }),
-            });
-            
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            
-            const data = await response.json();
-            
-            // Add AI response to chat
-            const characterName = data.character || 'System';
-            addMessage(data.response, 'ai', characterName);
-            
-            // Update character selector if needed
-            if (data.current_character && characterSelect.value !== data.current_character) {
-                characterSelect.value = data.current_character;
-            }
-            
-        } catch (error) {
-            console.error('Error:', error);
-            addMessage('Error: Could not connect to server', 'ai', 'System');
+        // Display user message
+        this.displayMessage('user', message);
+        
+        // Clear input
+        this.messageInput.value = '';
+        
+        // Show typing indicator
+        this.showTypingIndicator();
+        
+        // Send to API
+        this.app.sendMessageToAPI(message);
+    }
+    
+    displayMessage(role, content, isMemory = false) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${role}`;
+        messageElement.textContent = content;
+        
+        this.messageContainer.appendChild(messageElement);
+        this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
+    }
+    
+    formatMessageContent(content) {
+        // Simple markdown-like formatting
+        let formatted = content
+            // Code blocks
+            .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+            // Inline code
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            // Bold
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            // Line breaks
+            .replace(/\n/g, '<br>');
+        
+        return formatted;
+    }
+    
+    showTypingIndicator() {
+        this.messageContainer.appendChild(this.typingIndicator);
+        this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
+    }
+    
+    hideTypingIndicator() {
+        if (this.typingIndicator.parentNode === this.messageContainer) {
+            this.messageContainer.removeChild(this.typingIndicator);
         }
     }
     
-    // Add message to chat
-    function addMessage(text, sender, characterName = null) {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
-        
-        if (sender === 'ai' && characterName) {
-            const nameSpan = document.createElement('div');
-            nameSpan.classList.add('character-name');
-            nameSpan.textContent = characterName;
-            messageDiv.appendChild(nameSpan);
+    clearChat() {
+        // Clear messages from the UI only, don't delete from database
+        while (this.messageContainer.firstChild) {
+            this.messageContainer.removeChild(this.messageContainer.firstChild);
         }
         
-        const content = document.createTextNode(text);
-        messageDiv.appendChild(content);
+        // Show welcome message
+        const character = this.app.selectedCharacter;
+        if (character) {
+            const welcomeMessage = `Chat cleared. I'm ${character.name}, ${character.role}. How can I help you today?`;
+            this.displayMessage('assistant', welcomeMessage);
+        }
         
-        messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // Show notification
+        this.app.showNotification('Chat cleared');
     }
     
-    // Switch character
-    switchButton.addEventListener('click', async function() {
-        const selectedCharacter = characterSelect.value;
-        addMessage(`/switch ${selectedCharacter}`, 'user');
+    loadChatHistory(characterId, limit = 10, offset = 0) {
+        console.log(`Loading chat history for character ${characterId} with limit=${limit}, offset=${offset}`);
         
-        try {
-            const response = await fetch('/api/send_message', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: `/switch ${selectedCharacter}` }),
+        // Clear existing messages
+        while (this.messageContainer.firstChild) {
+            this.messageContainer.removeChild(this.messageContainer.firstChild);
+        }
+        
+        // Show welcome message by default
+        const character = this.app.selectedCharacter;
+        if (character) {
+            const welcomeMessage = `Hello! I'm ${character.name}, ${character.role}. How can I help you today?`;
+            this.displayMessage('assistant', welcomeMessage);
+        }
+        
+        // Try to load history
+        fetch(`/api/chat/${characterId}/history?limit=${limit}&offset=${offset}`)
+            .then(response => {
+                console.log("History response status:", response.status);
+                if (!response.ok) {
+                    console.log("Error response:", response);
+                    // Don't throw error, just return null so we keep the welcome message
+                    return null;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return; // If null, keep the welcome message
+                
+                console.log("History data:", data);
+                
+                // Only clear messages if we have conversations to show
+                if (data.success && data.conversations && data.conversations.length > 0) {
+                    // Clear the welcome message
+                    while (this.messageContainer.firstChild) {
+                        this.messageContainer.removeChild(this.messageContainer.firstChild);
+                    }
+                    
+                    // Display messages
+                    data.conversations.forEach(msg => {
+                        this.displayMessage(
+                            msg.role === 'user' ? 'user' : 'assistant', 
+                            msg.content
+                        );
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading chat history:', error);
+                // We already showed the welcome message, so no need to handle the error
             });
-            
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            
-            const data = await response.json();
-            addMessage(data.response, 'ai', 'System');
-            
-        } catch (error) {
-            console.error('Error:', error);
-            addMessage('Error: Could not connect to server', 'ai', 'System');
-        }
-    });
-    
-    // Event listeners
-    sendButton.addEventListener('click', sendMessage);
-    userInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    });
-}); 
+    }
+}
+
+// Export the ChatManager class
+window.ChatManager = ChatManager; 
