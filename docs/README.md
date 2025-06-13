@@ -14,8 +14,8 @@ This documentation tracks the development and implementation of the MiaAI system
 
 ### Immediate Next Steps
 - [ ] Restore or scaffold missing code files (e.g., `core/conversation.py`)
+- [ ] Add/restore any missing templates (dashboard)
 - [ ] Initialize the database (`python -m src.miachat.cli init_database`)
-- [ ] Add/restore any missing templates
 - [ ] Add automated tests for routes and models
 - [ ] Add Dockerfile and .dockerignore for containerization
 - [ ] Update documentation as features are added

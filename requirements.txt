@@ -27,3 +27,6 @@ tiktoken
 pydantic
 pydantic-settings
 lxml
+pytest
+flask_sqlalchemy
+psycopg2-binary

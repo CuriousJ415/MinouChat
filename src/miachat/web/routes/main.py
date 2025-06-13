@@ -8,4 +8,8 @@ def index():
 
 @bp.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html') 
+    return render_template('dashboard.html')
+
+@bp.route('/chat')
+def chat():
+    return render_template('chat.html') 

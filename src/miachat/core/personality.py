@@ -51,4 +51,13 @@ class Personality:
     def save_to_file(self, file_path: Union[str, Path], format: str = "xml") -> None:
         """Save the personality definition to a file."""
         from ..personality.serializer import PersonalitySerializer
-        PersonalitySerializer.save_to_file(self, file_path, format) 
+        PersonalitySerializer.save_to_file(self, file_path, format)
+
+class PersonalityManager:
+    """Minimal stub for PersonalityManager."""
+    def __init__(self):
+        pass
+
+    def get_personality(self, personality_id):
+        # Stub method for compatibility
+        return None 

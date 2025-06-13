@@ -8,6 +8,7 @@ from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from ..database.config import db_config
 from .auth import User
+from .models import db  # Updated import
 import os
 
 # Initialize Flask extensions
@@ -30,15 +31,19 @@ def create_app(config=None):
         app.config.update(config)
     
     # Initialize extensions
+    db.init_app(app)  # Initialize SQLAlchemy
+    with app.app_context():
+        db.create_all()  # Create database tables
     socketio.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
     
     # Register blueprints
-    from .routes import main, auth, personality
+    from .routes import main, auth, personality, chat
     app.register_blueprint(main.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(personality.bp)
+    app.register_blueprint(chat.bp)
     
     # Register user loader
     @login_manager.user_loader

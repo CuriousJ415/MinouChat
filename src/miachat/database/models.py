@@ -8,7 +8,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSO
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableDict
 
-Base = declarative_base()
+Base = declarative_base()  # Re-added
 
 # Association tables for many-to-many relationships
 personality_trait = Table(
@@ -201,4 +201,30 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), nullable=False, unique=True)
     email = Column(String(120), nullable=False, unique=True)
-    password_hash = Column(String(128), nullable=False) 
+    password_hash = Column(String(128), nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email
+        }
+
+class File(Base):
+    """Model for file attachments."""
+    __tablename__ = 'files'
+    
+    id = Column(String(36), primary_key=True)
+    name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False)
+    url = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'type': self.type,
+            'url': self.url,
+            'created_at': self.created_at.isoformat()
+        } 

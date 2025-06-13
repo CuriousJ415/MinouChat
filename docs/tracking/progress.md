@@ -120,6 +120,9 @@
 - Character evolution system implementation started
 - User-character conflict resolution system implementation started
 - NPC system implementation started
+- Restored/scaffolded core conversation logic (core/conversation.py)
+- Added and styled dashboard template
+- Proactively checked and fixed all template links for valid endpoints
 
 ## Next Actions
 1. Complete Character Evolution System
@@ -140,12 +143,11 @@
    - Add NPC interaction generation
    - Create NPC visualization
 
-4. Restore or scaffold missing code files (e.g., `core/conversation.py`)
+4. Add automated tests for routes and models
 5. Initialize the database (`python -m src.miachat.cli init_database`)
-6. Add/restore any missing templates
-7. Add automated tests for routes and models
-8. Add Dockerfile and .dockerignore for containerization
-9. Update documentation as features are added
+6. Add/restore any missing templates (dashboard)
+7. Add Dockerfile and .dockerignore for containerization
+8. Update documentation as features are added
 
 ## Completed Features
 - Basic character creation and management
