@@ -1,167 +1,102 @@
 {% extends "base.html" %}
 
-{% block title %}Edit {{ personality.name }} - MiaChat{% endblock %}
+{% block title %}Edit Personality - MiaChat{% endblock %}
 
 {% block content %}
-<div class="bg-white shadow overflow-hidden sm:rounded-lg">
-    <div class="px-4 py-5 sm:px-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">
-            Edit Personality: {{ personality.name }}
-        </h3>
-        <p class="mt-1 max-w-2xl text-sm text-gray-500">
-            Modify personality settings and attributes
-        </p>
-    </div>
-    <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
-        <form action="{{ url_for('personality.edit_personality', id=personality.id) }}" method="POST" class="space-y-6">
-            <!-- Basic Information -->
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-                    <input type="text" name="name" id="name" value="{{ personality.name }}" required
-                           class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Edit Personality</h2>
                 </div>
-                <div>
-                    <label for="version" class="block text-sm font-medium text-gray-700">Version</label>
-                    <input type="text" name="version" id="version" value="{{ personality.version }}" required
-                           class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                </div>
-            </div>
-
-            <!-- Style Settings -->
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                    <label for="tone" class="block text-sm font-medium text-gray-700">Tone</label>
-                    <select name="tone" id="tone" required
-                            class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <option value="friendly" {% if personality.tone == 'friendly' %}selected{% endif %}>Friendly</option>
-                        <option value="professional" {% if personality.tone == 'professional' %}selected{% endif %}>Professional</option>
-                        <option value="casual" {% if personality.tone == 'casual' %}selected{% endif %}>Casual</option>
-                        <option value="formal" {% if personality.tone == 'formal' %}selected{% endif %}>Formal</option>
-                        <option value="humorous" {% if personality.tone == 'humorous' %}selected{% endif %}>Humorous</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="vocabulary_level" class="block text-sm font-medium text-gray-700">Vocabulary Level (1-10)</label>
-                    <input type="number" name="vocabulary_level" id="vocabulary_level" value="{{ personality.vocabulary_level }}" min="1" max="10" required
-                           class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                </div>
-                <div>
-                    <label for="formality" class="block text-sm font-medium text-gray-700">Formality Level (1-10)</label>
-                    <input type="number" name="formality" id="formality" value="{{ personality.formality }}" min="1" max="10" required
-                           class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                </div>
-                <div>
-                    <label for="humor_level" class="block text-sm font-medium text-gray-700">Humor Level (1-10)</label>
-                    <input type="number" name="humor_level" id="humor_level" value="{{ personality.humor_level }}" min="1" max="10" required
-                           class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                <div class="card-body">
+                    <form id="edit-personality-form">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="system_prompt" class="form-label">System Prompt</label>
+                            <textarea class="form-control" id="system_prompt" name="system_prompt" rows="5" required></textarea>
+                            <div class="form-text">This prompt defines how the personality behaves and responds.</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active">
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="/personality" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
                 </div>
             </div>
-
-            <!-- Traits -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Traits</label>
-                <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                    {% for trait in ['Analytical', 'Creative', 'Empathetic', 'Logical', 'Witty', 'Serious', 'Playful', 'Professional'] %}
-                    <div class="flex items-center">
-                        <input type="checkbox" name="traits" value="{{ trait }}" id="trait_{{ trait|lower }}"
-                               {% if trait in personality.traits|map(attribute='name')|list %}checked{% endif %}
-                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="trait_{{ trait|lower }}" class="ml-2 block text-sm text-gray-900">
-                            {{ trait }}
-                        </label>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Knowledge Domains -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Knowledge Domains</label>
-                <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                    {% for domain in ['Science', 'Technology', 'Arts', 'History', 'Philosophy', 'Literature', 'Mathematics', 'Psychology'] %}
-                    <div class="flex items-center">
-                        <input type="checkbox" name="knowledge_domains" value="{{ domain }}" id="domain_{{ domain|lower }}"
-                               {% if domain in personality.knowledge_domains|map(attribute='name')|list %}checked{% endif %}
-                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="domain_{{ domain|lower }}" class="ml-2 block text-sm text-gray-900">
-                            {{ domain }}
-                        </label>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Skills -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Skills</label>
-                <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                    {% for skill in ['Problem Solving', 'Communication', 'Analysis', 'Creativity', 'Teaching', 'Writing', 'Research', 'Critical Thinking'] %}
-                    <div class="flex items-center">
-                        <input type="checkbox" name="skills" value="{{ skill }}" id="skill_{{ skill|lower|replace(' ', '_') }}"
-                               {% if skill in personality.skills|map(attribute='name')|list %}checked{% endif %}
-                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="skill_{{ skill|lower|replace(' ', '_') }}" class="ml-2 block text-sm text-gray-900">
-                            {{ skill }}
-                        </label>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Interests -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Interests</label>
-                <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                    {% for interest in ['Science', 'Technology', 'Arts', 'History', 'Philosophy', 'Literature', 'Mathematics', 'Psychology'] %}
-                    <div class="flex items-center">
-                        <input type="checkbox" name="interests" value="{{ interest }}" id="interest_{{ interest|lower }}"
-                               {% if interest in personality.interests|map(attribute='name')|list %}checked{% endif %}
-                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                        <label for="interest_{{ interest|lower }}" class="ml-2 block text-sm text-gray-900">
-                            {{ interest }}
-                        </label>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Backstory -->
-            <div class="space-y-4">
-                <div>
-                    <label for="background" class="block text-sm font-medium text-gray-700">Background</label>
-                    <textarea name="background" id="background" rows="3" required
-                              class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">{{ personality.backstory.background }}</textarea>
-                </div>
-                <div>
-                    <label for="experiences" class="block text-sm font-medium text-gray-700">Experiences</label>
-                    <textarea name="experiences" id="experiences" rows="3" required
-                              class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">{{ personality.backstory.experiences }}</textarea>
-                </div>
-                <div>
-                    <label for="relationships" class="block text-sm font-medium text-gray-700">Relationships</label>
-                    <textarea name="relationships" id="relationships" rows="3" required
-                              class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">{{ personality.backstory.relationships }}</textarea>
-                </div>
-                <div>
-                    <label for="goals" class="block text-sm font-medium text-gray-700">Goals</label>
-                    <textarea name="goals" id="goals" rows="3" required
-                              class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">{{ personality.backstory.goals }}</textarea>
-                </div>
-            </div>
-
-            <!-- Submit Button -->
-            <div class="flex justify-end">
-                <a href="{{ url_for('personality.list_personalities') }}"
-                   class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Cancel
-                </a>
-                <button type="submit"
-                        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Save Changes
-                </button>
-            </div>
-        </form>
+        </div>
     </div>
 </div>
+
+<script>
+// Get personality ID from URL
+const personalityId = window.location.pathname.split('/').pop();
+
+// Load personality data
+async function loadPersonality() {
+    try {
+        const response = await fetch(`/api/personality/${personalityId}`);
+        const personality = await response.json();
+        
+        // Fill form with personality data
+        document.getElementById('name').value = personality.name;
+        document.getElementById('description').value = personality.description;
+        document.getElementById('system_prompt').value = personality.system_prompt;
+        document.getElementById('is_active').checked = personality.is_active;
+    } catch (error) {
+        console.error('Error loading personality:', error);
+        alert('Failed to load personality data. Please try again later.');
+    }
+}
+
+// Load personality data when page loads
+loadPersonality();
+
+// Handle form submission
+document.getElementById('edit-personality-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        system_prompt: document.getElementById('system_prompt').value,
+        is_active: document.getElementById('is_active').checked
+    };
+    
+    try {
+        const response = await fetch(`/api/personality/${personalityId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            window.location.href = '/personality';
+        } else {
+            throw new Error('Failed to update personality');
+        }
+    } catch (error) {
+        console.error('Error updating personality:', error);
+        alert('Failed to update personality. Please try again later.');
+    }
+});
+</script>
 {% endblock %} 

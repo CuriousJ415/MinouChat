@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}{{ personality.name }} - MiaChat{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>{{ personality.name }}</h2>
+        <p><strong>Description:</strong> {{ personality.description }}</p>
+        <p><strong>System Prompt:</strong> {{ personality.system_prompt }}</p>
+        <p><strong>Active:</strong> {{ personality.is_active }}</p>
+        <a href="/personality/{{ personality.id }}/edit" class="btn btn-warning">Edit</a>
+        <a href="/personality" class="btn btn-secondary">Back to List</a>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,844 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - MiaChat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/marked@4.0.0/marked.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@latest/css/emoji-mart.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+<style>
+    .chat-container {
+        height: calc(100vh - 12rem);
+    }
+    .messages-container {
+        height: calc(100% - 4rem);
+    }
+    .typing-indicator {
+        display: none;
+    }
+    .typing-indicator.active {
+        display: flex;
+    }
+    .toast-container {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 50;
+    }
+    .toast {
+        margin-bottom: 0.5rem;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-width: 300px;
+        max-width: 500px;
+        animation: slideIn 0.3s ease-out;
+    }
+    .toast.error {
+        background-color: #FEE2E2;
+        border: 1px solid #FCA5A5;
+        color: #991B1B;
+    }
+    .toast.success {
+        background-color: #DCFCE7;
+        border: 1px solid #86EFAC;
+        color: #166534;
+    }
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    .message-content {
+        overflow-x: auto;
+    }
+    .message-content pre {
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        overflow-x: auto;
+    }
+    .message-content code {
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+    }
+    .file-attachment {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem;
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: 0.25rem;
+        margin-top: 0.5rem;
+    }
+    .file-attachment i {
+        margin-right: 0.5rem;
+    }
+    .file-attachment a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .file-attachment a:hover {
+        text-decoration: underline;
+    }
+    .message-actions {
+        display: none;
+        position: absolute;
+        right: 0.5rem;
+        top: 0.5rem;
+    }
+    .message-wrapper:hover .message-actions {
+        display: flex;
+    }
+    .message-wrapper {
+        position: relative;
+    }
+    .search-container {
+        position: relative;
+    }
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 10;
+    }
+    .search-result-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        cursor: pointer;
+    }
+    .search-result-item:hover {
+        background-color: #f3f4f6;
+    }
+    .search-result-item .highlight {
+        background-color: #fef08a;
+    }
+    .emoji-picker {
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        z-index: 20;
+    }
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 0.5rem;
+    }
+    .avatar-small {
+        width: 24px;
+        height: 24px;
+    }
+    .search-filters {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        z-index: 10;
+    }
+    .date-range {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    .filter-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    /* Avatar customization modal */
+    .avatar-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 50;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .avatar-modal.active {
+        display: flex;
+    }
+    
+    .avatar-modal-content {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        max-width: 90%;
+        width: 500px;
+    }
+    
+    .avatar-preview {
+        max-width: 100%;
+        max-height: 400px;
+        margin-bottom: 1rem;
+    }
+    
+    .avatar-controls {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+    
+    .cropper-container {
+        max-height: 400px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Avatar Customization Modal -->
+<div class="avatar-modal" id="avatar-modal">
+    <div class="avatar-modal-content">
+        <h3 class="text-lg font-medium mb-4">Customize Avatar</h3>
+        <div class="avatar-preview-container">
+            <img id="avatar-preview" class="avatar-preview">
+        </div>
+        <div class="avatar-controls">
+            <button id="cancel-avatar" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+            <button id="save-avatar" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Save</button>
+        </div>
+    </div>
+</div>
+
+<div class="chat-container flex flex-col bg-white rounded-lg shadow-lg">
+    <!-- Chat Header -->
+    <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <img id="personality-avatar" src="/static/default-avatar.png" alt="Personality Avatar" class="avatar cursor-pointer">
+                <input type="file" id="avatar-input" class="hidden" accept="image/*">
+            </div>
+            <select id="personality-select" class="form-select rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                <option value="">Select a personality...</option>
+            </select>
+        </div>
+        <div class="flex items-center space-x-2">
+            <div class="search-container">
+                <div class="flex items-center">
+                    <input type="text" 
+                           id="search-input" 
+                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                           placeholder="Search messages...">
+                    <button id="filter-button" class="ml-2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                </div>
+                <div class="search-filters hidden" id="search-filters">
+                    <div class="date-range">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" id="start-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" id="end-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                    </div>
+                    <div class="filter-buttons">
+                        <button class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200" data-type="all">All</button>
+                        <button class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200" data-type="text">Text Only</button>
+                        <button class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200" data-type="file">Files Only</button>
+                    </div>
+                </div>
+                <div class="search-results hidden" id="search-results"></div>
+            </div>
+            <button id="new-chat-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <i class="fas fa-plus mr-2"></i> New Chat
+            </button>
+        </div>
+    </div>
+
+    <!-- Messages Container -->
+    <div class="messages-container overflow-y-auto p-4 space-y-4" id="messages">
+        <!-- Messages will be inserted here -->
+    </div>
+
+    <!-- Typing Indicator -->
+    <div class="typing-indicator px-4 py-2 bg-gray-100" id="typing-indicator">
+        <div class="flex items-center space-x-2">
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="p-4 border-t">
+        <form id="chat-form" class="flex space-x-4">
+            <div class="flex-1 relative">
+                <input type="text" 
+                       id="message-input" 
+                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                       placeholder="Type your message..."
+                       autocomplete="off">
+                <button type="button" 
+                        id="emoji-button"
+                        class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <i class="far fa-smile"></i>
+                </button>
+                <div id="emoji-picker" class="emoji-picker hidden"></div>
+            </div>
+            <div class="flex space-x-2">
+                <label class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer">
+                    <i class="fas fa-paperclip mr-2"></i>
+                    <input type="file" id="file-input" class="hidden" multiple>
+                </label>
+                <button type="submit" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <i class="fas fa-paper-plane mr-2"></i> Send
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked@4.0.0/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/emoji-mart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+<script>
+let currentConversationId = null;
+let selectedFiles = [];
+let currentFilters = {
+    startDate: null,
+    endDate: null,
+    type: 'all'
+};
+
+let cropper = null;
+
+// Initialize emoji picker
+const picker = new EmojiMart.Picker({
+    onSelect: (emoji) => {
+        const input = document.getElementById('message-input');
+        input.value += emoji.native;
+        document.getElementById('emoji-picker').classList.add('hidden');
+    }
+});
+document.getElementById('emoji-picker').appendChild(picker);
+
+// Toggle emoji picker
+document.getElementById('emoji-button').addEventListener('click', () => {
+    const picker = document.getElementById('emoji-picker');
+    picker.classList.toggle('hidden');
+});
+
+// Toggle search filters
+document.getElementById('filter-button').addEventListener('click', () => {
+    const filters = document.getElementById('search-filters');
+    filters.classList.toggle('hidden');
+});
+
+// Handle filter type selection
+document.querySelectorAll('.filter-buttons button').forEach(button => {
+    button.addEventListener('click', () => {
+        document.querySelectorAll('.filter-buttons button').forEach(b => 
+            b.classList.remove('bg-indigo-600', 'text-white'));
+        button.classList.add('bg-indigo-600', 'text-white');
+        currentFilters.type = button.dataset.type;
+        performSearch();
+    });
+});
+
+// Handle date filter changes
+document.getElementById('start-date').addEventListener('change', (e) => {
+    currentFilters.startDate = e.target.value;
+    performSearch();
+});
+
+document.getElementById('end-date').addEventListener('change', (e) => {
+    currentFilters.endDate = e.target.value;
+    performSearch();
+});
+
+// Personality avatar handling
+document.getElementById('personality-avatar').addEventListener('click', () => {
+    document.getElementById('avatar-input').click();
+});
+
+document.getElementById('avatar-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const modal = document.getElementById('avatar-modal');
+            const preview = document.getElementById('avatar-preview');
+            preview.src = e.target.result;
+            modal.classList.add('active');
+            
+            // Initialize cropper
+            if (cropper) {
+                cropper.destroy();
+            }
+            cropper = new Cropper(preview, {
+                aspectRatio: 1,
+                viewMode: 1,
+                dragMode: 'move',
+                autoCropArea: 1,
+                restore: false,
+                guides: true,
+                center: true,
+                highlight: false,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                toggleDragModeOnDblclick: false,
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Handle avatar modal actions
+document.getElementById('cancel-avatar').addEventListener('click', () => {
+    const modal = document.getElementById('avatar-modal');
+    modal.classList.remove('active');
+    if (cropper) {
+        cropper.destroy();
+        cropper = null;
+    }
+});
+
+document.getElementById('save-avatar').addEventListener('click', async () => {
+    if (!cropper) return;
+    
+    const canvas = cropper.getCroppedCanvas({
+        width: 200,
+        height: 200,
+        fillColor: '#fff',
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+    });
+    
+    try {
+        // Convert canvas to blob
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        const formData = new FormData();
+        formData.append('files', blob, 'avatar.jpg');
+        
+        const response = await fetch('/api/personalities/avatar', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Failed to upload avatar');
+        
+        const data = await response.json();
+        document.getElementById('personality-avatar').src = data.avatar_url;
+        showToast('Avatar updated successfully', 'success');
+        
+        // Close modal
+        document.getElementById('avatar-modal').classList.remove('active');
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+    } catch (error) {
+        console.error('Error uploading avatar:', error);
+        showToast('Failed to upload avatar');
+    }
+});
+
+// File handling
+document.getElementById('file-input').addEventListener('change', (e) => {
+    selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length > 0) {
+        showToast(`Selected ${selectedFiles.length} file(s)`, 'success');
+    }
+});
+
+// Message search with filters
+let searchTimeout;
+document.getElementById('search-input').addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(performSearch, 300);
+});
+
+async function performSearch() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    if (query.length < 2) {
+        document.getElementById('search-results').classList.add('hidden');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/chat/history/${currentConversationId}?` + new URLSearchParams({
+            start_date: currentFilters.startDate,
+            end_date: currentFilters.endDate,
+            type: currentFilters.type !== 'all' ? currentFilters.type : undefined
+        }));
+
+        if (!response.ok) throw new Error('Failed to load messages');
+        
+        const data = await response.json();
+        const results = data.messages.filter(msg => {
+            const content = msg.content.toLowerCase();
+            return content.includes(query);
+        });
+
+        const resultsContainer = document.getElementById('search-results');
+        resultsContainer.innerHTML = '';
+        
+        if (results.length > 0) {
+            results.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                const content = msg.content;
+                const highlighted = content.replace(
+                    new RegExp(query, 'gi'),
+                    match => `<span class="highlight">${match}</span>`
+                );
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${msg.role === 'assistant' ? document.getElementById('personality-avatar').src : '/static/user-avatar.png'}" 
+                             alt="${msg.role}" 
+                             class="avatar-small mr-2">
+                        <div>
+                            <div class="text-xs text-gray-500">${new Date(msg.timestamp).toLocaleString()}</div>
+                            <div>${highlighted}</div>
+                        </div>
+                    </div>
+                `;
+                div.addEventListener('click', () => {
+                    const messageElement = document.querySelector(`[data-message-id="${msg.id}"]`);
+                    if (messageElement) {
+                        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        messageElement.classList.add('bg-yellow-100');
+                        setTimeout(() => messageElement.classList.remove('bg-yellow-100'), 2000);
+                    }
+                });
+                resultsContainer.appendChild(div);
+            });
+            resultsContainer.classList.remove('hidden');
+        } else {
+            resultsContainer.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error searching messages:', error);
+        showToast('Failed to search messages');
+    }
+}
+
+// Toast notification system
+function showToast(message, type = 'error') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <div class="flex-1">${message}</div>
+        <button class="ml-4 text-current hover:opacity-75">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+    
+    toast.querySelector('button').addEventListener('click', () => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    });
+}
+
+// Message persistence
+function saveConversationState() {
+    const state = {
+        conversationId: currentConversationId,
+        personalityId: document.getElementById('personality-select').value,
+        messages: Array.from(document.getElementById('messages').children).map(el => ({
+            content: el.querySelector('.message-content').innerHTML,
+            role: el.classList.contains('justify-end') ? 'user' : 'assistant',
+            timestamp: el.querySelector('.text-xs').textContent,
+            files: el.dataset.files ? JSON.parse(el.dataset.files) : []
+        }))
+    };
+    localStorage.setItem('chatState', JSON.stringify(state));
+}
+
+function loadConversationState() {
+    const state = JSON.parse(localStorage.getItem('chatState'));
+    if (state) {
+        currentConversationId = state.conversationId;
+        document.getElementById('personality-select').value = state.personalityId;
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.innerHTML = '';
+        state.messages.forEach(msg => {
+            const messageElement = createMessageElement({
+                content: msg.content,
+                role: msg.role,
+                timestamp: msg.timestamp,
+                files: msg.files
+            }, msg.role === 'user');
+            messagesContainer.appendChild(messageElement);
+        });
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
+
+// Message template with markdown and file support
+function createMessageElement(message, isUser = false) {
+    const div = document.createElement('div');
+    div.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+    
+    const content = isUser ? message.content : marked.parse(message.content);
+    const files = message.files || [];
+    
+    div.innerHTML = `
+        <div class="message-wrapper max-w-3xl rounded-lg px-4 py-2 ${isUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}">
+            <div class="message-actions">
+                <button class="text-current hover:opacity-75" onclick="reactToMessage(this, '👍')">
+                    <i class="far fa-thumbs-up"></i>
+                </button>
+                <button class="text-current hover:opacity-75 ml-2" onclick="reactToMessage(this, '❤️')">
+                    <i class="far fa-heart"></i>
+                </button>
+            </div>
+            <div class="flex items-start">
+                ${!isUser ? `<img src="${document.getElementById('personality-avatar').src}" alt="AI" class="avatar-small mr-2">` : ''}
+                <div class="flex-1">
+                    <div class="message-content text-sm">${content}</div>
+                    ${files.map(file => `
+                        <div class="file-attachment">
+                            <i class="fas ${getFileIcon(file.type)}"></i>
+                            <a href="${file.url}" target="_blank">${file.name}</a>
+                        </div>
+                    `).join('')}
+                    <div class="text-xs mt-1 opacity-75">${new Date(message.timestamp).toLocaleTimeString()}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (files.length > 0) {
+        div.dataset.files = JSON.stringify(files);
+    }
+    
+    return div;
+}
+
+function getFileIcon(fileType) {
+    if (fileType.startsWith('image/')) return 'fa-image';
+    if (fileType.startsWith('video/')) return 'fa-video';
+    if (fileType.startsWith('audio/')) return 'fa-music';
+    if (fileType.includes('pdf')) return 'fa-file-pdf';
+    if (fileType.includes('word')) return 'fa-file-word';
+    if (fileType.includes('excel') || fileType.includes('sheet')) return 'fa-file-excel';
+    return 'fa-file';
+}
+
+function reactToMessage(button, emoji) {
+    const messageWrapper = button.closest('.message-wrapper');
+    const reactionsContainer = messageWrapper.querySelector('.reactions') || 
+        (() => {
+            const div = document.createElement('div');
+            div.className = 'reactions mt-1 flex space-x-1';
+            messageWrapper.appendChild(div);
+            return div;
+        })();
+    
+    const reaction = document.createElement('span');
+    reaction.className = 'text-xs bg-white bg-opacity-20 px-1 rounded';
+    reaction.textContent = emoji;
+    reactionsContainer.appendChild(reaction);
+}
+
+// Load conversation history
+async function loadConversation(conversationId) {
+    try {
+        const response = await fetch(`/api/chat/history/${conversationId}`);
+        if (!response.ok) throw new Error('Failed to load conversation');
+        
+        const data = await response.json();
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.innerHTML = '';
+        
+        data.messages.forEach(message => {
+            const messageElement = createMessageElement(message, message.role === 'user');
+            messagesContainer.appendChild(messageElement);
+        });
+        
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        currentConversationId = conversationId;
+        saveConversationState();
+    } catch (error) {
+        console.error('Error loading conversation:', error);
+        showToast('Failed to load conversation history');
+    }
+}
+
+// Send message
+async function sendMessage(message) {
+    const personalityId = document.getElementById('personality-select').value;
+    if (!personalityId) {
+        showToast('Please select a personality first');
+        return;
+    }
+
+    const messagesContainer = document.getElementById('messages');
+    const typingIndicator = document.getElementById('typing-indicator');
+    
+    // Handle file uploads first
+    const files = [];
+    if (selectedFiles.length > 0) {
+        const formData = new FormData();
+        selectedFiles.forEach(file => formData.append('files', file));
+        
+        try {
+            const uploadResponse = await fetch('/api/chat/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!uploadResponse.ok) throw new Error('Failed to upload files');
+            
+            const uploadData = await uploadResponse.json();
+            files.push(...uploadData.files);
+        } catch (error) {
+            console.error('Error uploading files:', error);
+            showToast('Failed to upload files');
+            return;
+        }
+    }
+    
+    // Add user message to UI
+    const userMessage = {
+        content: message,
+        timestamp: new Date().toISOString(),
+        role: 'user',
+        files: files
+    };
+    messagesContainer.appendChild(createMessageElement(userMessage, true));
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Show typing indicator
+    typingIndicator.classList.add('active');
+
+    try {
+        const response = await fetch('/api/chat/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversation_id: currentConversationId,
+                personality_id: personalityId,
+                message: message,
+                files: files
+            })
+        });
+
+        if (!response.ok) throw new Error('Failed to send message');
+        
+        const data = await response.json();
+        currentConversationId = data.conversation_id;
+
+        // Add AI response to UI
+        const aiMessage = {
+            content: data.response,
+            timestamp: new Date().toISOString(),
+            role: 'assistant',
+            files: data.files || []
+        };
+        messagesContainer.appendChild(createMessageElement(aiMessage));
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        saveConversationState();
+        
+        // Clear selected files
+        selectedFiles = [];
+        document.getElementById('file-input').value = '';
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showToast('Failed to send message. Please try again.');
+    } finally {
+        typingIndicator.classList.remove('active');
+    }
+}
+
+// Event Listeners
+document.getElementById('chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
+    
+    if (message || selectedFiles.length > 0) {
+        input.value = '';
+        await sendMessage(message);
+    }
+});
+
+document.getElementById('new-chat-btn').addEventListener('click', () => {
+    currentConversationId = null;
+    document.getElementById('messages').innerHTML = '';
+    localStorage.removeItem('chatState');
+    showToast('Started a new conversation', 'success');
+});
+
+// Load personalities
+async function loadPersonalities() {
+    try {
+        const response = await fetch('/api/personalities');
+        if (!response.ok) throw new Error('Failed to load personalities');
+        
+        const personalities = await response.json();
+        const select = document.getElementById('personality-select');
+        
+        personalities.forEach(personality => {
+            const option = document.createElement('option');
+            option.value = personality.id;
+            option.textContent = personality.name;
+            select.appendChild(option);
+        });
+
+        // Load avatar for selected personality
+        if (personalities.length > 0) {
+            const avatarResponse = await fetch(`/api/personalities/${personalities[0].id}/avatar`);
+            if (avatarResponse.ok) {
+                const data = await avatarResponse.json();
+                document.getElementById('personality-avatar').src = data.avatar_url;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading personalities:', error);
+        showToast('Failed to load personalities');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadPersonalities();
+    loadConversationState();
+});
+</script>
+{% endblock %} 

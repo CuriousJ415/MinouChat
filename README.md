@@ -1,145 +1,112 @@
-# MiaChat
+# MiaChat - AI Personality Chat Application
 
-A sophisticated AI personality application capable of sustained, meaningful dialogue.
+MiaChat is a FastAPI-based web application that allows you to chat with AI personalities, each with unique traits and communication styles.
 
-## Project Overview
+## Features
 
-MiaChat is an AI personality system that enables natural, context-aware conversations with customizable personalities. The system features:
-
-- XML/JSON-based personality definitions
-- Memory management for context retention
-- Conversation management with personality integration
-- Extensible architecture for future enhancements
+- **Multiple AI Personalities**: Choose from Gordon (Business Coach), Sage (Life Coach), and Mia (Friend)
+- **Personality Management**: View and manage different AI personalities
+- **Interactive Chat Interface**: Clean, modern chat interface with personality switching
+- **File-based Storage**: Simple JSON-based personality storage (no database required)
 
 ## Quick Start
 
-### 1. Clone the repository
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```bash
-git clone https://github.com/CuriousJ415/MiaAI.git
-cd MiaAI
-```
+2. **Start the Application**:
+   ```bash
+   python run.py
+   ```
 
-### 2. Create and activate a Python 3.11 virtual environment
+3. **Access the Application**:
+   - Open your browser and go to: http://127.0.0.1:8080
+   - The application will automatically create default personalities on first run
 
-```bash
-python3.11 -m venv venv
-source venv/bin/activate
-```
+## Available Pages
 
-### 3. Install dependencies
+- **Home** (`/`): Landing page with feature overview
+- **Chat** (`/chat`): Interactive chat interface with personality selector
+- **Personalities** (`/personality`): View all available personalities and their traits
+- **Settings** (`/settings`): Application settings (coming soon)
+- **Config** (`/config`): System configuration (coming soon)
 
-```bash
-pip install -r requirements.txt
-```
+## Default Personalities
 
-### 4. Initialize the database
+### Gordon - Business Coach
+- **Category**: Business
+- **Traits**: High conscientiousness, moderate extraversion
+- **Style**: Formal, direct, practical advice
+- **Best for**: Business discussions, goal setting, strategic planning
 
-```bash
-python -m src.miachat.cli init_database
-```
+### Sage - Life Coach
+- **Category**: Life Coaching
+- **Traits**: High openness, high agreeableness
+- **Style**: Compassionate, thoughtful, wisdom-based guidance
+- **Best for**: Personal growth, life decisions, emotional support
 
-### 5. Run the application
+### Mia - Friend
+- **Category**: Friend
+- **Traits**: High extraversion, high agreeableness
+- **Style**: Casual, supportive, conversational
+- **Best for**: Casual chat, emotional support, friendly conversation
 
-```bash
-python -m src.miachat.web.run
-```
+## Personality Storage
 
-Visit [http://localhost:5001](http://localhost:5001) in your browser.
+Personalities are stored as JSON files in the `personalities/` directory. Each personality includes:
 
----
+- Basic information (name, description, category, tags)
+- Personality traits (Big Five model)
+- Communication style preferences
+- System prompt for AI behavior
 
-### 6. Static Files
+## Development
 
-- Place images and other static assets in `src/miachat/web/static/`.
-- Example: `src/miachat/web/static/images/ai_face_glow.jpg`
-
----
-
-### 7. Troubleshooting
-
-- If you see `ModuleNotFoundError`, ensure all dependencies are installed and you are using Python 3.11.
-- For database issues, re-run the `init_database` command.
+The application is built with:
+- **FastAPI**: Modern Python web framework
+- **Jinja2**: Template engine
+- **Bootstrap 5**: Frontend styling
+- **File-based storage**: Simple JSON files for data persistence
 
 ## Project Structure
 
 ```
-miachat/
-├── src/
-│   └── miachat/
-│       ├── core/           # Core functionality
-│       ├── personality/    # Personality management
-│       ├── memory/         # Memory management
-│       ├── api/           # API endpoints
-│       └── utils/         # Utility functions
-├── tests/
-│   ├── unit/             # Unit tests
-│   └── integration/      # Integration tests
-├── config/
-│   └── personalities/    # Personality definitions
-└── docs/                # Documentation
+src/miachat/api/
+├── main.py                 # FastAPI application entry point
+├── core/
+│   ├── personality_manager.py  # Personality management logic
+│   ├── templates.py            # Template rendering
+│   ├── static.py               # Static file serving
+│   └── flash.py                # Flash message system
+├── templates/              # HTML templates
+│   ├── index.html
+│   ├── chat/
+│   │   └── index.html
+│   └── personality/
+│       └── list.html
+└── static/                 # Static assets (CSS, JS, images)
+personalities/              # Personality JSON files
 ```
 
-## Development Setup
+## Future Enhancements
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
+- [ ] Real AI integration (currently simulated responses)
+- [ ] Personality creation and editing interface
+- [ ] Chat history persistence
+- [ ] User authentication
+- [ ] Advanced personality customization
+- [ ] Export/import personality configurations
 
-2. Install dependencies:
-   ```bash
-   pip install -e ".[dev]"
-   ```
+## Troubleshooting
 
-3. Run tests:
-   ```bash
-   pytest
-   ```
+If you encounter issues:
 
-## Core Components
-
-### Personality Management
-- Define personalities using XML or JSON
-- Customize traits, style, knowledge, and backstory
-- Serialize/deserialize personality definitions
-
-### Memory Management
-- Store and retrieve conversation history
-- Maintain context across interactions
-- Categorize and prioritize memories
-
-### Conversation Management
-- Handle message flow and context
-- Integrate personality traits into responses
-- Manage conversation state
-
-## Development Guidelines
-
-1. Code Style
-   - Follow PEP 8 guidelines
-   - Use type hints
-   - Write docstrings for all public functions/classes
-
-2. Testing
-   - Write unit tests for all new functionality
-   - Maintain test coverage above 80%
-   - Run tests before committing changes
-
-3. Documentation
-   - Update README.md for significant changes
-   - Document new features in docs/
-   - Keep docstrings up to date
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and ensure they pass
-5. Submit a pull request
+1. **Port already in use**: The application uses port 8080 by default. Kill any existing processes or change the port in `run.py`
+2. **Missing dependencies**: Ensure all requirements are installed with `pip install -r requirements.txt`
+3. **Template errors**: Check that all template files exist in the correct locations
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is for educational and personal use. 

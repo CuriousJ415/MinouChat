@@ -6,7 +6,12 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
-        "flask",
+        "fastapi",
+        "uvicorn",
+        "jinja2",
+        "python-multipart",
+        "python-jose[cryptography]",
+        "passlib[bcrypt]",
         "sqlalchemy",
         "alembic",
         "python-dotenv",

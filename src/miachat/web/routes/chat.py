@@ -10,6 +10,10 @@ import os
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import uuid
+from fastapi import APIRouter, Request, Depends
+from fastapi.responses import HTMLResponse
+from ..core.template import render_template
+from sqlalchemy.orm import Session
 
 bp = Blueprint('chat', __name__, url_prefix='/api/chat')
 
@@ -18,6 +22,8 @@ memory_manager = MemoryManager()
 personality_manager = PersonalityManager()
 llm_provider = LLMProvider()
 conversation_manager = ConversationManager(memory_manager, personality_manager, llm_provider)
+
+router = APIRouter()
 
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt', 'mp3', 'mp4'}
@@ -230,4 +236,48 @@ def send_message():
         return jsonify({'error': str(e)}), 500
 
     finally:
-        session.close() 
+        session.close()
+
+@router.get("/", response_class=HTMLResponse)
+async def chat_page(request: Request, db: Session = Depends(get_db)):
+    """Render the chat interface with personality selector."""
+    # Get all personalities
+    personalities = [
+        personality_manager.get_personality(name)
+        for name in personality_manager.list_personalities()
+    ]
+    
+    # Get active personality
+    active_personality = personality_manager.get_active_personality()
+    active_name = active_personality.name if active_personality else None
+    
+    # Get categories and tags
+    categories = personality_manager.get_categories()
+    tags = personality_manager.get_tags()
+    
+    # Get chat history (implement this based on your database schema)
+    chat_history = []  # TODO: Implement chat history retrieval
+    
+    return render_template(
+        "chat/index.html",
+        request=request,
+        personalities=personalities,
+        active_personality=active_name,
+        categories=categories,
+        tags=tags,
+        chat_history=chat_history,
+        messages=[]  # Start with empty messages
+    )
+
+@router.post("/api/chat")
+async def chat_endpoint(message: str, db: Session = Depends(get_db)):
+    """Handle chat messages and return AI responses."""
+    # Get active personality
+    active_personality = personality_manager.get_active_personality()
+    if not active_personality:
+        return {"error": "No active personality selected"}
+    
+    # TODO: Implement chat logic with personality-specific responses
+    # This should use the active personality's configuration to generate responses
+    
+    return {"response": "This is a placeholder response. Chat implementation pending."} 
