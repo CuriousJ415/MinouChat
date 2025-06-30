@@ -215,18 +215,29 @@
                 addMessage('user', message);
                 input.value = '';
                 
-                // Simulate AI response (in a real app, this would call your API)
-                setTimeout(() => {
-                    const responses = [
-                        "That's an interesting point! Tell me more about that.",
-                        "I understand what you're saying. Have you considered...",
-                        "That's a great question. Let me think about that...",
-                        "I appreciate you sharing that with me. What are your thoughts on...",
-                        "That's something worth exploring further. What do you think?"
-                    ];
-                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-                    addMessage('assistant', randomResponse);
-                }, 1000);
+                // Call the actual API
+                fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        personality_name: currentPersonality
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addMessage('assistant', data.response);
+                    } else {
+                        addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                });
             }
         });
         
