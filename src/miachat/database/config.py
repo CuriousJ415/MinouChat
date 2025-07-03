@@ -3,6 +3,7 @@ Database configuration and connection management.
 """
 
 import os
+from pathlib import Path
 from typing import Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -20,10 +21,17 @@ class DatabaseConfig:
             database_url: Optional database URL. If not provided, will use environment variable
                          or default to SQLite.
         """
-        self.database_url = database_url or os.getenv(
-            'MIACHAT_DATABASE_URL',
-            'sqlite:///miachat.db'
-        )
+        if database_url:
+            self.database_url = database_url
+        else:
+            # Get database URL from environment or use default
+            env_url = os.getenv('MIACHAT_DATABASE_URL')
+            if env_url:
+                self.database_url = env_url
+            else:
+                # Use default SQLite database in the miachat directory
+                db_path = Path(__file__).parent / "miachat.db"
+                self.database_url = f"sqlite:///{db_path}"
         
         # Configure engine with connection pooling
         self.engine = create_engine(

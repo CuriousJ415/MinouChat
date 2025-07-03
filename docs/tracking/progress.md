@@ -5,7 +5,7 @@
 ## Current Status
 - Phase: 1
 - Status: In Progress
-- Last Updated: 2024-06-11
+- Last Updated: 2025-01-15
 
 ## Milestones
 
@@ -55,53 +55,54 @@
   - Dependencies: Project Structure
   - Notes: Support for multiple LLM providers (OpenAI, Anthropic, Ollama) implemented
 
+- [x] FastAPI Migration for Chat and Web UI
+  - Status: Completed
+  - Notes: Flask replaced with FastAPI for all main user-facing routes and API endpoints. Modern async architecture.
+
+- [x] Ollama/llama3:8b Integration
+  - Status: Completed
+  - Notes: Local LLM (llama3:8b) now powers all chat responses, with personality system prompts.
+
+- [x] Web UI Connected to Real API
+  - Status: Completed
+  - Notes: Web chat interface now calls FastAPI backend, no more hardcoded responses.
+
+- [x] Conversation History and Persistence
+  - Status: Completed
+  - Priority: High
+  - Dependencies: FastAPI Migration, Database Models
+  - Notes: Full conversation persistence with database integration
+  - Completed:
+    - Database models for Conversation and Message entities
+    - Conversation service with character ID mapping
+    - API endpoints for conversation management
+    - Message persistence in chat API
+    - Conversation history retrieval
+    - Conversation lifecycle management (start, end, delete)
+    - Database initialization scripts
+    - Error handling and transaction management
+
+- [x] Advanced Memory/Context Features
+  - Status: Completed
+  - Priority: High
+  - Dependencies: Conversation History and Persistence
+  - Notes: Intelligent context-aware chat responses with memory retrieval
+  - Completed:
+    - MemoryService class with configurable context window (default: 10 messages)
+    - Last-N messages retrieval for recent context
+    - Keyword-based search for relevant historical messages
+    - Smart context combination (recent + relevant, deduplicated)
+    - Integration with chat API for context-aware LLM responses
+    - API endpoints for conversation search and summary
+    - Comprehensive unit tests for memory functionality
+    - Error handling and fallback mechanisms
+    - Performance-optimized database queries
+
+### In Progress
+- [ ] User Authentication and Multi-User Support
 - [ ] Character Evolution System
-  - Status: In Progress
-  - Priority: High
-  - Dependencies: XML Personality Framework
-  - Notes: Implementation of personality evolution based on user interactions
-  - Completed:
-    - Basic evolution framework
-    - Trait evolution rules
-    - Interaction history tracking
-    - Trust level system
-  - Pending:
-    - Emotional tone analysis
-    - Advanced trust calculation
-    - Personality state persistence
-    - Evolution visualization
-
 - [ ] User-Character Conflict Resolution
-  - Status: In Progress
-  - Priority: High
-  - Dependencies: Character Evolution System
-  - Notes: Implementation of conflict resolution between user and character
-  - Completed:
-    - Basic conflict resolution framework
-    - Resolution strategies based on personality traits
-    - Conflict history tracking
-    - Trust impact system
-  - Pending:
-    - Advanced conflict detection
-    - More sophisticated resolution strategies
-    - Conflict state persistence
-    - Resolution visualization
-
 - [ ] NPC System
-  - Status: In Progress
-  - Priority: Medium
-  - Dependencies: Character Evolution System
-  - Notes: Implementation of limited-role characters
-  - Completed:
-    - Basic NPC framework
-    - Key moments tracking
-    - Relationship management
-    - Influence system
-  - Pending:
-    - NPC state persistence
-    - Advanced relationship dynamics
-    - NPC interaction generation
-    - NPC visualization
 
 ## Issues and Blockers
 - None currently identified
@@ -123,31 +124,36 @@
 - Restored/scaffolded core conversation logic (core/conversation.py)
 - Added and styled dashboard template
 - Proactively checked and fixed all template links for valid endpoints
+- Migrated from Flask to FastAPI for all main app and API routes
+- Integrated Ollama/llama3:8b for local, personality-driven chat
+- Web UI now calls real API and displays authentic LLM responses
+- Debug logging added for LLM requests and responses
+- All personalities respond according to their system prompts
+- **NEW: Conversation History and Persistence System**
+  - Implemented full database integration for conversations
+  - Created ConversationService to bridge character manager and database
+  - Added comprehensive API endpoints for conversation management
+  - Implemented message persistence with proper transaction handling
+  - Added conversation lifecycle management (start, end, delete)
+  - Created database initialization scripts
+  - Added proper error handling and rollback mechanisms
+- **NEW: Advanced Memory/Context Features**
+  - Implemented MemoryService with intelligent context retrieval
+  - Added last-N messages + keyword search for optimal context
+  - Integrated context-aware responses in chat API
+  - Created API endpoints for conversation search and summary
+  - Added comprehensive unit tests for memory functionality
+  - Implemented configurable context window (default: 10 messages)
+  - Added performance-optimized database queries
+  - Created fallback mechanisms for error handling
 
-## Next Actions
-1. Complete Character Evolution System
-   - Implement emotional tone analysis
-   - Enhance trust calculation
-   - Add personality state persistence
-   - Create evolution visualization
-
-2. Complete User-Character Conflict Resolution
-   - Implement advanced conflict detection
-   - Enhance resolution strategies
-   - Add conflict state persistence
-   - Create resolution visualization
-
-3. Complete NPC System
-   - Implement NPC state persistence
-   - Enhance relationship dynamics
-   - Add NPC interaction generation
-   - Create NPC visualization
-
-4. Add automated tests for routes and models
-5. Initialize the database (`python -m src.miachat.cli init_database`)
-6. Add/restore any missing templates (dashboard)
-7. Add Dockerfile and .dockerignore for containerization
-8. Update documentation as features are added
+## Next Steps
+1. Add user authentication and multi-user support
+2. Expand automated tests for new memory endpoints
+3. Polish UI/UX and add conversation history display
+4. Implement character evolution system
+5. Add user-character conflict resolution
+6. Update documentation as new features are added
 
 ## Completed Features
 - Basic character creation and management
@@ -158,6 +164,20 @@
 - Web interface for personality customization
 - Comprehensive testing suite
 - Complete documentation
+- FastAPI migration and Ollama LLM integration
+- **Conversation History and Persistence**
+  - Database-backed conversation storage
+  - Message history tracking
+  - Conversation lifecycle management
+  - API endpoints for conversation operations
+  - Character-to-conversation mapping system
+- **Advanced Memory/Context Features**
+  - Intelligent context retrieval (last-N + keyword search)
+  - Configurable context window management
+  - Context-aware LLM responses
+  - Conversation search and summary APIs
+  - Performance-optimized memory queries
+  - Comprehensive error handling and fallbacks
 
 ## Pending Features
 - Advanced emotional analysis
