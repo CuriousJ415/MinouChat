@@ -1,196 +1,223 @@
 # MiaChat Implementation Roadmap
 
-> **For up-to-date project status and next actions, see [Progress Tracking](../tracking/progress.md) and the main [Project Documentation README](../README.md).**
+## Overview
+This document outlines the implementation roadmap for MiaChat, a privacy-focused AI personality chat application with local LLM support.
 
-## Phase 1: Core Personality Framework (Completed)
-- [x] Basic project structure
-- [x] Core personality classes
-- [x] XML/JSON serialization
-- [x] Personality validation system
-- [x] FastAPI migration for chat and web UI
-- [x] Ollama/llama3:8b integration for local LLM
-- [x] Web UI connected to real API (no hardcoded responses)
-- [x] Conversation history and persistence
-- [x] Advanced memory/context features
-- [ ] YAML support
-- [ ] Additional personality templates
+## Completed Phases ✅
 
-## Phase 2: Memory System (Completed)
-- [x] Memory storage implementation
-- [x] Context management
-- [x] Memory retrieval and search
-- [x] Memory prioritization
-- [x] Memory cleanup and maintenance
-- [x] Conversation history persistence
-- [x] Context-aware response generation
-- [x] Memory service with configurable context window
-- [x] Keyword-based search functionality
-- [x] Conversation summary and analytics
+### Phase 1: Core Infrastructure (COMPLETED)
+- **FastAPI Migration**: Replaced Flask with FastAPI for modern async architecture
+- **Database Setup**: SQLAlchemy ORM with SQLite backend
+- **Authentication System**: User registration, login, session management
+- **Basic Routing**: Template system and static file serving
+- **Character Management**: Basic CRUD operations for AI personalities
+- **LLM Integration**: Ollama integration for local LLM processing
 
-## Phase 3: API and Web Interface (Completed)
-- [x] REST API endpoints (FastAPI)
-- [x] Web interface for personality management and chat (FastAPI)
-- [x] Memory and context API endpoints
-- [x] Conversation search and summary APIs
-- [x] User authentication and authorization (FastAPI)
-- [ ] WebSocket support for real-time chat
-- [ ] Real-time personality testing
+### Phase 2: Chat System (COMPLETED)
+- **Real-time Chat Interface**: Web-based chat with character selection
+- **Message Persistence**: Database storage for conversation history
+- **Character-specific Responses**: Personality-driven chat responses
+- **Privacy Controls**: Local processing with no external data transmission
 
-## Phase 4: Authentication System (Completed)
-- [x] User registration and validation (Pydantic models)
-- [x] Secure login with bcrypt password hashing
-- [x] Session-based authentication for web interface
-- [x] JWT token authentication for API clients
-- [x] Route protection with FastAPI dependency injection
-- [x] User dashboard and management
-- [x] Session cleanup and security
-- [x] Comprehensive testing and documentation
+### Phase 3: Personality Framework (COMPLETED)
+- **Data Structure**: Comprehensive personality schema with traits and communication styles
+- **XML Support**: XML-based personality definitions with validation
+- **Character Cards**: Visual representation of personality traits
+- **Validation System**: Schema validation for personality data integrity
 
-## Phase 5: LLM Integration (Completed)
-- [x] LLM provider interfaces (Ollama/llama3:8b)
-- [x] Personality-aware prompt generation
-- [x] Context-aware response generation (advanced)
-- [x] Memory integration for intelligent responses
-- [ ] Response validation and filtering
-- [ ] Fallback mechanisms
+### Phase 4: Advanced Features (COMPLETED)
+- **Memory System**: SQLite-based conversation memory with context retrieval
+- **History Tracking**: Persistent conversation history with search capabilities
+- **Usage Statistics**: Character interaction tracking and analytics
+- **Privacy Controls**: Local data processing and storage
 
-## Phase 6: Advanced Features (Planning)
-- [ ] Personality blending and mixing
-- [ ] Dynamic personality adaptation
-- [ ] Multi-personality conversations
-- [ ] Personality analytics and insights
-- [ ] Export/import functionality
-- [ ] Character evolution system
-- [ ] User-character conflict resolution
-- [ ] NPC system
+### Phase 5: Personality Editing System (COMPLETED) 🎉
+- **Creation Interface**: Comprehensive form for new personality creation
+- **Editing Interface**: Full CRUD operations for existing personalities
+- **AI-powered Suggestions**: Ollama integration for trait suggestions
+- **Communication Style Sliders**: Interactive UI for personality customization
+- **Backstory Integration**: Rich text input for personality development
+- **Form Validation**: Real-time validation and user feedback
+- **Modern UI**: Bootstrap-based responsive design
+- **FastAPI Integration**: Proper routing and template system
 
-## Implementation Details
+## Current Phase: Phase 6 - LLM Provider Integration
 
-### Personality Framework Improvements
-1. **Additional Personality Templates**
-   - Professional Assistant
-   - Friendly Companion
-   - Technical Expert
-   - Creative Partner
-   - Educational Tutor
+### Phase 6A: User Settings & Provider Selection (IN PROGRESS)
 
-2. **Personality Validation System**
-   - Schema validation
-   - Trait value validation
-   - Style consistency checks
-   - Knowledge domain validation
-   - Backstory coherence checks
+#### 6A.1 User Settings Page
+**Priority**: High
+**Estimated Time**: 2-3 hours
+**Dependencies**: Authentication system (completed)
 
-3. **YAML Support**
-   - YAML serialization/deserialization
-   - YAML schema validation
-   - YAML template system
-   - Documentation and examples
+**Tasks**:
+- [ ] Create `/settings` route with user preferences form
+- [ ] Add LLM provider selection dropdown
+- [ ] Implement API key management for cloud providers
+- [ ] Add default model selection per provider
+- [ ] Include privacy preferences (local-only mode)
+- [ ] Add settings persistence in database
 
-### Memory System Features (Completed)
-1. **Storage**
-   - SQLite database with SQLAlchemy ORM
-   - Memory indexing and efficient querying
-   - Conversation and message persistence
-   - Data integrity and transaction management
+**Technical Details**:
+```python
+# New database model
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    default_llm_provider = Column(String, default="ollama")
+    openai_api_key = Column(String, nullable=True)
+    anthropic_api_key = Column(String, nullable=True)
+    default_model = Column(String, default="llama3:8b")
+    privacy_mode = Column(String, default="local_only")
+```
 
-2. **Context Management**
-   - Conversation history tracking
-   - Configurable context window (default: 10 messages)
-   - Smart context combination (recent + relevant)
-   - Context window optimization
+#### 6A.2 LLM Provider Abstraction
+**Priority**: High
+**Estimated Time**: 4-6 hours
+**Dependencies**: User settings (6A.1)
 
-3. **Retrieval and Search**
-   - Keyword-based search with stop word filtering
-   - Last-N messages retrieval
-   - Context-aware retrieval with deduplication
-   - Relevance scoring and ranking
+**Tasks**:
+- [ ] Create abstract LLM client interface
+- [ ] Implement provider-specific adapters:
+  - [ ] OllamaAdapter (local)
+  - [ ] OpenAIAdapter (cloud)
+  - [ ] AnthropicAdapter (cloud)
+  - [ ] LiteLMAdapter (local/cloud)
+  - [ ] OpenRouterAdapter (cloud)
+- [ ] Add fallback mechanisms and error handling
+- [ ] Implement provider health checks
+- [ ] Add connection pooling for cloud providers
 
-4. **Advanced Features**
-   - MemoryService class with comprehensive functionality
-   - Conversation summary and analytics
-   - Performance-optimized database queries
-   - Error handling and fallback mechanisms
+**Technical Details**:
+```python
+class LLMProvider(ABC):
+    @abstractmethod
+    async def generate_traits(self, backstory: str) -> List[str]:
+        pass
+    
+    @abstractmethod
+    async def generate_response(self, prompt: str, personality: dict) -> str:
+        pass
 
-### API and Web Interface (Completed)
-1. **REST API**
-   - Personality management
-   - Conversation handling
-   - Memory operations
-   - Context retrieval and search
-   - System configuration
-   - User authentication and management
+class OllamaAdapter(LLMProvider):
+    # Local implementation
+    pass
 
-2. **Web Interface**
-   - Personality editor
-   - Chat interface
-   - Settings management
-   - Analytics dashboard
-   - User authentication pages
+class OpenAIAdapter(LLMProvider):
+    # Cloud implementation with API key
+    pass
+```
 
-### Authentication System (Completed)
-1. **User Management**
-   - User registration with validation
-   - Secure login with bcrypt
-   - Session management with FastAPI middleware
-   - JWT token authentication for APIs
+### Phase 6B: Enhanced Personality Creation (PLANNED)
 
-2. **Security Features**
-   - Password hashing with bcrypt
-   - Session-based authentication for web
-   - JWT token authentication for API clients
-   - Route protection with dependency injection
-   - Input validation with Pydantic models
+#### 6B.1 LLM Selection in Personality Creation
+**Priority**: Medium
+**Estimated Time**: 2-3 hours
+**Dependencies**: LLM provider abstraction (6A.2)
 
-3. **User Interface**
-   - Modern login/register forms with Bootstrap
-   - User dashboard with logout functionality
-   - Responsive navigation with user status
-   - Template context injection for user data
+**Tasks**:
+- [ ] Add LLM provider selection to personality creation form
+- [ ] Implement provider-specific trait suggestion prompts
+- [ ] Add model selection per provider
+- [ ] Include provider-specific configuration options
+- [ ] Add provider health status indicators
 
-### LLM Integration (Completed)
-1. **Provider Support**
-   - OpenAI
-   - Anthropic
-   - Local models (Ollama/llama3:8b)
-   - Custom model support
+#### 6B.2 Quality Improvements
+**Priority**: Medium
+**Estimated Time**: 3-4 hours
+**Dependencies**: LLM selection (6B.1)
 
-2. **Response Generation**
-   - Personality-aware prompts
-   - Advanced context integration
-   - Memory-enhanced responses
-   - Error handling
+**Tasks**:
+- [ ] Improve trait suggestion prompts for each provider
+- [ ] Add better JSON parsing and error handling
+- [ ] Implement suggestion quality scoring
+- [ ] Add suggestion filtering and validation
+- [ ] Include provider-specific optimization
 
-## Next Steps
-- Expand automated tests for new authentication endpoints
-- Polish UI/UX and add conversation history display
-- Implement character evolution system
-- Add user-character conflict resolution
-- Update documentation as new features are added
+### Phase 6C: User Experience Enhancements (PLANNED)
 
-## Development Guidelines
+#### 6C.1 Loading States and Feedback
+**Priority**: Medium
+**Estimated Time**: 2-3 hours
+**Dependencies**: Quality improvements (6B.2)
 
-### Code Quality
-- Maintain 80%+ test coverage
-- Follow PEP 8 style guide
-- Use type hints
-- Document all public APIs
+**Tasks**:
+- [ ] Add loading spinners for LLM operations
+- [ ] Implement progress indicators for long operations
+- [ ] Add better error messages and user feedback
+- [ ] Include operation timeout handling
+- [ ] Add retry mechanisms for failed operations
+
+#### 6C.2 Form Enhancements
+**Priority**: Low
+**Estimated Time**: 2-3 hours
+**Dependencies**: Loading states (6C.1)
+
+**Tasks**:
+- [ ] Implement form auto-save functionality
+- [ ] Add personality preview before saving
+- [ ] Include undo/redo functionality
+- [ ] Add keyboard shortcuts
+- [ ] Implement form validation improvements
+
+## Future Phases (Phase 7+)
+
+### Phase 7: Advanced Personality Features
+- **Personality Templates**: Pre-built personality presets
+- **Bulk Operations**: Import/export multiple personalities
+- **Community Features**: Personality sharing and discovery
+- **Advanced Customization**: Fine-grained trait control
+
+### Phase 8: Memory and Context Enhancements
+- **Improved Retrieval**: Better memory search algorithms
+- **Context Awareness**: Smarter conversation context
+- **Long-term Memory**: Persistent personality learning
+- **Memory Visualization**: Tools for understanding memory usage
+
+### Phase 9: Advanced AI Features
+- **Emotional Intelligence**: Advanced emotional analysis
+- **Personality Evolution**: Dynamic personality changes
+- **Conflict Resolution**: AI-powered conflict management
+- **Relationship Dynamics**: Complex character interactions
+
+## Technical Considerations
 
 ### Performance
-- Optimize memory usage
-- Implement caching where appropriate
-- Use async operations for I/O
-- Monitor and profile regularly
+- **Caching**: Implement Redis for session and LLM response caching
+- **Connection Pooling**: Optimize cloud provider connections
+- **Async Operations**: Ensure all LLM operations are non-blocking
+- **Database Optimization**: Add indexes for frequently queried fields
 
 ### Security
-- Input validation with Pydantic
-- Rate limiting
-- API key management
-- Data encryption
-- Secure session management
+- **API Key Encryption**: Secure storage of provider API keys
+- **Input Validation**: Comprehensive input sanitization
+- **Rate Limiting**: Prevent abuse of LLM providers
+- **Privacy Controls**: Ensure local processing when possible
 
-### Documentation
-- API documentation
-- User guides
-- Developer guides
-- Architecture documentation 
+### Scalability
+- **Microservices**: Consider breaking into smaller services
+- **Load Balancing**: Support for multiple instances
+- **Database Migration**: Plan for PostgreSQL migration
+- **Monitoring**: Add comprehensive logging and metrics
+
+## Success Metrics
+
+### Phase 6 Success Criteria
+- [ ] Users can select and configure multiple LLM providers
+- [ ] Trait suggestions work with all supported providers
+- [ ] System maintains privacy-first approach
+- [ ] Error handling is robust and user-friendly
+- [ ] Performance remains acceptable with cloud providers
+
+### Overall Project Success Criteria
+- [ ] 100% local processing capability
+- [ ] Support for 5+ LLM providers
+- [ ] Sub-2 second response times
+- [ ] 99.9% uptime for local operations
+- [ ] Comprehensive test coverage (>90%)
+
+---
+
+*Last Updated: July 7, 2025*
+*Current Phase: 6 - LLM Provider Integration*
+*Next Milestone: User Settings Page (Phase 6A.1)* 

@@ -1,147 +1,323 @@
-# MiaAI Project Documentation
+# MiaChat Documentation
 
-## Project Overview
-This documentation tracks the development and implementation of the MiaAI system, a sophisticated AI personality application capable of sustained, meaningful dialogue with advanced memory and context awareness. The system is built using FastAPI for high performance and modern web development practices.
+> **MiaChat** - A privacy-focused AI personality chat application with local LLM support
 
-> **📝 Documentation Update (2025-01-15):** All documentation has been updated to reflect the complete migration from Flask to FastAPI, including the authentication system implementation.
+## Project Status
 
-## Documentation Structure
-- [System Design](architecture/system-design.md): Architecture, design principles, and requirements
-- [Implementation Roadmap](implementation/roadmap.md): Phase-by-phase plan, milestones, and implementation details
-- [Progress Tracking](tracking/progress.md): Ongoing progress, completed and pending features, blockers, next actions
-- [Personality Framework](../personality_framework.md): In-depth technical documentation for the personality system and API
-- [Authentication System](authentication_system.md): Complete authentication system documentation
+**Current Phase**: Phase 6 - LLM Provider Integration  
+**Last Updated**: July 7, 2025  
+**Status**: Active Development  
 
-## Project Status & Next Steps
-**Last updated: 2025-01-15**
+### Recent Achievements 🎉
+- **Personality Editing System**: Complete CRUD operations with AI-powered trait suggestions
+- **Modern UI**: Bootstrap-based responsive design with real-time validation
+- **FastAPI Integration**: Full migration from Flask with proper routing and templates
+- **Local LLM Support**: Ollama integration for privacy-first AI processing
 
-### Current Status
-**Phase 1: Core Personality Framework** ✅ **COMPLETED**
-**Phase 2: Memory System** ✅ **COMPLETED**
-**Phase 3: API and Web Interface** ✅ **COMPLETED**
-**Phase 4: Authentication System** ✅ **COMPLETED**
+## Quick Start
 
-### Immediate Next Steps
-- [ ] Implement personality editing UI (in progress)
-    - Add fields for name, category, backstory, traits, communication style
-    - Add a 'Suggest Traits' button (for future LLM integration)
-    - Allow user to edit or leave traits blank
-- [ ] Integrate LLM provider selection and backend routing
-    - Add LLM selection to user settings or personality creation
-    - Backend routes trait suggestion requests to the chosen LLM (Ollama, OpenAI, Anthropic, LiteLM, OpenRouter, etc.)
-    - Only 'basic' LLMs are used for trait suggestion
+### Prerequisites
+- Python 3.11+
+- Ollama with llama3:8b model
+- SQLite (included)
 
-**Rationale:**
-- Personality editing UI is a core feature and must be in place before LLM integration.
-- Once editing is working, LLM provider selection and trait suggestion can be easily plugged in.
+### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
+cd MiaChat
 
-### In Progress
-- [ ] WebSocket support for real-time chat
-- [ ] Real-time personality testing
-- [ ] Advanced user management features
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-### Completed ✅
-- [x] Fix dependency and environment issues
-- [x] Restore and test web routes
-- [x] Static image loading
-- [x] FastAPI migration for all main routes
-- [x] Ollama/llama3:8b integration for local LLM
-- [x] Web UI connected to real API (no hardcoded responses)
-- [x] Conversation history and persistence
-- [x] Advanced memory/context features
-- [x] Memory storage implementation
-- [x] Context management with configurable window
-- [x] Memory retrieval and search functionality
-- [x] Memory prioritization and cleanup
-- [x] Comprehensive API endpoints for all functionality
-- [x] Complete testing suite for all components
-- [x] User authentication and authorization system
-- [x] Session-based authentication for web interface
-- [x] JWT token authentication for API clients
-- [x] Protected routes and user management
+# Install dependencies
+pip install -r requirements.txt
+
+# Initialize database
+python init_db.py
+
+# Start Ollama (if not running)
+ollama serve
+
+# Run the application
+python run.py
+```
+
+### First Time Setup
+1. Visit `http://localhost:8000`
+2. Register a new account
+3. Create your first AI personality
+4. Start chatting!
+
+## Core Features
+
+### ✅ Completed Features
+
+#### Authentication & User Management
+- User registration and login
+- Session-based authentication
+- Secure password hashing
+- User dashboard and profile management
+
+#### Personality System
+- **Comprehensive personality creation** with AI-powered trait suggestions
+- **Full editing capabilities** for existing personalities
+- **Communication style customization** with interactive sliders
+- **Backstory integration** for rich personality development
+- **XML-based personality definitions** with validation
+- **Character cards** with visual trait representation
+
+#### Chat System
+- Real-time chat interface
+- Character selection and switching
+- Conversation history persistence
+- Context-aware responses
+- Privacy-focused local LLM processing
+
+#### Memory & Context
+- SQLite-based conversation memory
+- Intelligent context retrieval
+- Keyword-based search
+- Conversation analytics and statistics
+
+#### Technical Infrastructure
+- FastAPI backend with async architecture
+- SQLAlchemy ORM with SQLite
+- Jinja2 templating system
+- Bootstrap-responsive UI
+- Comprehensive error handling
+
+### 🔄 In Progress
+
+#### LLM Provider Integration (Phase 6)
+- **User settings page** for LLM provider selection
+- **Multi-provider support** (Ollama, OpenAI, Anthropic, LiteLM, OpenRouter)
+- **Provider-specific trait suggestions** with quality improvements
+- **API key management** for cloud providers
+- **Privacy controls** and local-first processing
+
+### 📋 Planned Features
+
+#### Advanced Personality Features (Phase 7)
+- Personality templates and presets
+- Bulk import/export operations
+- Community sharing features
+- Advanced trait customization
+
+#### Memory Enhancements (Phase 8)
+- Improved memory retrieval algorithms
+- Long-term memory management
+- Memory visualization tools
+- Context-aware response optimization
+
+#### AI Intelligence (Phase 9)
+- Emotional intelligence analysis
+- Dynamic personality evolution
+- Conflict resolution systems
+- Complex relationship dynamics
+
+## Architecture
+
+### System Overview
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Web Interface │    │   FastAPI       │    │   Local LLM     │
+│   (Bootstrap)   │◄──►│   Backend       │◄──►│   (Ollama)      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       ┌─────────────────┐
+                       │   SQLite        │
+                       │   Database      │
+                       └─────────────────┘
+```
+
+### Key Components
+
+#### Frontend
+- **Templates**: Jinja2-based HTML templates with Bootstrap
+- **JavaScript**: Vanilla JS for interactive features
+- **CSS**: Bootstrap 5 with custom styling
+- **Responsive Design**: Mobile-friendly interface
+
+#### Backend
+- **FastAPI**: Modern async web framework
+- **SQLAlchemy**: ORM for database operations
+- **Pydantic**: Data validation and serialization
+- **Jinja2**: Template rendering engine
+
+#### AI Integration
+- **Ollama**: Local LLM processing
+- **Personality System**: XML-based character definitions
+- **Memory Service**: Context-aware conversation management
+- **Trait Suggestions**: AI-powered personality development
+
+## API Documentation
+
+### Core Endpoints
+
+#### Authentication
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User login
+- `GET /auth/logout` - User logout
+
+#### Personalities
+- `GET /personality` - List all personalities
+- `GET /personality/create` - Create personality form
+- `POST /personality/create` - Create new personality
+- `GET /personality/edit/{id}` - Edit personality form
+- `PUT /personality/edit/{id}` - Update personality
+- `DELETE /personality/{id}` - Delete personality
+
+#### Chat
+- `GET /chat` - Chat interface
+- `POST /api/chat` - Send message
+- `GET /api/chat/history` - Get conversation history
+
+#### AI Services
+- `POST /api/suggest_traits` - AI trait suggestions
+- `GET /api/characters` - List available characters
+
+### Data Models
+
+#### Personality Schema
+```json
+{
+  "id": "uuid",
+  "name": "string",
+  "category": "string",
+  "backstory": "string",
+  "traits": ["string"],
+  "communication_style": {
+    "directness": 0-100,
+    "warmth": 0-100,
+    "formality": 0-100,
+    "empathy": 0-100,
+    "humor": 0-100
+  }
+}
+```
+
+## Development
+
+### Project Structure
+```
+MiaChat/
+├── app/                    # Main application
+│   ├── api/               # FastAPI routes and endpoints
+│   ├── core/              # Core business logic
+│   ├── llm/               # LLM integration
+│   ├── memory/            # Memory and context system
+│   ├── static/            # Static assets (CSS, JS, images)
+│   └── templates/         # HTML templates
+├── config/                # Configuration files
+├── docs/                  # Documentation
+├── tests/                 # Test suite
+└── requirements.txt       # Python dependencies
+```
+
+### Development Setup
+```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest
+
+# Run with auto-reload
+uvicorn app.api.main:app --reload
+
+# Check code quality
+flake8 app/
+black app/
+```
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new features
+5. Submit a pull request
+
+## Privacy & Security
+
+### Privacy-First Design
+- **Local Processing**: All AI processing happens locally with Ollama
+- **No External Data**: No conversation data leaves your system
+- **User Control**: Complete control over data and settings
+- **Open Source**: Transparent code for security verification
+
+### Security Features
+- **Password Hashing**: bcrypt for secure password storage
+- **Session Management**: Secure session handling
+- **Input Validation**: Comprehensive input sanitization
+- **SQL Injection Protection**: Parameterized queries
+
+## Performance
+
+### Current Metrics
+- **Response Time**: <2 seconds for local LLM responses
+- **Memory Usage**: ~2GB RAM for Ollama with llama3:8b
+- **Database**: SQLite with optimized queries
+- **Concurrent Users**: Single-user focused design
+
+### Optimization Opportunities
+- **Caching**: Redis for session and response caching
+- **Connection Pooling**: For future cloud provider support
+- **Database Indexing**: Optimize frequently queried fields
+- **Async Operations**: Non-blocking I/O operations
+
+## Troubleshooting
+
+### Common Issues
+
+#### Ollama Connection
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# Start Ollama if not running
+ollama serve
+
+# Pull required model
+ollama pull llama3:8b
+```
+
+#### Database Issues
+```bash
+# Reset database
+rm instance/miachat.db
+python init_db.py
+```
+
+#### Port Conflicts
+```bash
+# Check what's using port 8000
+lsof -i :8000
+
+# Kill conflicting process
+kill -9 <PID>
+```
+
+## Support
+
+### Documentation
+- [Progress Tracking](tracking/progress.md) - Current development status
+- [Implementation Roadmap](implementation/roadmap.md) - Detailed development plans
+- [Architecture Overview](architecture/system-design.md) - System design details
+
+### Issues
+- Check the [troubleshooting section](#troubleshooting) above
+- Review recent commits for fixes
+- Open an issue on GitHub with detailed error information
+
+### Community
+- GitHub Discussions for questions and ideas
+- Pull requests welcome for improvements
+- Feature requests through GitHub Issues
 
 ---
 
-## Quick Links
-- [System Design](architecture/system-design.md)
-- [Implementation Roadmap](implementation/roadmap.md)
-- [Progress Tracking](tracking/progress.md)
-- [Personality Framework](../personality_framework.md)
-- [Authentication System](authentication_system.md)
-
-# MiaChat Personality Framework
-
-## What Exists
-
-- **XML Personality Files**
-  - Example: `config/personalities/mia.xml`
-  - Define traits, backstory, knowledge, and style for a character.
-- **Loader Code**
-  - `src/miachat/personality/loader.py`
-  - Loads and parses XML personality files into Python objects.
-- **Personality Analysis**
-  - `src/miachat/api/core/personality.py`
-  - Function `analyze_character_description` uses an LLM to generate traits, style, knowledge, and backstory from a description.
-- **API Endpoints**
-  - See `docs/personality_framework.md`
-  - Endpoints like `/api/characters/analyze-character` and `/api/characters/save-personality` for analyzing and saving personalities.
-- **UI for Analysis**
-  - `src/miachat/api/templates/personality/list.html`
-  - Textarea and button for analyzing a character description, and a form for editing traits, style, knowledge, and backstory.
-
-## Advanced Features Completed
-
-### Memory and Context System
-- **MemoryService**: Intelligent context retrieval with configurable window (default: 10 messages)
-- **Context-Aware Responses**: LLM responses enhanced with relevant conversation history
-- **Keyword Search**: Find relevant historical messages using intelligent search
-- **Conversation Persistence**: Full database integration with SQLAlchemy ORM
-- **API Endpoints**: Complete REST API for memory operations and conversation management
-
-### Conversation Management
-- **Conversation Service**: Bridges character manager with database models
-- **Message Persistence**: All chat messages stored with proper transaction handling
-- **Conversation Lifecycle**: Start, end, and delete conversations with proper cleanup
-- **History Retrieval**: Access to complete conversation history with search capabilities
-
-### Authentication System
-- **User Registration**: Secure user account creation with validation
-- **Session Management**: FastAPI session middleware for web authentication
-- **JWT Tokens**: Token-based authentication for API clients
-- **Route Protection**: Dependency injection for protected routes
-- **User Management**: Complete user lifecycle management
-
-## How to Get It Working
-
-### A. Use the AI Generator from the UI
-1. Go to `/personality` in your app.
-2. You should see a page with a "Describe your character" textarea and "Analyze Character" button.
-3. Enter a description and click "Analyze Character".
-4. The AI will generate traits, style, knowledge, and backstory, and fill the form.
-5. Edit and save the generated personality using the form.
-
-### B. Use the XML Loader for Default Characters
-- The loader in `src/miachat/personality/loader.py` can load XML files like `mia.xml` and convert them to character objects.
-- You can call this loader in your backend to initialize or update characters from XML.
-
-### C. Use the API Directly
-- `POST` to `/api/characters/analyze-character` with a description to get AI-generated traits.
-- `POST` to `/api/characters/save-personality` to save a new personality.
-- `GET` to `/api/conversations/{character_id}/context` to retrieve conversation context.
-- `GET` to `/api/conversations/{character_id}/search` to search conversation history.
-
-### D. Authentication and User Management
-- Register new accounts at `/auth/register`
-- Login at `/auth/login`
-- Access protected routes when authenticated
-- Use JWT tokens for API authentication
-
-## What Might Be Missing
-- The `/personality` UI and API endpoints must be wired up in your FastAPI app.
-- If you don't see the "Personality Customization" page, the route may not be enabled.
-
-## Next Steps
-- If you want to use the UI, try visiting `/personality` in your browser.
-- If you want to integrate XML loading for new characters, call the loader in your backend.
-- If you want to use the API, use the endpoints described above.
-- If you need help wiring up the UI or endpoints, see `docs/personality_framework.md` or ask for further guidance. 
+**MiaChat** - Empowering private, personalized AI conversations  
+*Built with ❤️ and FastAPI* 
