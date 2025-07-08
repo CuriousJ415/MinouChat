@@ -1,13 +1,16 @@
 # MiaAI Project Documentation
 
 ## Project Overview
-This documentation tracks the development and implementation of the MiaAI system, a sophisticated AI personality application capable of sustained, meaningful dialogue with advanced memory and context awareness.
+This documentation tracks the development and implementation of the MiaAI system, a sophisticated AI personality application capable of sustained, meaningful dialogue with advanced memory and context awareness. The system is built using FastAPI for high performance and modern web development practices.
+
+> **📝 Documentation Update (2025-01-15):** All documentation has been updated to reflect the complete migration from Flask to FastAPI, including the authentication system implementation.
 
 ## Documentation Structure
 - [System Design](architecture/system-design.md): Architecture, design principles, and requirements
 - [Implementation Roadmap](implementation/roadmap.md): Phase-by-phase plan, milestones, and implementation details
 - [Progress Tracking](tracking/progress.md): Ongoing progress, completed and pending features, blockers, next actions
 - [Personality Framework](../personality_framework.md): In-depth technical documentation for the personality system and API
+- [Authentication System](authentication_system.md): Complete authentication system documentation
 
 ## Project Status & Next Steps
 **Last updated: 2025-01-15**
@@ -15,20 +18,27 @@ This documentation tracks the development and implementation of the MiaAI system
 ### Current Status
 **Phase 1: Core Personality Framework** ✅ **COMPLETED**
 **Phase 2: Memory System** ✅ **COMPLETED**
-**Phase 3: API and Web Interface** 🔄 **IN PROGRESS**
+**Phase 3: API and Web Interface** ✅ **COMPLETED**
+**Phase 4: Authentication System** ✅ **COMPLETED**
 
 ### Immediate Next Steps
-- [ ] Add user authentication and multi-user support
-- [ ] Expand automated tests for new memory endpoints
-- [ ] Polish UI/UX and add conversation history display
-- [ ] Implement character evolution system
-- [ ] Add user-character conflict resolution
-- [ ] Update documentation as new features are added
+- [ ] Implement personality editing UI (in progress)
+    - Add fields for name, category, backstory, traits, communication style
+    - Add a 'Suggest Traits' button (for future LLM integration)
+    - Allow user to edit or leave traits blank
+- [ ] Integrate LLM provider selection and backend routing
+    - Add LLM selection to user settings or personality creation
+    - Backend routes trait suggestion requests to the chosen LLM (Ollama, OpenAI, Anthropic, LiteLM, OpenRouter, etc.)
+    - Only 'basic' LLMs are used for trait suggestion
+
+**Rationale:**
+- Personality editing UI is a core feature and must be in place before LLM integration.
+- Once editing is working, LLM provider selection and trait suggestion can be easily plugged in.
 
 ### In Progress
-- [ ] User authentication and authorization
 - [ ] WebSocket support for real-time chat
 - [ ] Real-time personality testing
+- [ ] Advanced user management features
 
 ### Completed ✅
 - [x] Fix dependency and environment issues
@@ -45,6 +55,10 @@ This documentation tracks the development and implementation of the MiaAI system
 - [x] Memory prioritization and cleanup
 - [x] Comprehensive API endpoints for all functionality
 - [x] Complete testing suite for all components
+- [x] User authentication and authorization system
+- [x] Session-based authentication for web interface
+- [x] JWT token authentication for API clients
+- [x] Protected routes and user management
 
 ---
 
@@ -53,6 +67,7 @@ This documentation tracks the development and implementation of the MiaAI system
 - [Implementation Roadmap](implementation/roadmap.md)
 - [Progress Tracking](tracking/progress.md)
 - [Personality Framework](../personality_framework.md)
+- [Authentication System](authentication_system.md)
 
 # MiaChat Personality Framework
 
@@ -65,13 +80,13 @@ This documentation tracks the development and implementation of the MiaAI system
   - `src/miachat/personality/loader.py`
   - Loads and parses XML personality files into Python objects.
 - **Personality Analysis**
-  - `app/core/personality.py`
+  - `src/miachat/api/core/personality.py`
   - Function `analyze_character_description` uses an LLM to generate traits, style, knowledge, and backstory from a description.
 - **API Endpoints**
   - See `docs/personality_framework.md`
   - Endpoints like `/api/characters/analyze-character` and `/api/characters/save-personality` for analyzing and saving personalities.
 - **UI for Analysis**
-  - `app/templates/personality.html`
+  - `src/miachat/api/templates/personality/list.html`
   - Textarea and button for analyzing a character description, and a form for editing traits, style, knowledge, and backstory.
 
 ## Advanced Features Completed
@@ -88,6 +103,13 @@ This documentation tracks the development and implementation of the MiaAI system
 - **Message Persistence**: All chat messages stored with proper transaction handling
 - **Conversation Lifecycle**: Start, end, and delete conversations with proper cleanup
 - **History Retrieval**: Access to complete conversation history with search capabilities
+
+### Authentication System
+- **User Registration**: Secure user account creation with validation
+- **Session Management**: FastAPI session middleware for web authentication
+- **JWT Tokens**: Token-based authentication for API clients
+- **Route Protection**: Dependency injection for protected routes
+- **User Management**: Complete user lifecycle management
 
 ## How to Get It Working
 
@@ -107,6 +129,12 @@ This documentation tracks the development and implementation of the MiaAI system
 - `POST` to `/api/characters/save-personality` to save a new personality.
 - `GET` to `/api/conversations/{character_id}/context` to retrieve conversation context.
 - `GET` to `/api/conversations/{character_id}/search` to search conversation history.
+
+### D. Authentication and User Management
+- Register new accounts at `/auth/register`
+- Login at `/auth/login`
+- Access protected routes when authenticated
+- Use JWT tokens for API authentication
 
 ## What Might Be Missing
 - The `/personality` UI and API endpoints must be wired up in your FastAPI app.

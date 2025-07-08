@@ -10,11 +10,13 @@ from .settings import settings_bp
 from .documents import documents_bp, init_app as init_documents
 from .models import models_bp
 from .root import root_bp
+from .auth import auth_bp
 
 def init_app(app):
     """Centralized blueprint registration and initialization"""
     # Register blueprints first
     app.register_blueprint(root_bp)
+    app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(chat_bp, url_prefix='/api/chat')
     app.register_blueprint(characters_bp, url_prefix='/api/characters')
     app.register_blueprint(memories_bp, url_prefix='/api/memories')

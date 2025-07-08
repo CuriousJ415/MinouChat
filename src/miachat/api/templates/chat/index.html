@@ -172,9 +172,32 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let currentPersonality = '{{ active_personality }}';
+        // Helper to get query param
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        let currentCharacterId = getQueryParam('character_id');
+        let currentPersonality = '';
         let chatHistory = [];
-        
+
+        // On page load, fetch character if character_id is present
+        if (currentCharacterId) {
+            fetch(`/api/characters/${currentCharacterId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && !data.error) {
+                        currentPersonality = data.name;
+                        document.getElementById('currentPersonality').textContent = data.name;
+                        document.getElementById('messageInput').disabled = false;
+                        document.querySelector('#chatForm button').disabled = false;
+                        clearChat();
+                        addMessage('assistant', `Hello! I'm ${data.name}. How can I help you today?`);
+                    }
+                });
+        }
+
         // Personality selection
         document.querySelectorAll('.personality-card').forEach(card => {
             card.addEventListener('click', function() {
@@ -211,7 +234,7 @@
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
             
-            if (message && currentPersonality) {
+            if (message && currentCharacterId) {
                 addMessage('user', message);
                 input.value = '';
                 
@@ -223,12 +246,12 @@
                     },
                     body: JSON.stringify({
                         message: message,
-                        personality_name: currentPersonality
+                        character_id: currentCharacterId
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
+                    if (data.response) {
                         addMessage('assistant', data.response);
                     } else {
                         addMessage('assistant', 'Sorry, I encountered an error. Please try again.');

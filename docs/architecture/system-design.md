@@ -1,12 +1,12 @@
 # MiaAI System Design
 
 ## Architecture Overview
-The MiaAI system is built on a modular, scalable architecture that integrates advanced memory management, token optimization, retrieval-augmented generation (RAG), and XML-based personality frameworks.
+The MiaAI system is built on a modular, scalable architecture that integrates advanced memory management, token optimization, retrieval-augmented generation (RAG), and XML-based personality frameworks. The system uses FastAPI for high-performance, modern web development with async support.
 
 ## Core Components
 
 ### 1. Modular System Design
-- Routes handling incoming requests
+- FastAPI routes handling incoming requests
 - Services managing business logic
 - Repositories controlling data access
 - Clients managing external API integrations
@@ -37,9 +37,15 @@ The MiaAI system is built on a modular, scalable architecture that integrates ad
 - Backstory integration
 - Dynamic character development
 
+### 7. Authentication System
+- Session-based authentication for web interface
+- JWT token authentication for API clients
+- FastAPI dependency injection for route protection
+- User management with SQLAlchemy ORM
+
 ## System Requirements
 - Python 3.8+
-- Flask web framework
+- FastAPI web framework
 - SQLite/PostgreSQL for data storage
 - Vector database for semantic search
 - Docker support
@@ -48,4 +54,7 @@ The MiaAI system is built on a modular, scalable architecture that integrates ad
 - API key management
 - User data protection
 - Conversation privacy
-- System access control 
+- System access control
+- Secure session management
+- JWT token security
+- Input validation with Pydantic models 

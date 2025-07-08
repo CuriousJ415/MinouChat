@@ -30,7 +30,7 @@ def config():
 
 if __name__ == "__main__":
     # Get port from environment or use default
-    port = int(os.environ.get("PORT", 5001))
+    port = int(os.environ.get("PORT", 8080))
     
     # Get debug mode from environment or use default
     debug = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")

@@ -72,8 +72,8 @@
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="fas fa-users"></i> Personalities</h1>
-                    <a href="/chat" class="btn btn-primary">
-                        <i class="fas fa-comments"></i> Start Chat
+                    <a href="/personality/create" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Personality
                     </a>
                 </div>
                 
@@ -102,7 +102,7 @@
                                 
                                 <div class="mb-3">
                                     <h6>Personality Traits</h6>
-                                    {% for trait, value in personality.traits.items() %}
+                                    {% for trait, value in (personality.traits or {}).items() %}
                                     <div class="mb-2">
                                         <div class="d-flex justify-content-between">
                                             <small class="text-muted">{{ trait.title() }}</small>
@@ -117,7 +117,7 @@
                                 
                                 <div class="mb-3">
                                     <h6>Communication Style</h6>
-                                    {% for style, value in personality.communication_style.items() %}
+                                    {% for style, value in (personality.communication_style or {}).items() %}
                                     <div class="mb-2">
                                         <div class="d-flex justify-content-between">
                                             <small class="text-muted">{{ style.title() }}</small>
@@ -131,10 +131,10 @@
                                 </div>
                                 
                                 <div class="d-flex justify-content-between">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="selectPersonality('{{ personality.name }}')">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="selectPersonality('{{ personality.id }}')">
                                         <i class="fas fa-comments"></i> Chat
                                     </button>
-                                    <button class="btn btn-outline-secondary btn-sm" onclick="editPersonality('{{ personality.name }}')">
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/personality/edit/{{ personality.id }}'">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
                                 </div>
@@ -160,10 +160,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function selectPersonality(name) {
-            // In a real implementation, this would set the active personality
-            // and redirect to chat
-            window.location.href = `/chat?personality=${encodeURIComponent(name)}`;
+        function selectPersonality(id) {
+            window.location.href = `/chat?character_id=${encodeURIComponent(id)}`;
         }
         
         function editPersonality(name) {

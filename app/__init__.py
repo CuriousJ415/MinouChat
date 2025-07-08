@@ -75,6 +75,12 @@ def create_app(test_config=None):
     # Register CLI commands
     register_commands(app)
 
+    # Add context processor for current user
+    @app.context_processor
+    def inject_current_user():
+        from app.core.auth import get_current_user
+        return {'current_user': get_current_user()}
+
     return app
 
 def initialize_enhanced_components(app):

@@ -66,6 +66,27 @@ def init_db():
     db = get_db()
     
     try:
+        # Create users table for authentication
+        db.execute('''CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )''')
+
+        # Create user_sessions table for session management
+        db.execute('''CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            session_token TEXT UNIQUE NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )''')
+
         # Create characters table
         db.execute('''CREATE TABLE IF NOT EXISTS characters (
             id TEXT PRIMARY KEY,
@@ -330,6 +351,224 @@ def delete_character_by_id(character_id: str) -> bool:
         return True
     except:
         db.rollback()
+        return False
+
+# User Authentication Functions
+def create_user(username: str, email: str, password_hash: str) -> Optional[Dict]:
+    """
+    Create a new user
+    
+    Args:
+        username: Username for the user
+        email: Email address for the user
+        password_hash: Hashed password
+        
+    Returns:
+        User dictionary or None if creation failed
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO users (username, email, password_hash)
+            VALUES (?, ?, ?)
+        ''', (username, email, password_hash))
+        db.commit()
+        
+        # Return the created user
+        user_id = cursor.lastrowid
+        return get_user_by_id(user_id)
+    except sqlite3.IntegrityError:
+        # Username or email already exists
+        return None
+    except Exception as e:
+        current_app.logger.error(f"Error creating user: {str(e)}")
+        return None
+
+def get_user_by_id(user_id: int) -> Optional[Dict]:
+    """
+    Get user by ID
+    
+    Args:
+        user_id: User's unique identifier
+        
+    Returns:
+        User dictionary or None if not found
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    row = cursor.fetchone()
+    
+    if row:
+        user_dict = {}
+        for key in row.keys():
+            user_dict[key] = row[key]
+        return user_dict
+    return None
+
+def get_user_by_username(username: str) -> Optional[Dict]:
+    """
+    Get user by username
+    
+    Args:
+        username: Username to search for
+        
+    Returns:
+        User dictionary or None if not found
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+    row = cursor.fetchone()
+    
+    if row:
+        user_dict = {}
+        for key in row.keys():
+            user_dict[key] = row[key]
+        return user_dict
+    return None
+
+def get_user_by_email(email: str) -> Optional[Dict]:
+    """
+    Get user by email
+    
+    Args:
+        email: Email address to search for
+        
+    Returns:
+        User dictionary or None if not found
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+    row = cursor.fetchone()
+    
+    if row:
+        user_dict = {}
+        for key in row.keys():
+            user_dict[key] = row[key]
+        return user_dict
+    return None
+
+def update_user_last_login(user_id: int) -> bool:
+    """
+    Update user's last login timestamp
+    
+    Args:
+        user_id: User's unique identifier
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            UPDATE users 
+            SET last_login = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ''', (user_id,))
+        db.commit()
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error updating user last login: {str(e)}")
+        return False
+
+def create_user_session(user_id: int, session_token: str, expires_at: str) -> bool:
+    """
+    Create a new user session
+    
+    Args:
+        user_id: User's unique identifier
+        session_token: Unique session token
+        expires_at: Expiration timestamp
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO user_sessions (user_id, session_token, expires_at)
+            VALUES (?, ?, ?)
+        ''', (user_id, session_token, expires_at))
+        db.commit()
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error creating user session: {str(e)}")
+        return False
+
+def get_user_session(session_token: str) -> Optional[Dict]:
+    """
+    Get user session by token
+    
+    Args:
+        session_token: Session token to search for
+        
+    Returns:
+        Session dictionary or None if not found or expired
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM user_sessions 
+        WHERE session_token = ? AND expires_at > CURRENT_TIMESTAMP
+    ''', (session_token,))
+    row = cursor.fetchone()
+    
+    if row:
+        session_dict = {}
+        for key in row.keys():
+            session_dict[key] = row[key]
+        return session_dict
+    return None
+
+def delete_user_session(session_token: str) -> bool:
+    """
+    Delete a user session
+    
+    Args:
+        session_token: Session token to delete
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('DELETE FROM user_sessions WHERE session_token = ?', (session_token,))
+        db.commit()
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error deleting user session: {str(e)}")
+        return False
+
+def cleanup_expired_sessions() -> bool:
+    """
+    Clean up expired user sessions
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('DELETE FROM user_sessions WHERE expires_at <= CURRENT_TIMESTAMP')
+        db.commit()
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error cleaning up expired sessions: {str(e)}")
         return False
 
 def clear_character_memory(character_id: str) -> bool:
