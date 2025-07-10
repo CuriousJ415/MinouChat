@@ -394,11 +394,26 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
         return {"error": str(e)}, 500
 
 @app.delete("/api/characters/{character_id}")
-async def delete_character(character_id: str):
-    """Delete a character card."""
+async def delete_character(character_id: str, db = Depends(get_db)):
+    """Delete a character card and all associated memories/conversations (but not audit logs)."""
+    # Delete the character file
     success = character_manager.delete_character(character_id)
     if not success:
         return {"error": "Character not found"}, 404
+
+    # Delete all conversations and memories for this character
+    # (Assume conversation_manager has a method to get all sessions or conversations for a character)
+    try:
+        # If using ConversationService with DB:
+        from .core.conversation_service import ConversationService
+        conversation_service = ConversationService()
+        conversations = conversation_service.get_character_conversations(character_id, db)
+        for conv in conversations:
+            conversation_service.delete_conversation(conv["id"], db)
+    except Exception as e:
+        # Log but do not fail deletion if memory cleanup fails
+        logger.error(f"Error deleting conversations for character {character_id}: {e}")
+
     return {"success": True}
 
 @app.post("/api/conversations/{session_id}/migrate")

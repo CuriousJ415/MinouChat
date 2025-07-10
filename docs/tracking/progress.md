@@ -54,13 +54,34 @@
   - Connection testing functionality
   - User preferences (theme, language)
   - Modern Bootstrap UI with real-time validation
-
+- [x] **Character Creation API Fix** ✅ (COMPLETED)
+  - Fixed 422 validation error in character creation endpoint
+  - Updated CharacterCreateRequest model to handle flexible LLM configuration
+  - Fixed frontend form submission to use correct field names
+  - Improved error handling and user feedback
+- [x] **Dynamic Personality Editor** ✅ (COMPLETED)
+  - Fixed AI trait suggestions to update sliders in place (no re-rendering)
+  - Robust category handling with proper form submission logic
+  - Added "Partner / Significant Other" category with adult content warning modal
+  - Healthcare warning modal for sensitive categories
+  - System prompt suggestion button with real-time updates
+  - Bugfixes for event listeners and form validation
+- [x] **Personality Deletion System** ✅ (COMPLETED)
+  - Delete button on each personality card with confirmation modal
+  - Complete deletion of character and all associated memories/conversations
+  - Preservation of audit logs for warning acknowledgements
+  - Real-time UI updates after deletion
+  - Proper error handling and user feedback
 - [x] **Character Creation API Fix** ✅ (COMPLETED)
   - Fixed 422 validation error in character creation endpoint
   - Updated CharacterCreateRequest model to handle flexible LLM configuration
   - Support for both individual fields and llm_config object
   - Proper model_config building with default values
   - Backward compatibility with existing frontend code
+- [x] **Dynamic trait suggestion UI fix**: Sliders now update in place when AI suggestions are applied
+- [x] **Category dropdown improvements**: "Other" option with healthcare warning modal and proper value handling
+- [x] **System prompt suggestion**: Button and real-time update
+- [x] **Bugfixes**: Category handling, duplicate event listeners, and 422 error on character creation
 
 ### Previously Completed ✅ (July 7, 2025)
 - [x] **Chat page personality display fix**
@@ -129,6 +150,7 @@
 - [ ] **Error handling** - Improve error messages and user feedback
 - [ ] **Testing** - Add comprehensive tests for new personality editing features
 - [ ] **Documentation** - Update API documentation and user guides
+- [ ] **Audit logging for sensitive warning modals** (shown/acknowledged) (TODO: migrate to DB before production)
 
 ### Medium Priority
 - [ ] **Code organization** - Refactor character manager and personality systems

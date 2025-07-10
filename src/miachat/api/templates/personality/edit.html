@@ -74,6 +74,7 @@
                                         <option value="Colleague">Colleague</option>
                                         <option value="Family">Family</option>
                                         <option value="Teacher">Teacher</option>
+                                        <option value="Partner / Significant Other">Partner / Significant Other</option>
                                         <option value="Other">Other</option>
                                     </select>
                                     <input type="text" class="form-control mt-2" id="category-other" name="category_other" placeholder="Enter custom category" style="display:none;">
@@ -186,6 +187,24 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Adult/Entertainment Warning Modal -->
+    <div class="modal fade" id="adultWarningModal" tabindex="-1" aria-labelledby="adultWarningLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="adultWarningLabel">Adult Content Notice</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            This category may involve adult or entertainment content. Please acknowledge that you are over 18 and understand this is not a substitute for real relationships or professional advice.
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="adultWarningAcknowledge" data-bs-dismiss="modal">I Understand</button>
           </div>
         </div>
       </div>
@@ -329,12 +348,13 @@
             }
         });
 
-        // JS for category dropdown and healthcare warning
+        // JS for category dropdown and healthcare/adult warning
         const categorySelect = document.getElementById('category-select');
         const categoryOther = document.getElementById('category-other');
         const healthcareTerms = [
             'therapist', 'doctor', 'nurse', 'psychiatrist', 'counselor', 'psychologist', 'physician', 'clinician', 'medical', 'healthcare', 'shrink', 'psycho', 'medic', 'surgeon'
         ];
+        let adultWarningAcknowledged = false;
         function checkHealthcareWarning(val) {
             if (!val) return false;
             const lower = val.toLowerCase();
@@ -348,6 +368,16 @@
                 categoryOther.style.display = 'none';
                 categoryOther.required = false;
             }
+            // Adult/entertainment warning for Partner / Significant Other
+            if (this.value === 'Partner / Significant Other') {
+                if (!adultWarningAcknowledged) {
+                    const modal = new bootstrap.Modal(document.getElementById('adultWarningModal'));
+                    modal.show();
+                }
+            }
+        });
+        document.getElementById('adultWarningAcknowledge').addEventListener('click', function() {
+            adultWarningAcknowledged = true;
         });
         categoryOther.addEventListener('input', function() {
             if (checkHealthcareWarning(this.value)) {

@@ -42,7 +42,15 @@ This document outlines the implementation roadmap for MiaChat, a privacy-focused
 - **FastAPI Integration**: Proper routing and template system
 - **Chat Integration**: Fixed personality display in chat sidebar
 - **Template System**: Aligned variable names and data structures
-- **JSON-based Characters**: Working with new character card system
+- **JSON-based Characters**: Working with new character format
+- **Category System**: Dropdown with healthcare/partner warnings
+- **Dynamic Trait Suggestions**: AI-powered trait and communication style suggestions
+- **System Prompt Generation**: AI-assisted system prompt creation
+- **Personality Deletion**: Complete deletion with memory cleanup and audit log preservation
+- **Dynamic trait and communication style sliders**: In-place AI suggestions (no re-render)
+- **Category dropdown improvements**: Robust dropdown with "Other" and healthcare warning modal
+- **System prompt suggestion**: Button and real-time update
+- **Bugfixes**: Proper category handling, form submission, and duplicate event listeners
 
 ## Current Phase: Phase 6 - LLM Provider Integration
 
@@ -202,6 +210,7 @@ class OpenAIAdapter(LLMProvider):
 - **Load Balancing**: Support for multiple instances
 - **Database Migration**: Plan for PostgreSQL migration
 - **Monitoring**: Add comprehensive logging and metrics
+- **Audit Logging**: Log sensitive warning modals (shown/acknowledged) to local file (TODO: migrate to DB before production)
 
 ## Success Metrics
 
