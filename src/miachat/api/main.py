@@ -18,6 +18,29 @@ import os
 from starlette.responses import RedirectResponse
 import json
 import re
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+# --- Fixed trait and comm style keys ---
+FIXED_TRAITS = [
+    'Empathy',
+    'Assertiveness',
+    'Adaptability',
+    'Creativity',
+    'Resilience',
+    'Self-discipline',
+    'Sociability',
+    'Integrity',
+    'Curiosity'
+]
+FIXED_COMM_STYLES = [
+    'Directness',
+    'Warmth',
+    'Formality',
+    'Assertiveness',
+    'Empathy',
+    'Humor'
+]
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -84,7 +107,8 @@ class CharacterCreateRequest(BaseModel):
     backstory: str = ""
     gender: str = ""
     tags: List[str] = []
-    # LLM configuration fields (can be sent individually, as llm_config, or as llm_model_config)
+    traits: Optional[Dict[str, float]] = None  # Dynamic traits
+    communication_style: Optional[Dict[str, float]] = None  # Dynamic comm styles
     llm_config: Optional[Dict[str, Any]] = None
     llm_model_config: Optional[Dict[str, Any]] = None
     llm_provider: Optional[str] = None
@@ -98,6 +122,8 @@ class CharacterUpdateRequest(BaseModel):
     name: Optional[str] = None
     personality: Optional[str] = None
     system_prompt: Optional[str] = None
+    traits: Optional[Dict[str, float]] = None
+    communication_style: Optional[Dict[str, float]] = None
     llm_config: Optional[Dict[str, Any]] = None
     role: Optional[str] = None
     category: Optional[str] = None
@@ -266,16 +292,29 @@ async def get_character(character_id: str):
 async def create_character(request: CharacterCreateRequest):
     """Create a new character card."""
     character_data = request.dict()
-    
-    # Handle different data formats
+
+    # Normalize traits and communication_style to 0-1 scale if needed
+    def normalize_dict(d):
+        if not d:
+            return d
+        norm = {}
+        for k, v in d.items():
+            if v > 1.0:
+                norm[k] = float(v) / 10.0
+            else:
+                norm[k] = float(v)
+        return norm
+    if 'traits' in character_data:
+        character_data['traits'] = normalize_dict(character_data['traits'])
+    if 'communication_style' in character_data:
+        character_data['communication_style'] = normalize_dict(character_data['communication_style'])
+
+    # Handle different data formats for model config
     if 'llm_model_config' in character_data and character_data['llm_model_config']:
-        # Frontend is sending model_config as llm_model_config
         character_data['model_config'] = character_data.pop('llm_model_config')
     elif 'llm_config' in character_data and character_data['llm_config']:
-        # Convert llm_config to model_config
         character_data['model_config'] = character_data.pop('llm_config')
     else:
-        # Build model_config from individual fields
         model_config = {
             'provider': character_data.get('llm_provider', 'ollama'),
             'model': character_data.get('model', 'llama3:8b'),
@@ -285,26 +324,23 @@ async def create_character(request: CharacterCreateRequest):
             'top_k': character_data.get('top_k', 40)
         }
         character_data['model_config'] = model_config
-        
-        # Remove individual fields to avoid duplication
         for field in ['llm_provider', 'model', 'temperature', 'top_p', 'repeat_penalty', 'top_k']:
             character_data.pop(field, None)
-    
-    # Set default provider to ollama for privacy if not specified
+
     if 'model_config' in character_data and 'provider' not in character_data['model_config']:
         character_data['model_config']['provider'] = 'ollama'
         logger.info("Defaulting to Ollama provider for privacy")
-    
+
     character = character_manager.create_character(character_data)
     if not character:
         return {"error": "Failed to create character"}, 400
-    
+
     # Create initial character version for conversation history
     initial_version = conversation_manager.create_character_version(
         character, 
         change_reason="Initial character creation"
     )
-    
+
     return {
         "character": character,
         "version": initial_version.version
@@ -314,42 +350,45 @@ async def create_character(request: CharacterCreateRequest):
 async def update_character(character_id: str, request: CharacterUpdateRequest):
     """Update an existing character card and create a new version."""
     try:
-        # Get existing character
         character = character_manager.get_character(character_id)
         if not character:
             return {"error": "Character not found"}, 404
-        
-        # Only include non-None fields
         update_data = {k: v for k, v in request.dict().items() if v is not None}
-        
-        # Convert llm_config back to model_config for internal use
+        # Normalize traits and communication_style to 0-1 scale if needed
+        def normalize_dict(d):
+            if not d:
+                return d
+            norm = {}
+            for k, v in d.items():
+                if v > 1.0:
+                    norm[k] = float(v) / 10.0
+                else:
+                    norm[k] = float(v)
+            return norm
+        if 'traits' in update_data:
+            update_data['traits'] = normalize_dict(update_data['traits'])
+        if 'communication_style' in update_data:
+            update_data['communication_style'] = normalize_dict(update_data['communication_style'])
         if 'llm_config' in update_data:
             update_data['model_config'] = update_data.pop('llm_config')
-        
-        # Update character
         updated_character = character_manager.update_character(character_id, update_data)
         if not updated_character:
             return {"error": "Failed to update character"}, 400
-        
-        # Create new character version for conversation history
         change_reason = "Character updated via API"
         if 'system_prompt' in update_data:
             change_reason = "System prompt updated"
         elif 'personality' in update_data:
             change_reason = "Personality updated"
-        
         new_version = conversation_manager.create_character_version(
             updated_character, 
             change_reason=change_reason
         )
-        
         return {
             "message": "Character updated successfully", 
             "character": updated_character,
             "new_version": new_version.version,
             "change_reason": change_reason
         }
-        
     except Exception as e:
         logger.error(f"Error updating character: {e}")
         return {"error": str(e)}, 500
@@ -558,34 +597,70 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         logger.error(f"Error in chat: {e}")
         return {"error": str(e)}, 500
 
+@app.post("/api/suggest_system_prompt")
+async def suggest_system_prompt(request: Request):
+    data = await request.json()
+    backstory = data.get('backstory', '')
+    category = data.get('category', '')
+    # Prompt for the LLM
+    prompt = f"""
+Given the following backstory and category for a character, generate a concise, effective system prompt for an AI assistant to roleplay as this character. The system prompt should:
+- Clearly establish the character's role, personality, and communication style
+- Be 1-3 sentences
+- Use natural language, not JSON
+- Do NOT include any explanation, prelude, or commentary—just the system prompt itself.
+
+Backstory: {backstory}
+Category: {category}
+"""
+    model_config = {"provider": "ollama", "model": "llama3:8b", "temperature": 0.7, "max_tokens": 128}
+    response = llm_client.generate_response_with_config(
+        messages=[{"role": "user", "content": prompt}],
+        system_prompt="You are an expert at writing system prompts for AI roleplay based on character backstories and categories.",
+        model_config=model_config
+    )
+    # Extract only the quoted or main instruction
+    import re
+    system_prompt_text = response.strip()
+    # Try to extract quoted string
+    quoted = re.search(r'"([^"]{20,})"', system_prompt_text)
+    if quoted:
+        system_prompt_text = quoted.group(1).strip()
+    else:
+        # Remove prelude lines (e.g. 'Here is ...') and explanations
+        lines = [l.strip() for l in system_prompt_text.splitlines() if l.strip()]
+        # Find the first line that looks like a persona instruction
+        for line in lines:
+            if len(line) > 20 and not line.lower().startswith(('here is', 'this prompt', 'the above', 'as requested', 'explanation', 'note:')):
+                system_prompt_text = line
+                break
+    return JSONResponse({"system_prompt": system_prompt_text})
+
 @app.post("/api/suggest_traits", response_model=SuggestTraitsResponse)
 async def suggest_traits(request: SuggestTraitsRequest = Body(...)):
     """Suggest personality traits and communication style from a backstory using the LLM."""
-    # Build a prompt for the LLM
     prompt = f"""
 Given the following backstory for a character, suggest a set of core personality traits (as a dictionary of trait name to value from 0.0 to 1.0) and a communication style (as a dictionary of style name to value from 0.0 to 1.0). Only return valid JSON with two keys: 'traits' and 'communication_style'.
 
+IMPORTANT: Only use the following traits: {', '.join(FIXED_TRAITS)}. Only use the following communication styles: {', '.join(FIXED_COMM_STYLES)}. If you don't have enough information for a trait/style, set it to 0.5.
+
 Backstory: {request.backstory}
+Category: {request.category or ''}
 """
-    # Use Ollama for now
     model_config = {"provider": "ollama", "model": "llama3:8b", "temperature": 0.7, "max_tokens": 512}
     response = llm_client.generate_response_with_config(
         messages=[{"role": "user", "content": prompt}],
-        system_prompt="You are an expert at analyzing character backstories and suggesting personality traits and communication styles in JSON format.",
+        system_prompt="You are an expert at analyzing character backstories and suggesting realistic, balanced personality traits and communication styles in JSON format.",
         model_config=model_config
     )
-    # Try to parse the response as JSON
     traits = {}
     communication_style = {}
     try:
-        # First try direct JSON parsing
         data = json.loads(response)
         traits = data.get("traits", {})
         communication_style = data.get("communication_style", {})
     except json.JSONDecodeError:
-        # Try to extract JSON from markdown code blocks
         try:
-            # Look for JSON inside ```json or ``` blocks
             json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
@@ -593,17 +668,18 @@ Backstory: {request.backstory}
                 traits = data.get("traits", {})
                 communication_style = data.get("communication_style", {})
             else:
-                # Try to find JSON object in the text
                 json_match = re.search(r'\{.*?"traits".*?"communication_style".*?\}', response, re.DOTALL)
                 if json_match:
                     data = json.loads(json_match.group(0))
                     traits = data.get("traits", {})
                     communication_style = data.get("communication_style", {})
         except Exception:
-            # If all parsing fails, return empty dicts
             traits = {}
             communication_style = {}
-    return SuggestTraitsResponse(traits=traits, communication_style=communication_style, raw_response=response)
+    # Only return fixed keys
+    traits_out = {k: float(traits.get(k, 0.5)) for k in FIXED_TRAITS}
+    comm_out = {k: float(communication_style.get(k, 0.5)) for k in FIXED_COMM_STYLES}
+    return SuggestTraitsResponse(traits=traits_out, communication_style=comm_out, raw_response=response)
 
 # Settings API endpoints
 class LLMConfigRequest(BaseModel):
