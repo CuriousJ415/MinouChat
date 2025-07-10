@@ -119,7 +119,14 @@ async def chat_page(request: Request, db = Depends(get_db)):
         return RedirectResponse(url="/auth/login", status_code=302)
     
     characters = character_manager.list_characters()
-    return await render_template(request, "chat/index", characters=characters, user=current_user)
+    categories = character_manager.get_categories()
+    active_personality = None  # No active personality by default
+    
+    return await render_template(request, "chat/index", 
+                                personalities=characters, 
+                                categories=categories,
+                                active_personality=active_personality,
+                                user=current_user)
 
 @app.get("/characters")
 async def characters_page(request: Request, db = Depends(get_db)):
