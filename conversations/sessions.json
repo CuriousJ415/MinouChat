@@ -1,0 +1,29 @@
+{
+  "0a72c246-50e5-4ef5-b74e-a992b26f7447": {
+    "session_id": "0a72c246-50e5-4ef5-b74e-a992b26f7447",
+    "character_id": "28a8dd4f-7bc6-46be-b4d5-1253adf75740",
+    "character_version": 2,
+    "user_id": "2",
+    "started_at": "2025-07-09 20:40:00.076828",
+    "last_activity": "2025-07-09 20:40:09.148072",
+    "message_count": 2
+  },
+  "6043b20f-6330-4640-a2d1-0507aa51cca0": {
+    "session_id": "6043b20f-6330-4640-a2d1-0507aa51cca0",
+    "character_id": "28a8dd4f-7bc6-46be-b4d5-1253adf75740",
+    "character_version": 3,
+    "user_id": "2",
+    "started_at": "2025-07-09 20:41:15.530695",
+    "last_activity": "2025-07-09 20:41:19.666077",
+    "message_count": 2
+  },
+  "5148df63-580c-4da6-a73a-c63b2821f1e8": {
+    "session_id": "5148df63-580c-4da6-a73a-c63b2821f1e8",
+    "character_id": "28a8dd4f-7bc6-46be-b4d5-1253adf75740",
+    "character_version": 4,
+    "user_id": "2",
+    "started_at": "2025-07-09 20:45:25.173138",
+    "last_activity": "2025-07-09 20:49:25.403837",
+    "message_count": 14
+  }
+}

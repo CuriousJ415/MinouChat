@@ -71,11 +71,19 @@
                                 </div>
                             </div>
 
+                            <!-- Personality -->
+                            <div class="mb-3">
+                                <label for="personality" class="form-label">Personality *</label>
+                                <textarea class="form-control" id="personality" name="personality" rows="2" required>{{ personality.personality or '' }}</textarea>
+                                <div class="invalid-feedback">Please provide a personality description.</div>
+                                <small class="form-text text-muted">Brief description of the character's personality traits and behavior.</small>
+                            </div>
+
                             <!-- Backstory -->
                             <div class="mb-3">
-                                <label for="backstory" class="form-label">Backstory *</label>
-                                <textarea class="form-control" id="backstory" name="backstory" rows="4" required>{{ personality.backstory or '' }}</textarea>
-                                <div class="invalid-feedback">Please provide a backstory.</div>
+                                <label for="backstory" class="form-label">Backstory</label>
+                                <textarea class="form-control" id="backstory" name="backstory" rows="4">{{ personality.backstory or '' }}</textarea>
+                                <small class="form-text text-muted">Optional detailed backstory and history of the character.</small>
                             </div>
 
                             <!-- Traits -->
@@ -259,6 +267,7 @@
             const formData = new FormData(this);
             const personalityData = {
                 name: formData.get('name'),
+                personality: formData.get('personality'),
                 category: formData.get('category'),
                 backstory: formData.get('backstory'),
                 system_prompt: formData.get('system_prompt'),
@@ -270,7 +279,7 @@
                     empathy: parseInt(formData.get('comm_empathy')) / 10,
                     humor: parseInt(formData.get('comm_humor')) / 10
                 },
-                model_config: {
+                llm_model_config: {
                     provider: 'ollama',
                     model: formData.get('model'),
                     temperature: parseFloat(formData.get('temperature'))
@@ -278,8 +287,9 @@
             };
             
             try {
-                const url = '{{ personality.id }}' ? `/api/characters/{{ personality.id }}` : '/api/characters';
-                const method = '{{ personality.id }}' ? 'PUT' : 'POST';
+                const personalityId = '{{ personality.id or "" }}';
+                const url = personalityId ? `/api/characters/${personalityId}` : '/api/characters';
+                const method = personalityId ? 'PUT' : 'POST';
                 
                 const response = await fetch(url, {
                     method: method,

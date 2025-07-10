@@ -5,8 +5,12 @@ MiaChat is a FastAPI-based web application that allows you to chat with AI perso
 ## Features
 
 - **Multiple AI Personalities**: Choose from Gordon (Business Coach), Sage (Life Coach), and Mia (Friend)
-- **Personality Management**: View and manage different AI personalities
+- **Personality Management**: View, create, and edit AI personalities with full CRUD operations
 - **Interactive Chat Interface**: Clean, modern chat interface with personality switching
+- **AI-Powered Trait Suggestions**: Automatic personality trait suggestions using local Ollama LLM
+- **Communication Style Customization**: Sliders for directness, warmth, formality, empathy, and humor
+- **Privacy-First Design**: Local LLM processing with Ollama (no external data transmission)
+- **Modern UI**: Bootstrap-based responsive design with real-time form validation
 - **File-based Storage**: Simple JSON-based personality storage (no database required)
 
 ## Quick Start
@@ -92,12 +96,15 @@ personalities/              # Personality JSON files
 
 ## Future Enhancements
 
-- [ ] Real AI integration (currently simulated responses)
-- [ ] Personality creation and editing interface
-- [ ] Chat history persistence
-- [ ] User authentication
-- [ ] Advanced personality customization
-- [ ] Export/import personality configurations
+- [x] **Real AI integration** with Ollama (completed)
+- [x] **Personality creation and editing interface** (completed)
+- [x] **Chat history persistence** (completed)
+- [x] **User authentication** (completed)
+- [x] **Advanced personality customization** (completed)
+- [ ] **Multi-provider LLM support** (OpenAI, Anthropic, etc.)
+- [ ] **Export/import personality configurations**
+- [ ] **Enhanced trait suggestions** with multiple LLM providers
+- [ ] **Personality templates and presets**
 
 ## Troubleshooting
 

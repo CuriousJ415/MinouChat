@@ -111,7 +111,7 @@
                         <div id="personalitiesList">
                             {% for personality in personalities %}
                             <div class="personality-card card mb-2 {% if personality.name == active_personality %}active{% endif %}" 
-                                 data-personality="{{ personality.name }}">
+                                 data-personality="{{ personality.name }}" data-character-id="{{ personality.id }}">
                                 <div class="card-body p-2">
                                     <div class="d-flex align-items-center">
                                         <div class="personality-avatar me-2">
@@ -180,7 +180,10 @@
 
         let currentCharacterId = getQueryParam('character_id');
         let currentPersonality = '';
+        let currentSessionId = localStorage.getItem('currentSessionId');
+        let currentCharacterVersion = null;
         let chatHistory = [];
+        let migrationAvailable = false;
 
         // On page load, fetch character if character_id is present
         if (currentCharacterId) {
@@ -192,8 +195,14 @@
                         document.getElementById('currentPersonality').textContent = data.name;
                         document.getElementById('messageInput').disabled = false;
                         document.querySelector('#chatForm button').disabled = false;
-                        clearChat();
-                        addMessage('assistant', `Hello! I'm ${data.name}. How can I help you today?`);
+                        
+                        // Check if we have an existing session for this character
+                        if (currentSessionId) {
+                            loadExistingConversation();
+                        } else {
+                            clearChat();
+                            addMessage('assistant', `Hello! I'm ${data.name}. How can I help you today?`);
+                        }
                     }
                 });
         }
@@ -202,20 +211,26 @@
         document.querySelectorAll('.personality-card').forEach(card => {
             card.addEventListener('click', function() {
                 const personalityName = this.dataset.personality;
-                selectPersonality(personalityName);
+                const characterId = this.dataset.characterId;
+                selectPersonality(personalityName, characterId);
             });
         });
         
-        function selectPersonality(name) {
+        function selectPersonality(name, characterId) {
+            console.log('Selecting personality:', { name, characterId });
+            
             // Update active state
             document.querySelectorAll('.personality-card').forEach(card => {
                 card.classList.remove('active');
             });
             document.querySelector(`[data-personality="${name}"]`).classList.add('active');
             
-            // Update current personality
+            // Update current personality and character ID
             currentPersonality = name;
+            currentCharacterId = characterId;
             document.getElementById('currentPersonality').textContent = name;
+            
+            console.log('Updated state:', { currentPersonality, currentCharacterId });
             
             // Enable chat
             document.getElementById('messageInput').disabled = false;
@@ -234,6 +249,8 @@
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
             
+            console.log('Chat form submitted:', { message, currentCharacterId, currentPersonality });
+            
             if (message && currentCharacterId) {
                 addMessage('user', message);
                 input.value = '';
@@ -246,13 +263,26 @@
                     },
                     body: JSON.stringify({
                         message: message,
-                        character_id: currentCharacterId
+                        character_id: currentCharacterId,
+                        session_id: currentSessionId
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Chat API response:', data);
                     if (data.response) {
+                        // Update session info
+                        currentSessionId = data.session_id;
+                        localStorage.setItem('currentSessionId', currentSessionId);
+                        currentCharacterVersion = data.character_version;
+                        migrationAvailable = data.migration_available;
+                        
                         addMessage('assistant', data.response);
+                        
+                        // Show migration notification if available
+                        if (migrationAvailable && !document.getElementById('migrationNotification')) {
+                            showMigrationNotification();
+                        }
                     } else {
                         addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
                     }
@@ -261,6 +291,11 @@
                     console.error('Error:', error);
                     addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
                 });
+            } else {
+                console.log('Cannot send message:', { message: !!message, currentCharacterId: !!currentCharacterId });
+                if (!currentCharacterId) {
+                    alert('Please select a personality first.');
+                }
             }
         });
         
@@ -294,6 +329,133 @@
             chatHistory = [];
         }
         
+        function loadExistingConversation() {
+            if (!currentSessionId) return;
+            
+            fetch(`/api/conversations/${currentSessionId}/history`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && !data.error) {
+                        // Check if this session belongs to the current character
+                        if (data.character_id === currentCharacterId) {
+                            currentCharacterVersion = data.character_version;
+                            
+                            // Load conversation history
+                            clearChat();
+                            data.history.forEach(msg => {
+                                addMessage(msg.role, msg.content);
+                            });
+                            
+                            // Check for migration availability
+                            if (data.migration_available && !document.getElementById('migrationNotification')) {
+                                showMigrationNotification();
+                            }
+                        } else {
+                            // Session belongs to different character, clear it
+                            currentSessionId = null;
+                            localStorage.removeItem('currentSessionId');
+                            clearChat();
+                            addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                        }
+                    } else {
+                        // Session not found, clear it
+                        currentSessionId = null;
+                        localStorage.removeItem('currentSessionId');
+                        clearChat();
+                        addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading conversation:', error);
+                    // Clear invalid session
+                    currentSessionId = null;
+                    localStorage.removeItem('currentSessionId');
+                    clearChat();
+                    addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                });
+        }
+        
+        function checkForMigration() {
+            if (!currentSessionId) return;
+            
+            // Check for migration by getting conversation history
+            fetch(`/api/conversations/${currentSessionId}/history`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && !data.error && data.migration_available && !document.getElementById('migrationNotification')) {
+                        showMigrationNotification();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking migration:', error);
+                });
+        }
+        
+        function showMigrationNotification() {
+            const notification = document.createElement('div');
+            notification.id = 'migrationNotification';
+            notification.className = 'alert alert-info alert-dismissible fade show';
+            notification.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                <strong>Character Updated!</strong> ${currentPersonality} has been updated. 
+                <button type="button" class="btn btn-sm btn-primary ms-2" onclick="migrateConversation('auto')">
+                    Update Conversation
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="migrateConversation('new_session')">
+                    Start New
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="migrateConversation('keep_old')">
+                    Keep Old Version
+                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.insertBefore(notification, chatContainer.firstChild);
+        }
+        
+        function migrateConversation(choice) {
+            if (!currentSessionId) {
+                console.error('No session ID available for migration');
+                return;
+            }
+            
+            fetch(`/api/conversations/${currentSessionId}/migrate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ choice: choice })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Migration response:', data);
+                if (data.migrated) {
+                    // Remove notification
+                    const notification = document.getElementById('migrationNotification');
+                    if (notification) {
+                        notification.remove();
+                    }
+                    
+                    if (choice === 'new_session') {
+                        // Clear chat and start fresh
+                        currentSessionId = null;
+                        localStorage.removeItem('currentSessionId');
+                        clearChat();
+                        addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                    } else {
+                        // Auto-migration: just update the version
+                        migrationAvailable = false;
+                        addMessage('assistant', `*Character updated* Hello again! I'm ${currentPersonality}. How can I help you today?`);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Migration error:', error);
+                alert('Failed to migrate conversation. Please try again.');
+            });
+        }
+        
         // Search functionality
         document.getElementById('searchPersonalities').addEventListener('input', function(e) {
             const query = e.target.value.toLowerCase();
@@ -315,8 +477,8 @@
         });
         
         // Initialize
-        if (currentPersonality) {
-            selectPersonality(currentPersonality);
+        if (currentPersonality && currentCharacterId) {
+            selectPersonality(currentPersonality, currentCharacterId);
         }
     </script>
 </body>

@@ -7,6 +7,8 @@ from .core.character_manager import character_manager
 from .core.llm_client import llm_client
 from .core.database import create_tables, get_db
 from .core.auth import require_session_auth, get_current_user_from_session
+from .core.settings_service import settings_service
+from .core.conversation_manager import ConversationManager
 from .routes.auth import router as auth_router
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -49,6 +51,9 @@ mount_static_files(app)
 # Include routers
 app.include_router(auth_router)
 
+# Initialize conversation manager
+conversation_manager = ConversationManager()
+
 # Create database tables on startup
 @app.on_event("startup")
 async def startup_event():
@@ -60,22 +65,34 @@ async def startup_event():
 class ChatRequest(BaseModel):
     message: str
     character_id: str
+    session_id: Optional[str] = None  # Optional session ID for continuing conversations
 
 class ChatResponse(BaseModel):
     response: str
     character_name: str
     character_id: str
+    session_id: str
+    character_version: int
+    migration_available: bool = False
 
 class CharacterCreateRequest(BaseModel):
     name: str
     personality: str
     system_prompt: str
-    llm_config: Dict[str, Any]
     role: str = "assistant"
     category: str = "General"
     backstory: str = ""
     gender: str = ""
     tags: List[str] = []
+    # LLM configuration fields (can be sent individually, as llm_config, or as llm_model_config)
+    llm_config: Optional[Dict[str, Any]] = None
+    llm_model_config: Optional[Dict[str, Any]] = None
+    llm_provider: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = 0.7
+    top_p: Optional[float] = 0.9
+    repeat_penalty: Optional[float] = 1.1
+    top_k: Optional[int] = 40
 
 class CharacterUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -250,9 +267,28 @@ async def create_character(request: CharacterCreateRequest):
     """Create a new character card."""
     character_data = request.dict()
     
-    # Convert llm_config back to model_config for internal use
-    if 'llm_config' in character_data:
+    # Handle different data formats
+    if 'llm_model_config' in character_data and character_data['llm_model_config']:
+        # Frontend is sending model_config as llm_model_config
+        character_data['model_config'] = character_data.pop('llm_model_config')
+    elif 'llm_config' in character_data and character_data['llm_config']:
+        # Convert llm_config to model_config
         character_data['model_config'] = character_data.pop('llm_config')
+    else:
+        # Build model_config from individual fields
+        model_config = {
+            'provider': character_data.get('llm_provider', 'ollama'),
+            'model': character_data.get('model', 'llama3:8b'),
+            'temperature': character_data.get('temperature', 0.7),
+            'top_p': character_data.get('top_p', 0.9),
+            'repeat_penalty': character_data.get('repeat_penalty', 1.1),
+            'top_k': character_data.get('top_k', 40)
+        }
+        character_data['model_config'] = model_config
+        
+        # Remove individual fields to avoid duplication
+        for field in ['llm_provider', 'model', 'temperature', 'top_p', 'repeat_penalty', 'top_k']:
+            character_data.pop(field, None)
     
     # Set default provider to ollama for privacy if not specified
     if 'model_config' in character_data and 'provider' not in character_data['model_config']:
@@ -262,22 +298,61 @@ async def create_character(request: CharacterCreateRequest):
     character = character_manager.create_character(character_data)
     if not character:
         return {"error": "Failed to create character"}, 400
-    return character
+    
+    # Create initial character version for conversation history
+    initial_version = conversation_manager.create_character_version(
+        character, 
+        change_reason="Initial character creation"
+    )
+    
+    return {
+        "character": character,
+        "version": initial_version.version
+    }
 
 @app.put("/api/characters/{character_id}")
 async def update_character(character_id: str, request: CharacterUpdateRequest):
-    """Update an existing character card."""
-    # Only include non-None fields
-    update_data = {k: v for k, v in request.dict().items() if v is not None}
-    
-    # Convert llm_config back to model_config for internal use
-    if 'llm_config' in update_data:
-        update_data['model_config'] = update_data.pop('llm_config')
-    
-    character = character_manager.update_character(character_id, update_data)
-    if not character:
-        return {"error": "Character not found"}, 404
-    return character
+    """Update an existing character card and create a new version."""
+    try:
+        # Get existing character
+        character = character_manager.get_character(character_id)
+        if not character:
+            return {"error": "Character not found"}, 404
+        
+        # Only include non-None fields
+        update_data = {k: v for k, v in request.dict().items() if v is not None}
+        
+        # Convert llm_config back to model_config for internal use
+        if 'llm_config' in update_data:
+            update_data['model_config'] = update_data.pop('llm_config')
+        
+        # Update character
+        updated_character = character_manager.update_character(character_id, update_data)
+        if not updated_character:
+            return {"error": "Failed to update character"}, 400
+        
+        # Create new character version for conversation history
+        change_reason = "Character updated via API"
+        if 'system_prompt' in update_data:
+            change_reason = "System prompt updated"
+        elif 'personality' in update_data:
+            change_reason = "Personality updated"
+        
+        new_version = conversation_manager.create_character_version(
+            updated_character, 
+            change_reason=change_reason
+        )
+        
+        return {
+            "message": "Character updated successfully", 
+            "character": updated_character,
+            "new_version": new_version.version,
+            "change_reason": change_reason
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating character: {e}")
+        return {"error": str(e)}, 500
 
 @app.delete("/api/characters/{character_id}")
 async def delete_character(character_id: str):
@@ -286,6 +361,72 @@ async def delete_character(character_id: str):
     if not success:
         return {"error": "Character not found"}, 404
     return {"success": True}
+
+@app.post("/api/conversations/{session_id}/migrate")
+async def migrate_conversation(session_id: str, request: Request, db = Depends(get_db)):
+    """Migrate a conversation session to the latest character version."""
+    try:
+        # Get current user
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return {"error": "Authentication required"}, 401
+        
+        # Get request body
+        body = await request.json()
+        user_choice = body.get("choice", "auto")  # "auto", "new_session", or "keep_old"
+        
+        if user_choice == "keep_old":
+            return {"message": "Session kept on old version", "migrated": False}
+        
+        success = conversation_manager.migrate_session(session_id, user_choice)
+        if not success:
+            return {"error": "Failed to migrate session"}, 400
+        
+        return {
+            "message": "Session migrated successfully", 
+            "migrated": True,
+            "choice": user_choice
+        }
+        
+    except Exception as e:
+        logger.error(f"Error migrating conversation: {e}")
+        return {"error": str(e)}, 500
+
+@app.get("/api/conversations/{session_id}/history")
+async def get_conversation_history(session_id: str, request: Request, db = Depends(get_db)):
+    """Get conversation history for a session."""
+    try:
+        # Get current user
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return {"error": "Authentication required"}, 401
+        
+        session = conversation_manager.get_session(session_id)
+        if not session:
+            return {"error": "Session not found"}, 404
+        
+        # Check if user owns this session
+        if str(session.user_id) != str(current_user.id):
+            return {"error": "Access denied"}, 403
+        
+        history = conversation_manager.get_conversation_history(session_id)
+        
+        # Check for migration availability
+        update_event = conversation_manager.check_version_compatibility(session_id)
+        migration_available = update_event is not None
+        
+        return {
+            "session_id": session_id,
+            "character_id": session.character_id,
+            "character_version": session.character_version,
+            "message_count": session.message_count,
+            "migration_available": migration_available,
+            "history": [msg.dict() for msg in history]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting conversation history: {e}")
+        return {"error": str(e)}, 500
 
 @app.get("/api/models")
 async def get_available_models():
@@ -324,20 +465,56 @@ async def get_tags():
     return character_manager.get_tags()
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest):
-    """Send a message to a character and get a response."""
+async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db)):
+    """Send a message to a character and get a response with conversation memory."""
     try:
+        # Get current user
+        current_user = await get_current_user_from_session(request_obj, db)
+        if not current_user:
+            return {"error": "Authentication required"}, 401
+        
         # Get character
         character = character_manager.get_character(request.character_id)
         if not character:
             return {"error": "Character not found"}, 404
         
-        # Update character usage
-        character_manager.update_character(request.character_id, {
-            'last_used': datetime.now().isoformat(),
-            'conversation_count': character.get('conversation_count', 0) + 1,
-            'total_messages': character.get('total_messages', 0) + 1
-        })
+        # Handle session management
+        session_id = request.session_id
+        migration_available = False
+        
+        if session_id:
+            # Continue existing session
+            session = conversation_manager.get_session(session_id)
+            if not session or session.character_id != request.character_id:
+                session_id = None  # Invalid session, create new one
+        
+        if not session_id:
+            # Create new session
+            session = conversation_manager.create_conversation_session(
+                request.character_id, 
+                str(current_user.id)
+            )
+            session_id = session.session_id
+        
+        # Check for character updates
+        update_event = conversation_manager.check_version_compatibility(session_id)
+        if update_event:
+            migration_available = True
+            logger.info(f"Character {request.character_id} has been updated, migration available")
+        
+        # Get conversation history for context
+        history = conversation_manager.get_conversation_history(session_id, limit=10)
+        messages = []
+        
+        # Add system prompt
+        messages.append({"role": "system", "content": character['system_prompt']})
+        
+        # Add conversation history
+        for msg in history:
+            messages.append({"role": msg.role, "content": msg.content})
+        
+        # Add current message
+        messages.append({"role": "user", "content": request.message})
         
         # Generate response using the character's model configuration
         model_config = character['model_config']
@@ -350,17 +527,31 @@ async def chat(request: ChatRequest):
             logger.info(f"Using CLOUD provider {provider} for {character['name']} - data may be processed externally")
         
         response = llm_client.generate_response_with_config(
-            messages=[{"role": "user", "content": request.message}],
+            messages=messages,
             system_prompt=character['system_prompt'],
             model_config=model_config
         )
+        
+        # Save messages to conversation history
+        conversation_manager.save_message(session_id, "user", request.message)
+        conversation_manager.save_message(session_id, "assistant", response)
+        
+        # Update character usage
+        character_manager.update_character(request.character_id, {
+            'last_used': datetime.now().isoformat(),
+            'conversation_count': character.get('conversation_count', 0) + 1,
+            'total_messages': character.get('total_messages', 0) + 1
+        })
         
         logger.info(f"Generated response for {character['name']}: {response[:100]}...")
         
         return ChatResponse(
             response=response,
             character_name=character['name'],
-            character_id=character['id']
+            character_id=character['id'],
+            session_id=session_id,
+            character_version=session.character_version,
+            migration_available=migration_available
         )
         
     except Exception as e:
@@ -413,6 +604,101 @@ Backstory: {request.backstory}
             traits = {}
             communication_style = {}
     return SuggestTraitsResponse(traits=traits, communication_style=communication_style, raw_response=response)
+
+# Settings API endpoints
+class LLMConfigRequest(BaseModel):
+    provider: str
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    api_url: Optional[str] = None
+    privacy_mode: Optional[str] = "local_only"
+
+class TestConnectionRequest(BaseModel):
+    provider: str
+    config: Dict[str, Any]
+
+@app.get("/api/settings/llm")
+async def get_llm_settings(request: Request, db = Depends(get_db)):
+    """Get current LLM settings for the authenticated user."""
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return {"error": "Authentication required"}, 401
+    
+    config = settings_service.get_llm_config(current_user.id, db)
+    
+    # Create a secure copy without sensitive data for return
+    secure_config = config.copy()
+    if 'api_key' in secure_config:
+        # Just indicate if the API key exists
+        secure_config['api_key'] = secure_config['api_key'] is not None
+    
+    return secure_config
+
+@app.post("/api/settings/llm")
+async def update_llm_settings(request: LLMConfigRequest, request_obj: Request, db = Depends(get_db)):
+    """Update LLM settings for the authenticated user."""
+    current_user = await get_current_user_from_session(request_obj, db)
+    if not current_user:
+        return {"error": "Authentication required"}, 401
+    
+    config = request.dict()
+    success = settings_service.update_llm_config(current_user.id, db, config)
+    
+    if success:
+        return {"success": True, "message": "Settings updated successfully"}
+    else:
+        return {"success": False, "error": "Failed to update settings"}, 400
+
+@app.get("/api/settings/llm/models")
+async def get_llm_models(provider: str):
+    """Get available models for a specific LLM provider."""
+    models = settings_service.get_available_models(provider)
+    return {
+        "provider": provider,
+        "models": models,
+        "count": len(models)
+    }
+
+@app.post("/api/settings/llm/test")
+async def test_llm_connection(request: TestConnectionRequest):
+    """Test connection to an LLM provider."""
+    result = settings_service.test_provider_connection(request.provider, request.config)
+    return result
+
+@app.get("/api/settings/user")
+async def get_user_settings(request: Request, db = Depends(get_db)):
+    """Get all user settings for the authenticated user."""
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return {"error": "Authentication required"}, 401
+    
+    settings = settings_service.get_user_settings(current_user.id, db)
+    if not settings:
+        return {"message": "No settings found, using defaults"}
+    
+    # Return settings without sensitive data
+    return {
+        "theme": settings.theme,
+        "language": settings.language,
+        "privacy_mode": settings.privacy_mode,
+        "default_llm_provider": settings.default_llm_provider,
+        "default_model": settings.default_model
+    }
+
+@app.put("/api/settings/user")
+async def update_user_settings(request: Request, db = Depends(get_db)):
+    """Update user settings for the authenticated user."""
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return {"error": "Authentication required"}, 401
+    
+    data = await request.json()
+    settings = settings_service.update_user_settings(current_user.id, db, **data)
+    
+    if settings:
+        return {"success": True, "message": "Settings updated successfully"}
+    else:
+        return {"success": False, "error": "Failed to update settings"}, 400
 
 if __name__ == "__main__":
     import uvicorn
