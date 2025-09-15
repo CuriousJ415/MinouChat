@@ -157,8 +157,15 @@ class ConversationManager:
             if msg['session_id'] == session_id
         ]
         
-        # Sort by timestamp and limit
-        sorted_messages = sorted(session_messages, key=lambda m: m['timestamp'])[-limit:]
+        # Sort by timestamp and limit (ensure timestamps are datetime objects for comparison)
+        def get_timestamp(msg):
+            ts = msg['timestamp']
+            if isinstance(ts, str):
+                from datetime import datetime
+                return datetime.fromisoformat(ts.replace('Z', '+00:00'))
+            return ts
+        
+        sorted_messages = sorted(session_messages, key=get_timestamp)[-limit:]
         return [ChatMessage(**msg) for msg in sorted_messages]
     
     def check_version_compatibility(self, session_id: str) -> Optional[CharacterUpdateEvent]:

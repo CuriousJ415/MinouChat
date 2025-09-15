@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, Dict, Any, List
 import logging
+import os
 from .models import UserSettings, User
 from .database import get_db
 
@@ -82,7 +83,7 @@ class SettingsService:
                 "provider": "ollama",
                 "model": "llama3:8b",
                 "privacy_mode": "local_only",
-                "api_url": "http://localhost:11434"
+                "api_url": f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
             }
         
         config = {
@@ -120,7 +121,7 @@ class SettingsService:
             
             # Provider-specific settings
             if provider == "ollama":
-                update_data["ollama_url"] = config.get("api_url", "http://localhost:11434")
+                update_data["ollama_url"] = config.get("api_url", f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}")
             elif provider == "openai":
                 if "api_key" in config:
                     update_data["openai_api_key"] = config["api_key"]
@@ -150,13 +151,14 @@ class SettingsService:
             ]
         elif provider == "openai":
             return [
-                "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini",
-                "gpt-3.5-turbo", "gpt-3.5-turbo-16k"
+                "gpt-5", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4",
+                "gpt-3.5-turbo", "o1-preview", "o1-mini"
             ]
         elif provider == "anthropic":
             return [
+                "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022",
                 "claude-3-opus-20240229", "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307", "claude-2.1", "claude-2.0"
+                "claude-3-haiku-20240307"
             ]
         elif provider == "openrouter":
             return [

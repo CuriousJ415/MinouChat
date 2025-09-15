@@ -325,14 +325,104 @@
             
             init() {
                 this.loadSettings();
+                this.loadAvailableModels();
                 this.setupEventListeners();
             }
             
             setupEventListeners() {
-                this.providerSelect.addEventListener('change', () => this.toggleProviderConfig());
+                this.providerSelect.addEventListener('change', () => {
+                    this.toggleProviderConfig();
+                    this.updateModelsForProvider();
+                });
                 this.llmForm.addEventListener('submit', (e) => this.saveLLMSettings(e));
                 this.userForm.addEventListener('submit', (e) => this.saveUserPreferences(e));
                 this.testBtn.addEventListener('click', () => this.testConnection());
+            }
+            
+            async loadAvailableModels() {
+                try {
+                    const response = await fetch('/api/models');
+                    if (!response.ok) throw new Error('Failed to load models');
+                    
+                    this.availableModels = await response.json();
+                    this.populateModelSelects();
+                    
+                } catch (error) {
+                    console.error('Error loading available models:', error);
+                    // Fallback to default models if API fails
+                    this.availableModels = {
+                        'ollama': ['llama3.1:8b', 'llama3.1:latest', 'mistral:latest'],
+                        'openai': ['gpt-5', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+                        'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+                        'openrouter': ['openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet']
+                    };
+                    this.populateModelSelects();
+                }
+            }
+            
+            populateModelSelects() {
+                // Update Ollama models
+                this.updateSelectOptions('ollama-model', this.availableModels.ollama || []);
+                
+                // Update OpenAI models  
+                this.updateSelectOptions('openai-model', this.availableModels.openai || []);
+                
+                // Update Anthropic models
+                this.updateSelectOptions('anthropic-model', this.availableModels.anthropic || []);
+                
+                // Update OpenRouter models
+                this.updateSelectOptions('openrouter-model', this.availableModels.openrouter || []);
+            }
+            
+            updateSelectOptions(selectId, models) {
+                const select = document.getElementById(selectId);
+                if (!select || !models.length) return;
+                
+                const currentValue = select.value;
+                select.innerHTML = '';
+                
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = this.formatModelName(model);
+                    select.appendChild(option);
+                });
+                
+                // Restore previous value if it exists in new list
+                if (models.includes(currentValue)) {
+                    select.value = currentValue;
+                } else if (models.length > 0) {
+                    select.value = models[0];
+                }
+            }
+            
+            formatModelName(model) {
+                // Format model names for better display
+                const modelNames = {
+                    'gpt-5': 'GPT-5 (Latest)',
+                    'gpt-4o': 'GPT-4o (Omni)',
+                    'gpt-4o-mini': 'GPT-4o Mini',
+                    'gpt-4-turbo': 'GPT-4 Turbo',
+                    'gpt-4': 'GPT-4',
+                    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+                    'o1-preview': 'o1 Preview (Reasoning)',
+                    'o1-mini': 'o1 Mini (Reasoning)',
+                    'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet (Latest)',
+                    'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku (Latest)',
+                    'claude-3-opus-20240229': 'Claude 3 Opus',
+                    'llama3.1:8b': 'Llama 3.1 8B',
+                    'llama3.1:latest': 'Llama 3.1 (Latest)',
+                    'mistral:latest': 'Mistral (Latest)'
+                };
+                
+                return modelNames[model] || model;
+            }
+            
+            updateModelsForProvider() {
+                const provider = this.providerSelect.value;
+                if (this.availableModels && this.availableModels[provider]) {
+                    this.updateSelectOptions(`${provider}-model`, this.availableModels[provider]);
+                }
             }
             
             async loadSettings() {

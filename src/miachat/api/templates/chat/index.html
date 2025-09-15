@@ -111,7 +111,7 @@
                         <div id="personalitiesList">
                             {% for personality in personalities %}
                             <div class="personality-card card mb-2 {% if personality.name == active_personality %}active{% endif %}" 
-                                 data-personality="{{ personality.name }}" data-character-id="{{ personality.id }}">
+                                 data-personality="{{ personality.name }}" data-character-id="{{ personality.id }}" data-category="{{ personality.category or '' }}">
                                 <div class="card-body p-2">
                                     <div class="d-flex align-items-center">
                                         <div class="personality-avatar me-2">
@@ -119,6 +119,7 @@
                                         </div>
                                         <div class="flex-grow-1">
                                             <h6 class="mb-0">{{ personality.name }}</h6>
+                                            <small class="text-muted d-block">{{ personality.category or 'Uncategorized' }}</small>
                                             <small class="text-muted">{{ personality.personality[:50] }}...</small>
                                         </div>
                                     </div>
@@ -472,8 +473,18 @@
         // Category filter
         document.getElementById('categoryFilter').addEventListener('change', function(e) {
             const category = e.target.value;
-            // In a real implementation, you would filter personalities by category
-            console.log('Filter by category:', category);
+            const cards = document.querySelectorAll('.personality-card');
+            
+            cards.forEach(card => {
+                const cardCategory = card.dataset.category || '';
+                if (category === '' || cardCategory === category) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            console.log('Filtered by category:', category);
         });
         
         // Initialize

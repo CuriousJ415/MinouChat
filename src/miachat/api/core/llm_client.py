@@ -177,4 +177,8 @@ class OllamaClient:
             return False
 
 # Global client instance
-llm_client = OllamaClient() 
+import os
+ollama_host = os.getenv('OLLAMA_HOST', 'localhost')
+ollama_port = os.getenv('OLLAMA_PORT', '11434')
+ollama_url = f"http://{ollama_host}:{ollama_port}"
+llm_client = OllamaClient(ollama_url) 

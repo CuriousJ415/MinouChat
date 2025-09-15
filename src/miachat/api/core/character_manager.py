@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import logging
+from .model_discovery import model_discovery
 
 logger = logging.getLogger(__name__)
 
@@ -17,25 +18,16 @@ class CharacterManager:
         self._load_default_cards()
     
     def _load_default_cards(self):
-        if not self.list_characters():
-            self._create_default_cards()
+        # Ensure examples directory exists - examples are now pre-created templates
+        examples_dir = self.storage_dir.parent / "character_examples"
+        examples_dir.mkdir(exist_ok=True)
+        logger.info(f"Example characters directory: {examples_dir}")
+        
+        # Examples are now managed as static templates, not auto-generated
     
     def _create_default_cards(self):
-        default_cards = [
-            {
-                'id': str(uuid.uuid4()),
-                'name': 'Mia',
-                'personality': 'A warm and supportive friend',
-                'system_prompt': 'You are Mia, a warm and supportive friend.',
-                'model_config': {'provider': 'ollama', 'model': 'llama3:8b'},
-                'role': 'friend',
-                'category': 'Social',
-                'tags': ['friend', 'local', 'private'],
-                'created_at': datetime.now().isoformat()
-            }
-        ]
-        for card_data in default_cards:
-            self.create_character(card_data)
+        """Legacy method - now defaults are handled as examples"""
+        pass
     
     def list_characters(self) -> List[Dict[str, Any]]:
         characters = []
@@ -98,21 +90,58 @@ class CharacterManager:
             logger.error(f"Error deleting character {character_id}: {e}")
             return False
     
-    def get_available_models(self) -> Dict[str, List[str]]:
-        return {
-            'ollama': ['llama3:8b', 'llama3.1:latest', 'mistral:latest'],
-            'openai': ['gpt-4', 'gpt-3.5-turbo'],
-            'anthropic': ['claude-3-sonnet', 'claude-3-haiku'],
-            'openrouter': ['openai/gpt-4', 'anthropic/claude-3-sonnet']
-        }
+    def get_available_models(self, privacy_mode: str = "local_only") -> Dict[str, List[str]]:
+        """Get available models using privacy-respecting discovery."""
+        return model_discovery.get_available_models(privacy_mode)
+    
+    
+    def _create_example_characters(self, examples_dir: Path):
+        """Legacy method - examples are now static templates."""
+        # Examples are now pre-created template files, not dynamically generated
+        pass
+    
+    def get_example_characters(self) -> List[Dict]:
+        """Get available example characters that users can import."""
+        examples_dir = self.storage_dir.parent / "character_examples"
+        examples = []
+        
+        if examples_dir.exists():
+            for file_path in examples_dir.glob("*.json"):
+                try:
+                    with open(file_path, 'r') as f:
+                        examples.append(json.load(f))
+                except Exception as e:
+                    logger.error(f"Error loading example: {e}")
+        
+        return examples
+    
+    def import_example_character(self, example_id: str, new_name: str = None) -> Dict:
+        """Import an example character as a new character."""
+        examples_dir = self.storage_dir.parent / "character_examples"
+        example_file = examples_dir / f"{example_id}.json"
+        
+        if not example_file.exists():
+            return None
+        
+        try:
+            with open(example_file, 'r') as f:
+                example = json.load(f)
+            
+            # Create a new character based on the example
+            new_char = example.copy()
+            new_char['id'] = str(uuid.uuid4())
+            new_char['name'] = new_name or example['name'].replace(' (Example)', '')
+            new_char['is_example'] = False
+            new_char['created_at'] = datetime.now().isoformat()
+            
+            return self.create_character(new_char)
+        except Exception as e:
+            logger.error(f"Error importing example character: {e}")
+            return None
     
     def get_privacy_info(self) -> Dict[str, Any]:
-        return {
-            'ollama': {'privacy': 'FULLY_PRIVATE', 'description': 'Local processing, no data leaves your device'},
-            'openai': {'privacy': 'CLOUD_PROCESSING', 'description': 'Data sent to OpenAI servers'},
-            'anthropic': {'privacy': 'CLOUD_PROCESSING', 'description': 'Data sent to Anthropic servers'},
-            'openrouter': {'privacy': 'CLOUD_PROCESSING', 'description': 'Data sent to OpenRouter'}
-        }
+        """Get detailed privacy information."""
+        return model_discovery.get_privacy_info()
     
     def get_categories(self) -> List[str]:
         categories = set()
@@ -127,5 +156,13 @@ class CharacterManager:
             if 'tags' in char:
                 tags.update(char['tags'])
         return sorted(list(tags))
+    
+    def get_model_recommendations(self) -> Dict[str, Any]:
+        """Get model recommendations by use case - PRIVACY-FIRST."""
+        return model_discovery.get_model_recommendations()
+    
+    def get_openrouter_models(self) -> List[str]:
+        """Get OpenRouter models (for API compatibility)."""
+        return self.get_available_models()['openrouter']
 
 character_manager = CharacterManager()

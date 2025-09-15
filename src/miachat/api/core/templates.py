@@ -14,6 +14,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 TEMPLATE_MAPPING = {
     # Main pages
     "index": "index.html",
+    "landing": "landing.html",
     "dashboard": "dashboard.html",
     "chat/index": "chat/index.html",
     "settings": "settings.html",

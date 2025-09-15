@@ -149,9 +149,20 @@ async def index(request: Request, db = Depends(get_db)):
     # Check if user is authenticated
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
+        # Show landing page for unauthenticated users
+        return await render_template(request, "landing", user=None)
+    
+    # Show dashboard for authenticated users
+    return await render_template(request, "dashboard", user=current_user)
+
+@app.get("/dashboard")
+async def dashboard_page(request: Request, db = Depends(get_db)):
+    """Dashboard page for authenticated users."""
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
     
-    return await render_template(request, "index", user=current_user)
+    return await render_template(request, "dashboard", user=current_user)
 
 @app.get("/chat")
 async def chat_page(request: Request, db = Depends(get_db)):
@@ -215,6 +226,16 @@ async def config_page(request: Request, db = Depends(get_db)):
     
     return await render_template(request, "config", user=current_user)
 
+@app.get("/test-image")
+async def test_image_page(request: Request):
+    """Test page for hero image."""
+    return await render_template(request, "test-image")
+
+@app.get("/landing")
+async def landing_page(request: Request):
+    """Force show landing page even when logged in."""
+    return await render_template(request, "landing", user=None)
+
 @app.get("/personality")
 async def personality_list_page(request: Request, db = Depends(get_db)):
     """Personality list page."""
@@ -274,6 +295,51 @@ async def health_check():
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {"status": "unhealthy", "error": str(e)}
+
+@app.get("/api/characters/examples")
+async def get_example_characters():
+    """Get available example characters that users can import."""
+    examples = character_manager.get_example_characters()
+    return {
+        "examples": examples,
+        "count": len(examples),
+        "description": "Example characters that can be imported as templates"
+    }
+
+@app.post("/api/characters/examples/{example_id}/import")
+async def import_example_character(example_id: str, request: Request, db = Depends(get_db)):
+    """Import an example character as a new character."""
+    try:
+        # Get current user
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return {"error": "Authentication required"}, 401
+        
+        # Get request body for custom name
+        body = await request.json() if request.method == "POST" else {}
+        new_name = body.get("name")
+        
+        # Import the example character
+        character = character_manager.import_example_character(example_id, new_name)
+        if not character:
+            return {"error": "Example character not found or import failed"}, 404
+        
+        # Create initial character version for conversation history
+        initial_version = conversation_manager.create_character_version(
+            character, 
+            change_reason=f"Imported from example: {example_id}"
+        )
+        
+        return {
+            "success": True,
+            "character": character,
+            "version": initial_version.version,
+            "message": f"Successfully imported {character['name']}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error importing example character: {e}")
+        return {"error": str(e)}, 500
 
 @app.get("/api/characters")
 async def list_characters():
@@ -483,9 +549,9 @@ async def get_conversation_history(session_id: str, request: Request, db = Depen
         return {"error": str(e)}, 500
 
 @app.get("/api/models")
-async def get_available_models():
+async def get_available_models(privacy_mode: str = "local_only"):
     """Get available models by provider - PRIVACY-FIRST ORDERING."""
-    return character_manager.get_available_models()
+    return character_manager.get_available_models(privacy_mode)
 
 @app.get("/api/models/recommendations")
 async def get_model_recommendations():

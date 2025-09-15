@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements-core.txt .
-RUN pip install --no-cache-dir -r requirements-core.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -17,13 +17,12 @@ COPY . .
 # Make entrypoint script executable
 RUN chmod +x /app/entrypoint.sh
 
-# Verify Flask and Flask-CORS installation
-RUN python -c "import flask; import flask_cors"
+# Verify FastAPI and dependencies installation
+RUN python -c "import fastapi; import uvicorn"
 
 # Set environment variables
-ENV FLASK_APP=app
-ENV FLASK_ENV=development
 ENV PYTHONPATH=/app
+ENV FASTAPI_ENV=development
 
 # Run the application
 ENTRYPOINT ["/app/entrypoint.sh"]

@@ -1,29 +1,29 @@
 {
-  "0a72c246-50e5-4ef5-b74e-a992b26f7447": {
-    "session_id": "0a72c246-50e5-4ef5-b74e-a992b26f7447",
-    "character_id": "28a8dd4f-7bc6-46be-b4d5-1253adf75740",
-    "character_version": 2,
-    "user_id": "2",
-    "started_at": "2025-07-09 20:40:00.076828",
-    "last_activity": "2025-07-09 20:40:09.148072",
-    "message_count": 2
+  "bb725450-7e5f-4ae4-94ac-8986c994b455": {
+    "session_id": "bb725450-7e5f-4ae4-94ac-8986c994b455",
+    "character_id": "17affa85-dd90-42b2-8b6c-dd7844c6df8b",
+    "character_version": 1,
+    "user_id": "1",
+    "started_at": "2025-09-14 16:03:51.142757",
+    "last_activity": "2025-09-14 16:03:51.142765",
+    "message_count": 0
   },
-  "6043b20f-6330-4640-a2d1-0507aa51cca0": {
-    "session_id": "6043b20f-6330-4640-a2d1-0507aa51cca0",
-    "character_id": "28a8dd4f-7bc6-46be-b4d5-1253adf75740",
+  "40c580dc-b96b-4c68-bfbd-7437f6ac8250": {
+    "session_id": "40c580dc-b96b-4c68-bfbd-7437f6ac8250",
+    "character_id": "17affa85-dd90-42b2-8b6c-dd7844c6df8b",
     "character_version": 3,
-    "user_id": "2",
-    "started_at": "2025-07-09 20:41:15.530695",
-    "last_activity": "2025-07-09 20:41:19.666077",
-    "message_count": 2
+    "user_id": "1",
+    "started_at": "2025-09-14 16:06:41.272526",
+    "last_activity": "2025-09-14 22:45:32.696972",
+    "message_count": 14
   },
-  "5148df63-580c-4da6-a73a-c63b2821f1e8": {
-    "session_id": "5148df63-580c-4da6-a73a-c63b2821f1e8",
-    "character_id": "28a8dd4f-7bc6-46be-b4d5-1253adf75740",
-    "character_version": 5,
-    "user_id": "2",
-    "started_at": "2025-07-09 20:45:25.173138",
-    "last_activity": "2025-07-09 22:50:05.574217",
-    "message_count": 16
+  "eb5c33f5-9688-469b-af38-98efa6ef183f": {
+    "session_id": "eb5c33f5-9688-469b-af38-98efa6ef183f",
+    "character_id": "22221df6-b8ec-424b-ab94-65fd75837baa",
+    "character_version": 2,
+    "user_id": "1",
+    "started_at": "2025-09-15 02:29:03.993728",
+    "last_activity": "2025-09-15 02:29:15.060313",
+    "message_count": 2
   }
 }
