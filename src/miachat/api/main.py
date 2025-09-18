@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends, Body
+from fastapi import FastAPI, Request, Depends, Body, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .core.templates import render_template
@@ -716,54 +716,61 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         
         # Build messages array
         messages = []
-        
-        if enhanced_prompt and document_context_used:
-            # Use enhanced RAG prompt
-            messages.append({"role": "system", "content": enhanced_prompt})
-        else:
-            # Use regular system prompt and add enhanced conversation context
-            messages.append({"role": "system", "content": character['system_prompt']})
 
-            # Try to use semantic memory service for intelligent context retrieval
-            try:
-                from .core.memory_service import memory_service
-                from .core.conversation_service import conversation_service
+        # Add system prompt (always)
+        system_prompt_text = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
+        messages.append({"role": "system", "content": system_prompt_text})
 
-                # Get database conversation for semantic memory
-                db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
+        # Try to use semantic memory service for intelligent context retrieval
+        try:
+            from .core.memory_service import memory_service
+            from .core.conversation_service import conversation_service
 
-                # Save current message to database for semantic search
-                conversation_service.add_message(
-                    conversation_id=db_conversation.id,
-                    content=request.message,
-                    role="user",
-                    db=db
-                )
+            # Get database conversation for semantic memory
+            db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
 
-                # Use semantic memory to get intelligent context (recent + relevant)
-                context_messages = memory_service.get_context(
-                    conversation_id=db_conversation.id,
-                    current_message=request.message,
-                    context_window=15,  # Start with 15 recent messages
-                    db=db
-                )
+            # Save current message to database for semantic search
+            conversation_service.add_message(
+                conversation_id=db_conversation.id,
+                content=request.message,
+                role="user",
+                db=db
+            )
 
-                # Add context messages to conversation
-                for msg in context_messages:
-                    messages.append({"role": msg["role"], "content": msg["content"]})
+            # Use semantic memory to get intelligent context (recent + relevant)
+            context_messages = memory_service.get_context(
+                conversation_id=db_conversation.id,
+                current_message=request.message,
+                context_window=15,  # Start with 15 recent messages
+                db=db
+            )
 
-                logger.info(f"Using semantic memory: {len(context_messages)} messages retrieved for {character['name']}")
+            # Add context messages to conversation
+            for msg in context_messages:
+                messages.append({"role": msg["role"], "content": msg["content"]})
 
-            except Exception as e:
-                logger.warning(f"Semantic memory failed, falling back to simple history: {e}")
+            logger.info(f"Using semantic memory: {len(context_messages)} messages retrieved for {character['name']}")
 
-                # Fallback to simple conversation history
-                history = conversation_manager.get_conversation_history(session_id, limit=15)
-                for msg in history:
-                    messages.append({"role": msg.role, "content": msg.content})
+        except Exception as e:
+            logger.warning(f"Semantic memory failed, falling back to simple history: {e}")
 
-            # Add current message
-            messages.append({"role": "user", "content": request.message})
+            # Fallback to simple conversation history
+            history = conversation_manager.get_conversation_history(session_id, limit=15)
+            for msg in history:
+                messages.append({"role": msg.role, "content": msg.content})
+
+        # Add current user message with RAG context if available
+        final_message = request.message
+        if rag_context and rag_context.get('document_chunks'):
+            # Prepend document context to the message
+            document_context = "\n\n--- Document Context ---\n"
+            for i, chunk in enumerate(rag_context['document_chunks'], 1):
+                document_context += f"Document {i}: {chunk.get('document_filename', 'Unknown')}\n"
+                document_context += f"Content: {chunk.get('text_content', '')[:1000]}...\n\n"
+            document_context += "--- End Context ---\n\n"
+            final_message = document_context + request.message
+
+        messages.append({"role": "user", "content": final_message})
         
         # Generate response using the character's model configuration
         model_config = character['model_config']
@@ -777,7 +784,7 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         
         response = llm_client.generate_response_with_config(
             messages=messages,
-            system_prompt=character['system_prompt'] if not enhanced_prompt else None,
+            system_prompt=None,  # System prompt already included in messages
             model_config=model_config
         )
         
@@ -826,6 +833,260 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         
     except Exception as e:
         logger.error(f"Error in chat: {e}")
+        return {"error": str(e)}, 500
+
+@app.post("/api/chat/with-document")
+async def chat_with_document(
+    message: str = Form(...),
+    character_id: str = Form(...),
+    session_id: Optional[str] = Form(None),
+    use_documents: bool = Form(True),
+    file: Optional[UploadFile] = File(None),
+    request_obj: Request = None,
+    db = Depends(get_db)
+):
+    """Send a message with optional document upload to a character and get a response."""
+    try:
+        # Get current user
+        current_user = await get_current_user_from_session(request_obj, db)
+        if not current_user:
+            return {"error": "Authentication required"}, 401
+
+        # Process uploaded document if present
+        uploaded_document = None
+        document_analysis = None
+
+        if file and file.filename:
+            logger.info(f"Processing uploaded document: {file.filename}")
+
+            # Upload and process the document
+            from .core.document_service import document_service
+            upload_result = await document_service.upload_document(
+                file=file,
+                user_id=current_user.id,
+                db=db
+            )
+
+            if upload_result['success']:
+                uploaded_document = upload_result['document']
+                document_analysis = upload_result['processing_result']
+                logger.info(f"Document processed successfully: {uploaded_document['id']}")
+            else:
+                logger.error(f"Document upload failed: {upload_result.get('error')}")
+                return {"error": f"Document upload failed: {upload_result.get('error')}"}, 400
+
+        # Create ChatRequest object for reuse of existing logic
+        chat_request = ChatRequest(
+            message=message,
+            character_id=character_id,
+            session_id=session_id,
+            use_documents=use_documents
+        )
+
+        # Get character
+        character = character_manager.get_character(chat_request.character_id)
+        if not character:
+            return {"error": "Character not found"}, 404
+
+        # Handle session management (same as original chat endpoint)
+        session_id = chat_request.session_id
+        migration_available = False
+
+        if session_id:
+            session = conversation_manager.get_session(session_id)
+            if not session or session.character_id != chat_request.character_id:
+                session_id = None
+
+        if not session_id:
+            session = conversation_manager.create_conversation_session(
+                chat_request.character_id,
+                str(current_user.id)
+            )
+            session_id = session.session_id
+
+        # Check for character updates
+        update_event = conversation_manager.check_version_compatibility(session_id)
+        if update_event:
+            migration_available = True
+
+        # Initialize context variables
+        rag_context = None
+        enhanced_prompt = None
+        document_context_used = False
+        sources = []
+        context_summary = None
+
+        # Enhanced message with document analysis
+        enhanced_message = chat_request.message
+        if uploaded_document and document_analysis:
+            # Add document context to the message
+            doc_context = f"\n\n[Document uploaded: {uploaded_document['original_filename']}]\n"
+            if document_analysis.get('summary'):
+                doc_context += f"Document summary: {document_analysis['summary']}\n"
+            if document_analysis.get('key_points'):
+                doc_context += f"Key points: {', '.join(document_analysis['key_points'])}\n"
+
+            enhanced_message += doc_context
+            document_context_used = True
+            sources = [uploaded_document['original_filename']]
+
+        # Get enhanced context if document RAG is enabled
+        if chat_request.use_documents:
+            try:
+                from .core.rag_service import rag_service
+                rag_context = rag_service.get_enhanced_context(
+                    user_message=enhanced_message,
+                    user_id=current_user.id,
+                    conversation_id=None,
+                    character_id=chat_request.character_id,
+                    include_conversation_history=True,
+                    include_documents=True,
+                    db=db
+                )
+
+                if rag_context and rag_context.get('document_chunks'):
+                    document_context_used = True
+                    doc_sources = [chunk.get('document_filename', 'Unknown')
+                                  for chunk in rag_context['document_chunks']]
+                    sources.extend(doc_sources)
+                    sources = list(set(sources))  # Remove duplicates
+
+                    context_summary = f"Found {len(rag_context['document_chunks'])} relevant document sections"
+
+            except Exception as e:
+                logger.warning(f"RAG context failed, continuing without: {e}")
+
+        # Build messages for the conversation
+        messages = []
+
+        # Add system prompt (with fallback for null values)
+        system_prompt = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
+        messages.append({"role": "system", "content": system_prompt})
+
+        # Try to use semantic memory service for intelligent context retrieval
+        try:
+            from .core.memory_service import memory_service
+            from .core.conversation_service import conversation_service
+
+            # Get database conversation for semantic memory
+            db_conversation = conversation_service.get_or_create_conversation(chat_request.character_id, db)
+
+            # Save current message to database for semantic search
+            conversation_service.add_message(
+                conversation_id=db_conversation.id,
+                content=enhanced_message,
+                role="user",
+                db=db
+            )
+
+            # Use semantic memory to get intelligent context (recent + relevant)
+            context_messages = memory_service.get_context(
+                conversation_id=db_conversation.id,
+                current_message=enhanced_message,
+                context_window=15,
+                db=db
+            )
+
+            # Add context messages to conversation
+            for msg in context_messages:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+
+            logger.info(f"Using semantic memory: {len(context_messages)} messages retrieved for {character['name']}")
+
+        except Exception as e:
+            logger.warning(f"Semantic memory failed, falling back to simple history: {e}")
+            # Fallback to simple conversation history
+            history = conversation_manager.get_conversation_history(session_id, limit=15)
+            for msg in history:
+                messages.append({"role": msg.role, "content": msg.content})
+
+        # Add current message with RAG context if available
+        final_message = enhanced_message
+        if rag_context and rag_context.get('document_chunks'):
+            # Prepend document context to the message
+            document_context = "\n\n--- Document Context ---\n"
+            for i, chunk in enumerate(rag_context['document_chunks'], 1):
+                document_context += f"Document {i}: {chunk.get('document_filename', 'Unknown')}\n"
+                document_context += f"Content: {chunk.get('text_content', '')[:1000]}...\n\n"
+            document_context += "--- End Context ---\n\n"
+            final_message = document_context + enhanced_message
+
+        messages.append({"role": "user", "content": final_message})
+
+        # Generate response using the character's model configuration
+        model_config = character['model_config']
+        provider = model_config.get('provider', 'ollama')
+
+        # Log privacy information
+        if provider == 'ollama':
+            logger.info(f"Using LOCAL Ollama for {character['name']} - FULLY PRIVATE")
+        else:
+            logger.info(f"Using CLOUD provider {provider} for {character['name']} - data may be processed externally")
+
+        # Generate response
+        system_prompt_for_llm = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
+        response = llm_client.generate_response_with_config(
+            messages=messages,
+            system_prompt=system_prompt_for_llm,
+            model_config=model_config
+        )
+
+        # Save messages to conversation manager
+        conversation_manager.save_message(session_id, "user", chat_request.message)
+        conversation_manager.save_message(session_id, "assistant", response)
+
+        # Also save to database for semantic memory (if available)
+        try:
+            from .core.conversation_service import conversation_service
+            db_conversation = conversation_service.get_or_create_conversation(chat_request.character_id, db)
+
+            # Save assistant response to database for future semantic search
+            conversation_service.add_message(
+                conversation_id=db_conversation.id,
+                content=response,
+                role="assistant",
+                db=db
+            )
+
+            logger.info(f"Saved assistant response to semantic memory for {character['name']}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save to semantic memory: {e}")
+
+        # Update character usage
+        character_manager.update_character(chat_request.character_id, {
+            'last_used': datetime.now().isoformat(),
+            'conversation_count': character.get('conversation_count', 0) + 1,
+            'total_messages': character.get('total_messages', 0) + 1
+        })
+
+        logger.info(f"Generated response for {character['name']}: {response[:100]}...")
+
+        # Build response with document information
+        response_data = {
+            "response": response,
+            "character_name": character['name'],
+            "character_id": character['id'],
+            "session_id": session_id,
+            "character_version": session.character_version,
+            "migration_available": migration_available,
+            "document_context_used": document_context_used,
+            "sources": sources,
+            "context_summary": context_summary if document_context_used else None
+        }
+
+        # Add document upload information if present
+        if uploaded_document:
+            response_data["uploaded_document"] = {
+                "id": uploaded_document['id'],
+                "filename": uploaded_document['original_filename'],
+                "analysis": document_analysis
+            }
+
+        return response_data
+
+    except Exception as e:
+        logger.error(f"Error in chat with document: {e}")
         return {"error": str(e)}, 500
 
 @app.post("/api/suggest_system_prompt")

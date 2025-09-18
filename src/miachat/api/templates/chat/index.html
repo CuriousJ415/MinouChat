@@ -54,6 +54,62 @@
             font-size: 1.2rem;
             font-weight: bold;
         }
+
+        /* File upload styles */
+        .file-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background-color: #f8f9fa;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .file-upload-area.active {
+            display: block;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+
+        .file-upload-area input[type="file"] {
+            display: none;
+        }
+
+        .uploaded-file-info {
+            background-color: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .document-analysis {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 0 0.375rem 0.375rem 0;
+        }
+
+        .processing-status {
+            display: none;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .processing-status.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -128,10 +184,13 @@
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
-                                <i class="fas fa-comments"></i> 
+                                <i class="fas fa-comments"></i>
                                 Chat with <span id="currentPersona">{{ active_persona or 'Select a persona' }}</span>
                             </h5>
                             <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="toggleFileUpload()">
+                                    <i class="fas fa-paperclip"></i> Attach
+                                </button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearChat()">
                                     <i class="fas fa-trash"></i> Clear
                                 </button>
@@ -146,6 +205,28 @@
                         </div>
                         
                         <div class="mt-3">
+                            <!-- File Upload Area -->
+                            <div class="file-upload-area" id="fileUploadArea">
+                                <div class="mb-2">
+                                    <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                    <p class="mb-2">Drag and drop a document here, or click to browse</p>
+                                    <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls" multiple>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('fileInput').click()">
+                                        <i class="fas fa-file-upload"></i> Choose File
+                                    </button>
+                                </div>
+                                <small class="text-muted">Supported formats: PDF, Word, Text, Markdown, CSV, Excel</small>
+                            </div>
+
+                            <!-- Processing Status -->
+                            <div class="processing-status" id="processingStatus">
+                                <i class="fas fa-spinner fa-spin"></i> Processing document...
+                            </div>
+
+                            <!-- Uploaded File Info -->
+                            <div id="uploadedFileInfo"></div>
+
+                            <!-- Chat Form -->
                             <form id="chatForm">
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." disabled>
@@ -233,62 +314,6 @@
             // Add welcome message
             addMessage('assistant', `Hello! I'm ${name}. How can I help you today?`);
         }
-        
-        // Chat functionality
-        document.getElementById('chatForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const input = document.getElementById('messageInput');
-            const message = input.value.trim();
-            
-            console.log('Chat form submitted:', { message, currentCharacterId, currentPersona });
-            
-            if (message && currentCharacterId) {
-                addMessage('user', message);
-                input.value = '';
-                
-                // Call the actual API
-                fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        character_id: currentCharacterId,
-                        session_id: currentSessionId
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Chat API response:', data);
-                    if (data.response) {
-                        // Update session info
-                        currentSessionId = data.session_id;
-                        localStorage.setItem('currentSessionId', currentSessionId);
-                        currentCharacterVersion = data.character_version;
-                        migrationAvailable = data.migration_available;
-                        
-                        addMessage('assistant', data.response);
-                        
-                        // Show migration notification if available
-                        if (migrationAvailable && !document.getElementById('migrationNotification')) {
-                            showMigrationNotification();
-                        }
-                    } else {
-                        addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
-                });
-            } else {
-                console.log('Cannot send message:', { message: !!message, currentCharacterId: !!currentCharacterId });
-                if (!currentCharacterId) {
-                    alert('Please select a persona first.');
-                }
-            }
-        });
         
         function addMessage(sender, content) {
             const chatContainer = document.getElementById('chatContainer');
@@ -447,6 +472,237 @@
         }
         
         
+        // File upload functionality
+        let selectedFile = null;
+
+        function toggleFileUpload() {
+            const fileUploadArea = document.getElementById('fileUploadArea');
+            if (fileUploadArea.classList.contains('active')) {
+                fileUploadArea.classList.remove('active');
+                selectedFile = null;
+                document.getElementById('uploadedFileInfo').innerHTML = '';
+            } else {
+                fileUploadArea.classList.add('active');
+            }
+        }
+
+        // Drag and drop functionality
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileUploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileUploadArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileUploadArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            fileUploadArea.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            fileUploadArea.classList.remove('dragover');
+        }
+
+        fileUploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length > 0) {
+                selectedFile = files[0];
+                showFileInfo(selectedFile);
+            }
+        }
+
+        function showFileInfo(file) {
+            const fileInfo = document.getElementById('uploadedFileInfo');
+            const fileSizeKB = (file.size / 1024).toFixed(1);
+            fileInfo.innerHTML = `
+                <div class="uploaded-file-info">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-file me-2"></i>
+                        <div class="flex-grow-1">
+                            <strong>${file.name}</strong> (${fileSizeKB} KB)
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('uploadedFileInfo').innerHTML = '';
+            document.getElementById('fileInput').value = '';
+        }
+
+        // Enhanced chat functionality with file support
+        document.getElementById('chatForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            console.log('Chat form submitted:', { message, currentCharacterId, currentPersona, hasFile: !!selectedFile });
+
+            if (!message && !selectedFile) {
+                alert('Please enter a message or select a file to upload.');
+                return;
+            }
+
+            if (!currentCharacterId) {
+                alert('Please select a persona first.');
+                return;
+            }
+
+            addMessage('user', message || '[Document uploaded]');
+            input.value = '';
+
+            // Show processing status if file is selected
+            if (selectedFile) {
+                const processingStatus = document.getElementById('processingStatus');
+                processingStatus.classList.add('show');
+            }
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('message', message || 'Please analyze the uploaded document.');
+            formData.append('character_id', currentCharacterId);
+            if (currentSessionId) {
+                formData.append('session_id', currentSessionId);
+            }
+            formData.append('use_documents', 'true');
+
+            if (selectedFile) {
+                formData.append('file', selectedFile);
+            }
+
+            // Choose endpoint based on whether file is included
+            const endpoint = selectedFile ? '/api/chat/with-document' : '/api/chat';
+            const requestOptions = selectedFile ?
+                {
+                    method: 'POST',
+                    body: formData
+                } :
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        character_id: currentCharacterId,
+                        session_id: currentSessionId,
+                        use_documents: true
+                    })
+                };
+
+            fetch(endpoint, requestOptions)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Chat API response:', data);
+
+                    // Hide processing status
+                    document.getElementById('processingStatus').classList.remove('show');
+
+                    if (data.response) {
+                        // Update session info
+                        currentSessionId = data.session_id;
+                        localStorage.setItem('currentSessionId', currentSessionId);
+                        currentCharacterVersion = data.character_version;
+                        migrationAvailable = data.migration_available;
+
+                        // Show document analysis if present
+                        let responseContent = data.response;
+                        if (data.uploaded_document && data.uploaded_document.analysis) {
+                            responseContent += generateDocumentAnalysisHTML(data.uploaded_document.analysis);
+                        }
+
+                        addMessage('assistant', responseContent);
+
+                        // Show context information if available
+                        if (data.document_context_used && data.sources && data.sources.length > 0) {
+                            const contextInfo = `
+                                <div class="document-analysis">
+                                    <small class="text-muted">
+                                        <i class="fas fa-book"></i> Used context from: ${data.sources.join(', ')}
+                                        ${data.context_summary ? `<br>${data.context_summary}` : ''}
+                                    </small>
+                                </div>
+                            `;
+                            const lastMessage = document.querySelector('.message.assistant:last-child');
+                            if (lastMessage) {
+                                lastMessage.innerHTML += contextInfo;
+                            }
+                        }
+
+                        // Show migration notification if available
+                        if (migrationAvailable && !document.getElementById('migrationNotification')) {
+                            showMigrationNotification();
+                        }
+
+                        // Clean up file selection
+                        if (selectedFile) {
+                            removeFile();
+                            toggleFileUpload(); // Hide file upload area
+                        }
+                    } else {
+                        addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('processingStatus').classList.remove('show');
+                    addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                });
+        });
+
+        function generateDocumentAnalysisHTML(analysis) {
+            if (!analysis) return '';
+
+            let html = '<div class="document-analysis mt-2"><h6><i class="fas fa-chart-line"></i> Document Analysis:</h6>';
+
+            if (analysis.summary) {
+                html += `<p><strong>Summary:</strong> ${analysis.summary}</p>`;
+            }
+
+            if (analysis.key_points && analysis.key_points.length > 0) {
+                html += '<p><strong>Key Points:</strong></p><ul>';
+                analysis.key_points.forEach(point => {
+                    html += `<li>${point}</li>`;
+                });
+                html += '</ul>';
+            }
+
+            if (analysis.word_count) {
+                html += `<p><small class="text-muted">Word count: ${analysis.word_count}</small></p>`;
+            }
+
+            html += '</div>';
+            return html;
+        }
+
         // Initialize
         if (currentPersona && currentCharacterId) {
             selectPersona(currentPersona, currentCharacterId);

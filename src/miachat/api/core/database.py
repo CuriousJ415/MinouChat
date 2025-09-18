@@ -19,7 +19,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # Import models to ensure they are registered with Base
-from .models import User
+from .models import User, Document, DocumentChunk
 
 # Create all tables
 def create_tables():

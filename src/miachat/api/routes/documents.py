@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, 
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from ...database.config import get_db
-from ...database.models import User
+from ..core.database import get_db
+from ..core.models import User
 from ..core.document_service import document_service
 from ..core.rag_service import rag_service
 from ..core.embedding_service import embedding_service

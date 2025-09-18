@@ -12,8 +12,8 @@ import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm import Session
-from ...database.models import Document, DocumentChunk
-from ...database.config import get_db
+from .models import Document, DocumentChunk
+from .database import get_db
 
 logger = logging.getLogger(__name__)
 

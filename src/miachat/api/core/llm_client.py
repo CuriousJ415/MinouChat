@@ -90,8 +90,10 @@ class OllamaClient:
         """Generate response using Ollama."""
         model = model_config.get('model', self.default_model)
         
-        # Prepare messages with system prompt
-        all_messages = [{"role": "system", "content": system_prompt}] + messages
+        # Prepare messages with system prompt (only if not null/empty)
+        all_messages = messages.copy()
+        if system_prompt and system_prompt.strip():
+            all_messages = [{"role": "system", "content": system_prompt}] + all_messages
         
         # Prepare request payload
         payload = {

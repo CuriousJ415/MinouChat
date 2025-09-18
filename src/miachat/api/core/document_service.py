@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
-from ...database.models import Document, DocumentChunk, User
-from ...database.config import get_db
+from .models import Document, DocumentChunk, User
+from .database import get_db
 from .document_processor import document_processor
 from .embedding_service import embedding_service
 

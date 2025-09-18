@@ -5,7 +5,7 @@ RAG (Retrieval-Augmented Generation) service for document-aware conversations.
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
-from ...database.config import get_db
+from .database import get_db
 from .document_service import document_service
 from .embedding_service import embedding_service
 from .memory_service import memory_service
@@ -82,7 +82,8 @@ class RAGService:
                 document_context = self._get_document_context(
                     query=user_message,
                     user_id=user_id,
-                    db=db
+                    db=db,
+                    conversation_id=conversation_id
                 )
                 context.update(document_context)
             
@@ -112,20 +113,70 @@ class RAGService:
         self,
         query: str,
         user_id: int,
-        db: Session
+        db: Session,
+        conversation_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """Get relevant document context for a query.
-        
+
         Args:
             query: Search query
             user_id: User ID for document access
             db: Database session
-            
+            conversation_id: Optional conversation ID for recent document context
+
         Returns:
             Dictionary with document context
         """
         try:
-            # Search for relevant document chunks
+            # First, get recently uploaded documents (prioritize recent uploads)
+            recent_chunks = []
+            try:
+                from .models import Document, DocumentChunk
+                from datetime import datetime, timedelta
+
+                # Get documents uploaded in the last 10 minutes (very recent uploads)
+                very_recent_time = datetime.utcnow() - timedelta(minutes=10)
+                very_recent_documents = db.query(Document).filter(
+                    Document.user_id == user_id,
+                    Document.upload_date >= very_recent_time,
+                    Document.is_processed == 1
+                ).order_by(Document.upload_date.desc()).limit(2).all()
+
+                # If no very recent documents, check last hour
+                if not very_recent_documents:
+                    recent_time = datetime.utcnow() - timedelta(hours=1)
+                    very_recent_documents = db.query(Document).filter(
+                        Document.user_id == user_id,
+                        Document.upload_date >= recent_time,
+                        Document.is_processed == 1
+                    ).order_by(Document.upload_date.desc()).limit(3).all()
+
+                for doc in very_recent_documents:
+                    # Get chunks from recent documents
+                    chunks = db.query(DocumentChunk).filter(
+                        DocumentChunk.document_id == doc.id
+                    ).limit(2).all()  # Limit chunks per recent document
+
+                    for chunk in chunks:
+                        recent_chunks.append({
+                            'chunk_id': chunk.id,
+                            'document_id': chunk.document_id,
+                            'document_filename': doc.filename,
+                            'text_content': chunk.text_content,
+                            'chunk_type': chunk.chunk_type,
+                            'chunk_index': chunk.chunk_index,
+                            'similarity_score': 1.0,  # High score for recent documents
+                            'metadata': chunk.doc_metadata or {},
+                            'document_metadata': doc.doc_metadata or {}
+                        })
+
+                if recent_chunks:
+                    logger.info(f"Found {len(recent_chunks)} chunks from recent documents")
+
+            except Exception as e:
+                logger.warning(f"Failed to get recent documents: {e}")
+
+            # Then search for semantically relevant document chunks
             search_results = document_service.search_documents(
                 query=query,
                 user_id=user_id,
@@ -133,8 +184,17 @@ class RAGService:
                 similarity_threshold=self.similarity_threshold,
                 db=db
             )
-            
-            if not search_results:
+
+            # Combine recent chunks with search results, avoiding duplicates
+            all_chunks = recent_chunks.copy()
+            seen_chunk_ids = {chunk['chunk_id'] for chunk in recent_chunks}
+
+            for result in search_results:
+                if result['chunk_id'] not in seen_chunk_ids:
+                    all_chunks.append(result)
+                    seen_chunk_ids.add(result['chunk_id'])
+
+            if not all_chunks:
                 return {
                     'relevant_documents': [],
                     'document_chunks': [],
@@ -146,8 +206,8 @@ class RAGService:
             seen_documents = set()
             sources = []
             total_length = 0
-            
-            for result in search_results:
+
+            for result in all_chunks:
                 # Check if we've reached max context length
                 chunk_length = len(result['text_content'])
                 if total_length + chunk_length > self.max_context_length:
