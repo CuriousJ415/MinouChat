@@ -15,8 +15,8 @@
     <div class="col-md-4">
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Active Personalities</h5>
-                <h2 class="display-4">{{ stats.active_personalities }}</h2>
+                <h5 class="card-title">Active Personas</h5>
+                <h2 class="display-4">{{ stats.active_personas }}</h2>
             </div>
         </div>
     </div>
@@ -38,9 +38,9 @@
             </div>
             <div class="list-group list-group-flush">
                 {% for chat in recent_chats %}
-                <a href="/chat/{{ chat.personality_id }}" class="list-group-item list-group-item-action">
+                <a href="/chat/{{ chat.persona_id }}" class="list-group-item list-group-item-action">
                     <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">{{ chat.personality_name }}</h6>
+                        <h6 class="mb-1">{{ chat.persona_name }}</h6>
                         <small>{{ chat.last_message_time }}</small>
                     </div>
                     <p class="mb-1">{{ chat.last_message }}</p>
@@ -55,19 +55,19 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Popular Personalities</h5>
+                <h5 class="mb-0">Popular Personas</h5>
             </div>
             <div class="list-group list-group-flush">
-                {% for personality in popular_personalities %}
+                {% for persona in popular_personas %}
                 <div class="list-group-item">
                     <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">{{ personality.name }}</h6>
-                        <small>{{ personality.message_count }} messages</small>
+                        <h6 class="mb-1">{{ persona.name }}</h6>
+                        <small>{{ persona.message_count }} messages</small>
                     </div>
-                    <p class="mb-1">{{ personality.description }}</p>
+                    <p class="mb-1">{{ persona.description }}</p>
                 </div>
                 {% else %}
-                <div class="list-group-item">No personalities yet</div>
+                <div class="list-group-item">No personas yet</div>
                 {% endfor %}
             </div>
         </div>

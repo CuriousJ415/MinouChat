@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Personalities - MiaChat{% endblock %}
+{% block title %}Personas - MiaChat{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>Personalities</h1>
-                <a href="/personality/create" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Create New Personality
+                <h1>Personas</h1>
+                <a href="/persona/create" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Create New Persona
                 </a>
             </div>
             
-            <div class="row" id="personality-list">
-                <!-- Personalities will be loaded here dynamically -->
+            <div class="row" id="persona-list">
+                <!-- Personas will be loaded here dynamically -->
                 <div class="col-12">
                     <div class="alert alert-info">
-                        Loading personalities...
+                        Loading personas...
                     </div>
                 </div>
             </div>
@@ -28,63 +28,63 @@
 <script>
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-        const response = await fetch('/api/personality/');
-        const personalities = await response.json();
+        const response = await fetch('/api/persona/');
+        const personas = await response.json();
         
-        const personalityList = document.getElementById('personality-list');
-        personalityList.innerHTML = '';
+        const personaList = document.getElementById('persona-list');
+        personaList.innerHTML = '';
         
-        if (personalities.length === 0) {
-            personalityList.innerHTML = `
+        if (personas.length === 0) {
+            personaList.innerHTML = `
                 <div class="col-12">
                     <div class="alert alert-info">
-                        No personalities found. Create your first personality to get started!
+                        No personas found. Create your first persona to get started!
                     </div>
                 </div>
             `;
             return;
         }
         
-        personalities.forEach(personality => {
+        personas.forEach(persona => {
             const card = document.createElement('div');
             card.className = 'col-md-4 mb-4';
             card.innerHTML = `
                 <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">${personality.name}</h5>
-                        <p class="card-text">${personality.description}</p>
+                        <h5 class="card-title">${persona.name}</h5>
+                        <p class="card-text">${persona.description}</p>
                         <div class="d-flex justify-content-between">
-                            <a href="/personality/edit/${personality.id}" class="btn btn-sm btn-outline-primary">
+                            <a href="/persona/edit/${persona.id}" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-edit"></i> Edit
                             </a>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deletePersonality('${personality.id}')">
+                            <button class="btn btn-sm btn-outline-danger" onclick="deletePersona('${persona.id}')">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
                         </div>
                     </div>
                 </div>
             `;
-            personalityList.appendChild(card);
+            personaList.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading personalities:', error);
-        document.getElementById('personality-list').innerHTML = `
+        console.error('Error loading personas:', error);
+        document.getElementById('persona-list').innerHTML = `
             <div class="col-12">
                 <div class="alert alert-danger">
-                    Error loading personalities. Please try again later.
+                    Error loading personas. Please try again later.
                 </div>
             </div>
         `;
     }
 });
 
-async function deletePersonality(id) {
-    if (!confirm('Are you sure you want to delete this personality?')) {
+async function deletePersona(id) {
+    if (!confirm('Are you sure you want to delete this persona?')) {
         return;
     }
     
     try {
-        const response = await fetch(`/api/personality/${id}`, {
+        const response = await fetch(`/api/persona/${id}`, {
             method: 'DELETE'
         });
         
@@ -92,11 +92,11 @@ async function deletePersonality(id) {
             // Reload the page to show updated list
             window.location.reload();
         } else {
-            throw new Error('Failed to delete personality');
+            throw new Error('Failed to delete persona');
         }
     } catch (error) {
-        console.error('Error deleting personality:', error);
-        alert('Failed to delete personality. Please try again later.');
+        console.error('Error deleting persona:', error);
+        alert('Failed to delete persona. Please try again later.');
     }
 }
 </script>

@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, text
-from ...database.models import Conversation, Message
-from ...database.config import get_db
+from ..models.chat import Conversation, Message
+from ..core.database import get_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,8 @@ class ConversationService:
         
         # Create new conversation
         conversation = Conversation(
-            personality_id=1,  # Use a default personality ID for now
+            persona_id=1,  # Use a default persona ID for now
+            title=f"Conversation with {character_id}",
             conversation_data={
                 "character_id": character_id,
                 "started_by": "user",
@@ -58,18 +59,22 @@ class ConversationService:
     
     def add_message(self, conversation_id: int, content: str, role: str, db: Session) -> Message:
         """Add a message to a conversation."""
+        logger.debug(f"Adding message to conversation {conversation_id}: role={role}, content={content[:100]}...")
+
         message = Message(
             conversation_id=conversation_id,
             content=content,
             role=role,
             timestamp=datetime.utcnow(),
-            message_data={
+            file_attachments={
                 "timestamp": datetime.utcnow().isoformat()
             }
         )
         db.add(message)
         db.commit()
         db.refresh(message)
+
+        logger.debug(f"Successfully added message with id={message.id} to conversation {conversation_id}")
         return message
     
     def get_conversation_messages(self, conversation_id: int, limit: Optional[int] = None, db: Session = None) -> List[Dict[str, Any]]:

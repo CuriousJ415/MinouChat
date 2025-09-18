@@ -202,6 +202,9 @@ class User(Base):
     username = Column(String(50), nullable=False, unique=True)
     email = Column(String(120), nullable=False, unique=True)
     password_hash = Column(String(128), nullable=False)
+    
+    # Relationships
+    documents = relationship('Document', back_populates='user', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
@@ -227,4 +230,82 @@ class File(Base):
             'type': self.type,
             'url': self.url,
             'created_at': self.created_at.isoformat()
+        }
+
+class Document(Base):
+    """Enhanced document model with RAG capabilities."""
+    __tablename__ = 'documents'
+    
+    id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    filename = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    doc_type = Column(String(50), nullable=False)  # pdf, docx, xlsx, txt, etc.
+    file_size = Column(Integer, nullable=False)
+    text_content = Column(Text)  # Extracted text content
+    content_hash = Column(String(64))  # SHA-256 hash for deduplication
+    upload_date = Column(DateTime, default=datetime.utcnow)
+    last_accessed = Column(DateTime, default=datetime.utcnow)
+    access_count = Column(Integer, default=0)
+    is_processed = Column(Integer, default=0)  # Boolean: 0=False, 1=True
+    processing_status = Column(String(50), default='pending')  # pending, processing, completed, failed
+    doc_metadata = Column(MutableDict.as_mutable(JSON), default=dict)
+    
+    # Relationships
+    user = relationship('User', back_populates='documents')
+    chunks = relationship('DocumentChunk', back_populates='document', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'filename': self.filename,
+            'original_filename': self.original_filename,
+            'doc_type': self.doc_type,
+            'file_size': self.file_size,
+            'upload_date': self.upload_date.isoformat(),
+            'last_accessed': self.last_accessed.isoformat() if self.last_accessed else None,
+            'access_count': self.access_count,
+            'is_processed': bool(self.is_processed),
+            'processing_status': self.processing_status,
+            'metadata': self.doc_metadata
+        }
+    
+    def mark_accessed(self):
+        """Update access tracking."""
+        self.last_accessed = datetime.utcnow()
+        self.access_count += 1
+
+class DocumentChunk(Base):
+    """Text chunks from documents with vector embeddings for RAG."""
+    __tablename__ = 'document_chunks'
+    
+    id = Column(String(36), primary_key=True)
+    document_id = Column(String(36), ForeignKey('documents.id'), nullable=False)
+    chunk_index = Column(Integer, nullable=False)  # Order within document
+    text_content = Column(Text, nullable=False)
+    chunk_type = Column(String(50), default='paragraph')  # paragraph, table, header, etc.
+    start_char = Column(Integer)  # Character position in original document
+    end_char = Column(Integer)
+    word_count = Column(Integer)
+    embedding_vector = Column(Text)  # JSON-serialized vector embedding
+    created_at = Column(DateTime, default=datetime.utcnow)
+    doc_metadata = Column(MutableDict.as_mutable(JSON), default=dict)
+    
+    # Relationships
+    document = relationship('Document', back_populates='chunks')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'document_id': self.document_id,
+            'chunk_index': self.chunk_index,
+            'text_content': self.text_content,
+            'chunk_type': self.chunk_type,
+            'start_char': self.start_char,
+            'end_char': self.end_char,
+            'word_count': self.word_count,
+            'created_at': self.created_at.isoformat(),
+            'metadata': self.doc_metadata
         } 

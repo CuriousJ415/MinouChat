@@ -7,12 +7,12 @@
     <div class="col-md-3">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Personalities</h5>
+                <h5 class="mb-0">Personas</h5>
             </div>
             <div class="list-group list-group-flush">
-                {% for personality in personalities %}
-                <a href="/chat/{{ personality.id }}" class="list-group-item list-group-item-action {% if selected_personality and selected_personality.id == personality.id %}active{% endif %}">
-                    {{ personality.name }}
+                {% for persona in personas %}
+                <a href="/chat/{{ persona.id }}" class="list-group-item list-group-item-action {% if selected_persona and selected_persona.id == persona.id %}active{% endif %}">
+                    {{ persona.name }}
                 </a>
                 {% endfor %}
             </div>
@@ -23,10 +23,10 @@
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
-                    {% if selected_personality %}
-                    Chat with {{ selected_personality.name }}
+                    {% if selected_persona %}
+                    Chat with {{ selected_persona.name }}
                     {% else %}
-                    Select a personality to start chatting
+                    Select a persona to start chatting
                     {% endif %}
                 </h5>
             </div>
@@ -44,8 +44,8 @@
                 
                 <form id="chat-form" class="mt-3">
                     <div class="input-group">
-                        <input type="text" class="form-control" id="message-input" placeholder="Type your message..." {% if not selected_personality %}disabled{% endif %}>
-                        <button class="btn btn-primary" type="submit" {% if not selected_personality %}disabled{% endif %}>Send</button>
+                        <input type="text" class="form-control" id="message-input" placeholder="Type your message..." {% if not selected_persona %}disabled{% endif %}>
+                        <button class="btn btn-primary" type="submit" {% if not selected_persona %}disabled{% endif %}>Send</button>
                     </div>
                 </form>
             </div>

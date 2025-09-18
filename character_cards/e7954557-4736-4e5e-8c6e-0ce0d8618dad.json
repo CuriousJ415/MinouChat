@@ -36,9 +36,12 @@
   "llm_model_config": null,
   "model_config": {
     "provider": "ollama",
-    "model": "llama3:8b",
+    "model": "llama3.1:latest",
     "temperature": 0.7
   },
   "id": "e7954557-4736-4e5e-8c6e-0ce0d8618dad",
-  "updated_at": "2025-09-15T02:28:03.092120"
+  "updated_at": "2025-09-18T04:58:48.529153",
+  "last_used": "2025-09-18T04:58:48.528809",
+  "conversation_count": 173,
+  "total_messages": 173
 }

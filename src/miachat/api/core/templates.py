@@ -21,11 +21,14 @@ TEMPLATE_MAPPING = {
     "config": "config.html",
     "first_time_setup": "first_time_setup.html",
     
-    # Personality pages
-    "personality/list": "personality/list.html",
-    "personality/view": "personality/view.html",
-    "personality/create": "personality/create.html",
-    "personality/edit": "personality/edit.html",
+    # Setup pages
+    "setup/wizard": "setup/wizard.html",
+    
+    # Persona pages
+    "persona/list": "persona/list.html",
+    "persona/view": "persona/view.html",
+    "persona/create": "persona/create.html",
+    "persona/edit": "persona/edit.html",
     
     # Auth pages
     "login": "auth/login.html",

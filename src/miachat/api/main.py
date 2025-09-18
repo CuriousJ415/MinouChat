@@ -9,7 +9,10 @@ from .core.database import create_tables, get_db
 from .core.auth import require_session_auth, get_current_user_from_session
 from .core.settings_service import settings_service
 from .core.conversation_manager import ConversationManager
+from .core.rag_service import rag_service
 from .routes.auth import router as auth_router
+from .routes.documents import router as documents_router
+from .routes.setup import router as setup_router
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -73,6 +76,8 @@ mount_static_files(app)
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(documents_router)
+app.include_router(setup_router)
 
 # Initialize conversation manager
 conversation_manager = ConversationManager()
@@ -89,6 +94,7 @@ class ChatRequest(BaseModel):
     message: str
     character_id: str
     session_id: Optional[str] = None  # Optional session ID for continuing conversations
+    use_documents: bool = True  # Whether to include document context (RAG)
 
 class ChatResponse(BaseModel):
     response: str
@@ -97,10 +103,13 @@ class ChatResponse(BaseModel):
     session_id: str
     character_version: int
     migration_available: bool = False
+    document_context_used: bool = False
+    sources: List[Dict[str, Any]] = []
+    context_summary: Optional[str] = None
 
 class CharacterCreateRequest(BaseModel):
     name: str
-    personality: str
+    persona: str
     system_prompt: str
     role: str = "assistant"
     category: str = "General"
@@ -120,7 +129,7 @@ class CharacterCreateRequest(BaseModel):
 
 class CharacterUpdateRequest(BaseModel):
     name: Optional[str] = None
-    personality: Optional[str] = None
+    persona: Optional[str] = None
     system_prompt: Optional[str] = None
     traits: Optional[Dict[str, float]] = None
     communication_style: Optional[Dict[str, float]] = None
@@ -145,12 +154,24 @@ class SuggestTraitsResponse(BaseModel):
 # Routes
 @app.get("/")
 async def index(request: Request, db = Depends(get_db)):
-    """Main application page."""
+    """Main application page with setup detection."""
     # Check if user is authenticated
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         # Show landing page for unauthenticated users
         return await render_template(request, "landing", user=None)
+    
+    # Check if setup is needed (for authenticated users)
+    try:
+        from .core.setup_service import setup_service
+        assessment = await setup_service.perform_full_assessment()
+        
+        # Redirect to setup if system needs configuration
+        if assessment.overall_status in ["broken", "needs_setup"] or assessment.setup_required:
+            return RedirectResponse(url="/setup", status_code=302)
+    except Exception as e:
+        logger.warning(f"Setup check failed: {e}")
+        # Continue to dashboard if setup check fails
     
     # Show dashboard for authenticated users
     return await render_template(request, "dashboard", user=current_user)
@@ -174,12 +195,12 @@ async def chat_page(request: Request, db = Depends(get_db)):
     
     characters = character_manager.list_characters()
     categories = character_manager.get_categories()
-    active_personality = None  # No active personality by default
+    active_persona = None  # No active persona by default
     
     return await render_template(request, "chat/index", 
-                                personalities=characters, 
+                                personas=characters, 
                                 categories=categories,
-                                active_personality=active_personality,
+                                active_persona=active_persona,
                                 user=current_user)
 
 @app.get("/characters")
@@ -191,7 +212,7 @@ async def characters_page(request: Request, db = Depends(get_db)):
         return RedirectResponse(url="/auth/login", status_code=302)
     
     characters = character_manager.list_characters()
-    available_models = character_manager.get_available_models()
+    available_models = character_manager.get_available_models("cloud_allowed")
     model_recommendations = character_manager.get_model_recommendations()
     categories = character_manager.get_categories()
     tags = character_manager.get_tags()
@@ -205,6 +226,16 @@ async def characters_page(request: Request, db = Depends(get_db)):
                          tags=tags,
                          privacy_info=privacy_info,
                          user=current_user)
+
+@app.get("/documents")
+async def documents_page(request: Request, db = Depends(get_db)):
+    """Document management page."""
+    # Check if user is authenticated
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return RedirectResponse(url="/auth/login", status_code=302)
+    
+    return await render_template(request, "documents", user=current_user)
 
 @app.get("/settings")
 async def settings_page(request: Request, db = Depends(get_db)):
@@ -236,35 +267,59 @@ async def landing_page(request: Request):
     """Force show landing page even when logged in."""
     return await render_template(request, "landing", user=None)
 
-@app.get("/personality")
-async def personality_list_page(request: Request, db = Depends(get_db)):
-    """Personality list page."""
+@app.get("/setup")
+async def setup_wizard_page(request: Request, db = Depends(get_db)):
+    """Setup wizard for first-time configuration."""
+    # Check if user is already authenticated
+    current_user = await get_current_user_from_session(request, db)
+    
+    if not current_user:
+        # Create or get a default setup user for anonymous setup
+        from .core.auth import get_or_create_setup_user, login_user_session
+        setup_user = get_or_create_setup_user(db)
+        if setup_user:
+            await login_user_session(setup_user, request)
+            current_user = setup_user
+    
+    return await render_template(request, "setup/wizard", user=current_user)
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve a simple favicon to prevent 404 errors"""
+    from fastapi.responses import Response
+    # Return a minimal 1x1 transparent PNG
+    favicon_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\xf8\x00\x00\x00\x01\x00\x01\x00\x00\x00\x00\x7f\x06\xde\x02\x00\x00\x00\x00IEND\xaeB`\x82'
+    return Response(content=favicon_data, media_type="image/x-icon")
+
+@app.get("/persona")
+async def persona_list_page(request: Request, db = Depends(get_db)):
+    """Persona list page."""
     # Check if user is authenticated
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
     
-    personalities = character_manager.list_characters()
-    return await render_template(request, "personality/list", personalities=personalities, user=current_user)
+    personas = character_manager.list_characters()
+    return await render_template(request, "persona/list", personas=personas, user=current_user)
 
-@app.get("/personality/create")
-async def create_personality_page(request: Request, db = Depends(get_db)):
+@app.get("/persona/create")
+async def create_persona_page(request: Request, db = Depends(get_db)):
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
-    # Render the creation form with an empty personality
-    return await render_template(request, "personality/edit", personality={}, user=current_user)
+    # Render the creation form with an empty persona
+    return await render_template(request, "persona/edit", persona={}, user=current_user)
 
-@app.get("/personality/edit/{personality_id}")
-async def edit_personality_page(personality_id: str, request: Request, db = Depends(get_db)):
+@app.get("/persona/edit/{persona_id}")
+async def edit_persona_page(persona_id: str, request: Request, db = Depends(get_db)):
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
-    # Fetch the personality by id
-    personality = character_manager.get_character(personality_id)
-    if not personality:
-        return RedirectResponse(url="/personality", status_code=302)
-    return await render_template(request, "personality/edit", personality=personality, user=current_user)
+    # Fetch the persona by id
+    persona = character_manager.get_character(persona_id)
+    if not persona:
+        return RedirectResponse(url="/persona", status_code=302)
+    return await render_template(request, "persona/edit", persona=persona, user=current_user)
 
 # API Routes
 @app.get("/api/health")
@@ -443,8 +498,8 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
         change_reason = "Character updated via API"
         if 'system_prompt' in update_data:
             change_reason = "System prompt updated"
-        elif 'personality' in update_data:
-            change_reason = "Personality updated"
+        elif 'persona' in update_data:
+            change_reason = "Persona updated"
         new_version = conversation_manager.create_character_version(
             updated_character, 
             change_reason=change_reason
@@ -471,8 +526,7 @@ async def delete_character(character_id: str, db = Depends(get_db)):
     # (Assume conversation_manager has a method to get all sessions or conversations for a character)
     try:
         # If using ConversationService with DB:
-        from .core.conversation_service import ConversationService
-        conversation_service = ConversationService()
+        from .core.conversation_service import conversation_service
         conversations = conversation_service.get_character_conversations(character_id, db)
         for conv in conversations:
             conversation_service.delete_conversation(conv["id"], db)
@@ -622,19 +676,94 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             migration_available = True
             logger.info(f"Character {request.character_id} has been updated, migration available")
         
-        # Get conversation history for context
-        history = conversation_manager.get_conversation_history(session_id, limit=10)
+        # Initialize RAG context variables
+        rag_context = None
+        enhanced_prompt = None
+        document_context_used = False
+        sources = []
+        context_summary = None
+        
+        # Get enhanced context if document RAG is enabled
+        if request.use_documents:
+            try:
+                # Get RAG context
+                rag_context = rag_service.get_enhanced_context(
+                    user_message=request.message,
+                    user_id=current_user.id,
+                    conversation_id=session_id,
+                    character_id=request.character_id,
+                    include_conversation_history=True,
+                    include_documents=True,
+                    db=db
+                )
+                
+                if rag_context.get('document_chunks'):
+                    document_context_used = True
+                    sources = rag_context.get('sources', [])
+                    context_summary = rag_context.get('context_summary', '')
+                    
+                    # Create enhanced prompt with document context
+                    enhanced_prompt = rag_service.format_rag_prompt(
+                        user_message=request.message,
+                        context=rag_context,
+                        character_instructions=character['system_prompt']
+                    )
+                    
+                    logger.info(f"RAG enabled for {character['name']}: {len(rag_context.get('document_chunks', []))} document chunks included")
+                
+            except Exception as e:
+                logger.warning(f"RAG context generation failed, falling back to regular chat: {e}")
+        
+        # Build messages array
         messages = []
         
-        # Add system prompt
-        messages.append({"role": "system", "content": character['system_prompt']})
-        
-        # Add conversation history
-        for msg in history:
-            messages.append({"role": msg.role, "content": msg.content})
-        
-        # Add current message
-        messages.append({"role": "user", "content": request.message})
+        if enhanced_prompt and document_context_used:
+            # Use enhanced RAG prompt
+            messages.append({"role": "system", "content": enhanced_prompt})
+        else:
+            # Use regular system prompt and add enhanced conversation context
+            messages.append({"role": "system", "content": character['system_prompt']})
+
+            # Try to use semantic memory service for intelligent context retrieval
+            try:
+                from .core.memory_service import memory_service
+                from .core.conversation_service import conversation_service
+
+                # Get database conversation for semantic memory
+                db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
+
+                # Save current message to database for semantic search
+                conversation_service.add_message(
+                    conversation_id=db_conversation.id,
+                    content=request.message,
+                    role="user",
+                    db=db
+                )
+
+                # Use semantic memory to get intelligent context (recent + relevant)
+                context_messages = memory_service.get_context(
+                    conversation_id=db_conversation.id,
+                    current_message=request.message,
+                    context_window=15,  # Start with 15 recent messages
+                    db=db
+                )
+
+                # Add context messages to conversation
+                for msg in context_messages:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+
+                logger.info(f"Using semantic memory: {len(context_messages)} messages retrieved for {character['name']}")
+
+            except Exception as e:
+                logger.warning(f"Semantic memory failed, falling back to simple history: {e}")
+
+                # Fallback to simple conversation history
+                history = conversation_manager.get_conversation_history(session_id, limit=15)
+                for msg in history:
+                    messages.append({"role": msg.role, "content": msg.content})
+
+            # Add current message
+            messages.append({"role": "user", "content": request.message})
         
         # Generate response using the character's model configuration
         model_config = character['model_config']
@@ -648,13 +777,31 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         
         response = llm_client.generate_response_with_config(
             messages=messages,
-            system_prompt=character['system_prompt'],
+            system_prompt=character['system_prompt'] if not enhanced_prompt else None,
             model_config=model_config
         )
         
-        # Save messages to conversation history
+        # Save messages to conversation history (file-based system)
         conversation_manager.save_message(session_id, "user", request.message)
         conversation_manager.save_message(session_id, "assistant", response)
+
+        # Also save to database for semantic memory (if available)
+        try:
+            from .core.conversation_service import conversation_service
+            db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
+
+            # Save assistant response to database for future semantic search
+            conversation_service.add_message(
+                conversation_id=db_conversation.id,
+                content=response,
+                role="assistant",
+                db=db
+            )
+
+            logger.info(f"Saved assistant response to semantic memory for {character['name']}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save to semantic memory: {e}")
         
         # Update character usage
         character_manager.update_character(request.character_id, {
@@ -671,7 +818,10 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             character_id=character['id'],
             session_id=session_id,
             character_version=session.character_version,
-            migration_available=migration_available
+            migration_available=migration_available,
+            document_context_used=document_context_used,
+            sources=sources,
+            context_summary=context_summary if document_context_used else None
         )
         
     except Exception as e:

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from miachat.core.conversation import ConversationManager
 from miachat.core.memory import MemoryManager
-from miachat.core.personality import PersonalityManager
+from miachat.core.persona import PersonaManager
 from miachat.llm.base import LLMProvider
 from miachat.database.config import db_config
 from miachat.database.models import Conversation, Message, File
@@ -19,9 +19,9 @@ bp = Blueprint('chat', __name__, url_prefix='/api/chat')
 
 # Dummy managers for now (replace with real instances as needed)
 memory_manager = MemoryManager()
-personality_manager = PersonalityManager()
+persona_manager = PersonaManager()
 llm_provider = LLMProvider()
-conversation_manager = ConversationManager(memory_manager, personality_manager, llm_provider)
+conversation_manager = ConversationManager(memory_manager, persona_manager, llm_provider)
 
 router = APIRouter()
 
@@ -122,7 +122,7 @@ def get_conversation_history(conversation_id):
         # Format the response
         conversation_data = {
             'id': conversation.id,
-            'personality_id': conversation.personality_id,
+            'persona_id': conversation.persona_id,
             'metadata': conversation.metadata,
             'created_at': conversation.created_at.isoformat(),
             'messages': [
@@ -156,21 +156,21 @@ def get_conversation_history(conversation_id):
 def send_message():
     data = request.json
     conversation_id = data.get('conversation_id')
-    personality_id = data.get('personality_id')
+    persona_id = data.get('persona_id')
     message = data.get('message')
     metadata = data.get('metadata', {})
     files = data.get('files', [])
 
     if not message and not files:
         return jsonify({'error': 'Message or files required'}), 400
-    if not personality_id:
-        return jsonify({'error': 'Missing personality_id'}), 400
+    if not persona_id:
+        return jsonify({'error': 'Missing persona_id'}), 400
 
     session = db_config.get_session()
     try:
         # Start a new conversation if needed
         if not conversation_id:
-            conversation = Conversation.create(personality_id=personality_id, metadata=metadata)
+            conversation = Conversation.create(persona_id=persona_id, metadata=metadata)
             session.add(conversation)
             session.commit()
             conversation_id = conversation.id
@@ -240,20 +240,20 @@ def send_message():
 
 @router.get("/", response_class=HTMLResponse)
 async def chat_page(request: Request, db: Session = Depends(get_db)):
-    """Render the chat interface with personality selector."""
-    # Get all personalities
-    personalities = [
-        personality_manager.get_personality(name)
-        for name in personality_manager.list_personalities()
+    """Render the chat interface with persona selector."""
+    # Get all personas
+    personas = [
+        persona_manager.get_persona(name)
+        for name in persona_manager.list_personas()
     ]
     
-    # Get active personality
-    active_personality = personality_manager.get_active_personality()
-    active_name = active_personality.name if active_personality else None
+    # Get active persona
+    active_persona = persona_manager.get_active_persona()
+    active_name = active_persona.name if active_persona else None
     
     # Get categories and tags
-    categories = personality_manager.get_categories()
-    tags = personality_manager.get_tags()
+    categories = persona_manager.get_categories()
+    tags = persona_manager.get_tags()
     
     # Get chat history (implement this based on your database schema)
     chat_history = []  # TODO: Implement chat history retrieval
@@ -261,8 +261,8 @@ async def chat_page(request: Request, db: Session = Depends(get_db)):
     return render_template(
         "chat/index.html",
         request=request,
-        personalities=personalities,
-        active_personality=active_name,
+        personas=personas,
+        active_persona=active_name,
         categories=categories,
         tags=tags,
         chat_history=chat_history,
@@ -272,12 +272,12 @@ async def chat_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/api/chat")
 async def chat_endpoint(message: str, db: Session = Depends(get_db)):
     """Handle chat messages and return AI responses."""
-    # Get active personality
-    active_personality = personality_manager.get_active_personality()
-    if not active_personality:
-        return {"error": "No active personality selected"}
+    # Get active persona
+    active_persona = persona_manager.get_active_persona()
+    if not active_persona:
+        return {"error": "No active persona selected"}
     
-    # TODO: Implement chat logic with personality-specific responses
-    # This should use the active personality's configuration to generate responses
+    # TODO: Implement chat logic with persona-specific responses
+    # This should use the active persona's configuration to generate responses
     
     return {"response": "This is a placeholder response. Chat implementation pending."} 

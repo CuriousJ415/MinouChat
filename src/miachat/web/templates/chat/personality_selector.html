@@ -1,18 +1,18 @@
-{% macro personality_selector(personalities, active_personality, categories, tags) %}
-<div class="personality-selector">
-    <div class="personality-header">
+{% macro persona_selector(personas, active_persona, categories, tags) %}
+<div class="persona-selector">
+    <div class="persona-header">
         <h3>Choose Your AI Companion</h3>
-        <div class="personality-actions">
-            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#personalityEditorModal">
+        <div class="persona-actions">
+            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#personaEditorModal">
                 <i class="fas fa-edit"></i> Edit
             </button>
-            <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#importPersonalityModal">
+            <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#importPersonaModal">
                 <i class="fas fa-file-import"></i> Import
             </button>
         </div>
     </div>
     
-    <div class="personality-filters">
+    <div class="persona-filters">
         <div class="filter-group">
             <label>Category:</label>
             <select class="form-select form-select-sm" id="categoryFilter">
@@ -31,56 +31,56 @@
             </select>
         </div>
         <div class="filter-group">
-            <input type="text" class="form-control form-control-sm" id="searchFilter" placeholder="Search personalities...">
+            <input type="text" class="form-control form-control-sm" id="searchFilter" placeholder="Search personas...">
         </div>
     </div>
     
-    <div class="personality-cards">
-        {% for personality in personalities %}
-        <div class="personality-card {% if personality.name == active_personality %}active{% endif %}"
-             data-personality="{{ personality.name }}"
-             data-category="{{ personality.category }}"
-             data-tags="{{ personality.tags|join(',') }}">
-            <div class="personality-card-header">
-                <div class="personality-avatar">
-                    <img src="{{ url_for('static', filename='images/avatars/' + personality.name.lower() + '.png') }}"
-                         alt="{{ personality.name }}"
+    <div class="persona-cards">
+        {% for persona in personas %}
+        <div class="persona-card {% if persona.name == active_persona %}active{% endif %}"
+             data-persona="{{ persona.name }}"
+             data-category="{{ persona.category }}"
+             data-tags="{{ persona.tags|join(',') }}">
+            <div class="persona-card-header">
+                <div class="persona-avatar">
+                    <img src="{{ url_for('static', filename='images/avatars/' + persona.name.lower() + '.png') }}"
+                         alt="{{ persona.name }}"
                          onerror="this.src='{{ url_for('static', filename='images/avatars/default.png') }}'">
                 </div>
-                <div class="personality-actions">
-                    <button class="btn btn-sm btn-outline-secondary clone-personality" 
-                            data-personality="{{ personality.name }}"
-                            title="Clone personality">
+                <div class="persona-actions">
+                    <button class="btn btn-sm btn-outline-secondary clone-persona" 
+                            data-persona="{{ persona.name }}"
+                            title="Clone persona">
                         <i class="fas fa-copy"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary export-personality"
-                            data-personality="{{ personality.name }}"
-                            title="Export personality">
+                    <button class="btn btn-sm btn-outline-secondary export-persona"
+                            data-persona="{{ persona.name }}"
+                            title="Export persona">
                         <i class="fas fa-file-export"></i>
                     </button>
                 </div>
             </div>
             
-            <div class="personality-info">
-                <h4>{{ personality.name }}</h4>
-                <p>{{ personality.description }}</p>
+            <div class="persona-info">
+                <h4>{{ persona.name }}</h4>
+                <p>{{ persona.description }}</p>
                 
-                {% if personality.category %}
-                <div class="personality-category">
-                    <span class="badge bg-primary">{{ personality.category }}</span>
+                {% if persona.category %}
+                <div class="persona-category">
+                    <span class="badge bg-primary">{{ persona.category }}</span>
                 </div>
                 {% endif %}
                 
-                {% if personality.tags %}
-                <div class="personality-tags">
-                    {% for tag in personality.tags %}
+                {% if persona.tags %}
+                <div class="persona-tags">
+                    {% for tag in persona.tags %}
                     <span class="badge bg-secondary">{{ tag }}</span>
                     {% endfor %}
                 </div>
                 {% endif %}
                 
-                <div class="personality-traits">
-                    {% for trait in personality.core_traits %}
+                <div class="persona-traits">
+                    {% for trait in persona.core_traits %}
                     <span class="trait-badge" title="{{ trait.description }}">
                         {{ trait.name }}: {{ (trait.value * 100)|int }}%
                     </span>
@@ -88,10 +88,10 @@
                 </div>
             </div>
             
-            <button class="btn btn-primary select-personality" 
-                    data-personality="{{ personality.name }}"
-                    {% if personality.name == active_personality %}disabled{% endif %}>
-                {% if personality.name == active_personality %}
+            <button class="btn btn-primary select-persona" 
+                    data-persona="{{ persona.name }}"
+                    {% if persona.name == active_persona %}disabled{% endif %}>
+                {% if persona.name == active_persona %}
                 <i class="fas fa-check"></i> Active
                 {% else %}
                 Select
@@ -102,12 +102,12 @@
     </div>
 </div>
 
-<!-- Import Personality Modal -->
-<div class="modal fade" id="importPersonalityModal" tabindex="-1">
+<!-- Import Persona Modal -->
+<div class="modal fade" id="importPersonaModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Import Personality</h5>
+                <h5 class="modal-title">Import Persona</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -119,24 +119,24 @@
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Personality Configuration</label>
+                    <label class="form-label">Persona Configuration</label>
                     <textarea class="form-control" id="importContent" rows="10"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="importPersonality">Import</button>
+                <button type="button" class="btn btn-primary" id="importPersona">Import</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Clone Personality Modal -->
-<div class="modal fade" id="clonePersonalityModal" tabindex="-1">
+<!-- Clone Persona Modal -->
+<div class="modal fade" id="clonePersonaModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Clone Personality</h5>
+                <h5 class="modal-title">Clone Persona</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -147,33 +147,33 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="clonePersonality">Clone</button>
+                <button type="button" class="btn btn-primary" id="clonePersona">Clone</button>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-.personality-selector {
+.persona-selector {
     padding: 1rem;
     background: #f8f9fa;
     border-radius: 8px;
     margin-bottom: 1rem;
 }
 
-.personality-header {
+.persona-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
 }
 
-.personality-actions {
+.persona-actions {
     display: flex;
     gap: 0.5rem;
 }
 
-.personality-filters {
+.persona-filters {
     display: flex;
     gap: 1rem;
     margin-bottom: 1rem;
@@ -185,13 +185,13 @@
     min-width: 200px;
 }
 
-.personality-cards {
+.persona-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1rem;
 }
 
-.personality-card {
+.persona-card {
     background: white;
     border-radius: 8px;
     padding: 1rem;
@@ -202,50 +202,50 @@
     transition: all 0.3s ease;
 }
 
-.personality-card.active {
+.persona-card.active {
     border: 2px solid #007bff;
     transform: translateY(-2px);
 }
 
-.personality-card-header {
+.persona-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.personality-avatar {
+.persona-avatar {
     width: 80px;
     height: 80px;
     border-radius: 50%;
     overflow: hidden;
 }
 
-.personality-avatar img {
+.persona-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.personality-info {
+.persona-info {
     text-align: center;
 }
 
-.personality-info h4 {
+.persona-info h4 {
     margin: 0.5rem 0;
     color: #333;
 }
 
-.personality-info p {
+.persona-info p {
     font-size: 0.9rem;
     color: #666;
     margin-bottom: 0.5rem;
 }
 
-.personality-category {
+.persona-category {
     margin-bottom: 0.5rem;
 }
 
-.personality-tags {
+.persona-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
@@ -253,7 +253,7 @@
     margin-bottom: 0.5rem;
 }
 
-.personality-traits {
+.persona-traits {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -268,12 +268,12 @@
     color: #495057;
 }
 
-.select-personality {
+.select-persona {
     width: 100%;
     margin-top: auto;
 }
 
-.select-personality:disabled {
+.select-persona:disabled {
     background-color: #28a745;
     border-color: #28a745;
 }
@@ -281,18 +281,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const personalityCards = document.querySelectorAll('.personality-card');
+    const personaCards = document.querySelectorAll('.persona-card');
     const categoryFilter = document.getElementById('categoryFilter');
     const tagFilter = document.getElementById('tagFilter');
     const searchFilter = document.getElementById('searchFilter');
     
-    // Filter personalities
-    function filterPersonalities() {
+    // Filter personas
+    function filterPersonas() {
         const category = categoryFilter.value;
         const tags = Array.from(tagFilter.selectedOptions).map(opt => opt.value);
         const search = searchFilter.value.toLowerCase();
         
-        personalityCards.forEach(card => {
+        personaCards.forEach(card => {
             const cardCategory = card.dataset.category;
             const cardTags = card.dataset.tags.split(',');
             const cardName = card.querySelector('h4').textContent.toLowerCase();
@@ -308,29 +308,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    categoryFilter.addEventListener('change', filterPersonalities);
-    tagFilter.addEventListener('change', filterPersonalities);
-    searchFilter.addEventListener('input', filterPersonalities);
+    categoryFilter.addEventListener('change', filterPersonas);
+    tagFilter.addEventListener('change', filterPersonas);
+    searchFilter.addEventListener('input', filterPersonas);
     
-    // Personality switching
-    personalityCards.forEach(card => {
-        const selectButton = card.querySelector('.select-personality');
+    // Persona switching
+    personaCards.forEach(card => {
+        const selectButton = card.querySelector('.select-persona');
         if (selectButton) {
             selectButton.addEventListener('click', async function() {
-                const personalityName = this.dataset.personality;
+                const personaName = this.dataset.persona;
                 try {
-                    const response = await fetch('/api/personality/switch', {
+                    const response = await fetch('/api/persona/switch', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ personality: personalityName })
+                        body: JSON.stringify({ persona: personaName })
                     });
                     
                     if (response.ok) {
-                        document.querySelectorAll('.personality-card').forEach(c => {
+                        document.querySelectorAll('.persona-card').forEach(c => {
                             c.classList.remove('active');
-                            const btn = c.querySelector('.select-personality');
+                            const btn = c.querySelector('.select-persona');
                             if (btn) {
                                 btn.disabled = false;
                                 btn.innerHTML = 'Select';
@@ -341,89 +341,89 @@ document.addEventListener('DOMContentLoaded', function() {
                         selectButton.disabled = true;
                         selectButton.innerHTML = '<i class="fas fa-check"></i> Active';
                         
-                        showToast('Personality switched successfully!', 'success');
+                        showToast('Persona switched successfully!', 'success');
                     } else {
-                        throw new Error('Failed to switch personality');
+                        throw new Error('Failed to switch persona');
                     }
                 } catch (error) {
-                    console.error('Error switching personality:', error);
-                    showToast('Failed to switch personality', 'error');
+                    console.error('Error switching persona:', error);
+                    showToast('Failed to switch persona', 'error');
                 }
             });
         }
     });
     
-    // Clone personality
-    document.querySelectorAll('.clone-personality').forEach(button => {
+    // Clone persona
+    document.querySelectorAll('.clone-persona').forEach(button => {
         button.addEventListener('click', function() {
-            const personalityName = this.dataset.personality;
-            const modal = new bootstrap.Modal(document.getElementById('clonePersonalityModal'));
-            document.getElementById('cloneName').value = `${personalityName} (Copy)`;
+            const personaName = this.dataset.persona;
+            const modal = new bootstrap.Modal(document.getElementById('clonePersonaModal'));
+            document.getElementById('cloneName').value = `${personaName} (Copy)`;
             modal.show();
             
-            document.getElementById('clonePersonality').onclick = async function() {
+            document.getElementById('clonePersona').onclick = async function() {
                 const newName = document.getElementById('cloneName').value;
                 try {
-                    const response = await fetch('/api/personality/clone', {
+                    const response = await fetch('/api/persona/clone', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            original: personalityName,
+                            original: personaName,
                             new_name: newName
                         })
                     });
                     
                     if (response.ok) {
                         modal.hide();
-                        showToast('Personality cloned successfully!', 'success');
-                        // Reload the page to show the new personality
+                        showToast('Persona cloned successfully!', 'success');
+                        // Reload the page to show the new persona
                         window.location.reload();
                     } else {
-                        throw new Error('Failed to clone personality');
+                        throw new Error('Failed to clone persona');
                     }
                 } catch (error) {
-                    console.error('Error cloning personality:', error);
-                    showToast('Failed to clone personality', 'error');
+                    console.error('Error cloning persona:', error);
+                    showToast('Failed to clone persona', 'error');
                 }
             };
         });
     });
     
-    // Export personality
-    document.querySelectorAll('.export-personality').forEach(button => {
+    // Export persona
+    document.querySelectorAll('.export-persona').forEach(button => {
         button.addEventListener('click', async function() {
-            const personalityName = this.dataset.personality;
+            const personaName = this.dataset.persona;
             try {
-                const response = await fetch(`/api/personality/${personalityName}/export`);
+                const response = await fetch(`/api/persona/${personaName}/export`);
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${personalityName.toLowerCase().replace(' ', '_')}.xml`;
+                    a.download = `${personaName.toLowerCase().replace(' ', '_')}.xml`;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
                     a.remove();
                 } else {
-                    throw new Error('Failed to export personality');
+                    throw new Error('Failed to export persona');
                 }
             } catch (error) {
-                console.error('Error exporting personality:', error);
-                showToast('Failed to export personality', 'error');
+                console.error('Error exporting persona:', error);
+                showToast('Failed to export persona', 'error');
             }
         });
     });
     
-    // Import personality
-    document.getElementById('importPersonality').addEventListener('click', async function() {
+    // Import persona
+    document.getElementById('importPersona').addEventListener('click', async function() {
         const format = document.getElementById('importFormat').value;
         const content = document.getElementById('importContent').value;
         
         try {
-            const response = await fetch('/api/personality/import', {
+            const response = await fetch('/api/persona/import', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -435,17 +435,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             if (response.ok) {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('importPersonalityModal'));
+                const modal = bootstrap.Modal.getInstance(document.getElementById('importPersonaModal'));
                 modal.hide();
-                showToast('Personality imported successfully!', 'success');
-                // Reload the page to show the new personality
+                showToast('Persona imported successfully!', 'success');
+                // Reload the page to show the new persona
                 window.location.reload();
             } else {
-                throw new Error('Failed to import personality');
+                throw new Error('Failed to import persona');
             }
         } catch (error) {
-            console.error('Error importing personality:', error);
-            showToast('Failed to import personality', 'error');
+            console.error('Error importing persona:', error);
+            showToast('Failed to import persona', 'error');
         }
     });
 });

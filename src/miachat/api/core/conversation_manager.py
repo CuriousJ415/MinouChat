@@ -61,7 +61,7 @@ class ConversationManager:
             character_id=character_id,
             version=next_version,
             system_prompt=character_data['system_prompt'],
-            personality=character_data['personality'],
+            persona=character_data['personality'],
             traits=character_data.get('traits'),
             communication_style=character_data.get('communication_style'),
             created_at=datetime.now(),
@@ -89,6 +89,9 @@ class ConversationManager:
             return None
         
         latest = max(versions, key=lambda v: v['version'])
+        # Handle legacy field name mapping
+        if 'personality' in latest and 'persona' not in latest:
+            latest['persona'] = latest.pop('personality')
         return CharacterVersion(**latest)
     
     def create_conversation_session(self, character_id: str, user_id: str) -> ConversationSession:
@@ -244,4 +247,8 @@ class ConversationManager:
             if v['character_id'] == character_id
         ]
         sorted_versions = sorted(versions, key=lambda v: v['version'])
+        # Handle legacy field name mapping
+        for version in sorted_versions:
+            if 'personality' in version and 'persona' not in version:
+                version['persona'] = version.pop('personality')
         return [CharacterVersion(**v) for v in sorted_versions] 

@@ -30,19 +30,19 @@
             color: #212529;
             margin-right: 20%;
         }
-        .personality-card {
+        .persona-card {
             cursor: pointer;
             transition: all 0.2s;
         }
-        .personality-card:hover {
+        .persona-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        .personality-card.active {
+        .persona-card.active {
             border-color: #007bff;
             background-color: #f8f9ff;
         }
-        .personality-avatar {
+        .persona-avatar {
             width: 50px;
             height: 50px;
             border-radius: 50%;
@@ -75,7 +75,10 @@
                         <a class="nav-link active" aria-current="page" href="/chat">Chat</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/personality">Personalities</a>
+                        <a class="nav-link" href="/documents">Documents</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/persona">Personas</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/settings">Settings</a>
@@ -86,41 +89,29 @@
     </nav>
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar with personalities -->
+            <!-- Sidebar with personas -->
             <div class="col-md-3">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">
-                            <i class="fas fa-users"></i> Personalities
+                            <i class="fas fa-users"></i> Personas
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <input type="text" class="form-control" id="searchPersonalities" placeholder="Search personalities...">
-                        </div>
                         
-                        <div class="mb-3">
-                            <select class="form-select" id="categoryFilter">
-                                <option value="">All Categories</option>
-                                {% for category in categories %}
-                                <option value="{{ category }}">{{ category }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <div id="personalitiesList">
-                            {% for personality in personalities %}
-                            <div class="personality-card card mb-2 {% if personality.name == active_personality %}active{% endif %}" 
-                                 data-personality="{{ personality.name }}" data-character-id="{{ personality.id }}" data-category="{{ personality.category or '' }}">
+                        <div id="personasList">
+                            {% for persona in personas %}
+                            <div class="persona-card card mb-2 {% if persona.name == active_persona %}active{% endif %}" 
+                                 data-persona="{{ persona.name }}" data-character-id="{{ persona.id }}" data-category="{{ persona.category or '' }}">
                                 <div class="card-body p-2">
                                     <div class="d-flex align-items-center">
-                                        <div class="personality-avatar me-2">
-                                            {{ personality.name[0] }}
+                                        <div class="persona-avatar me-2">
+                                            {{ persona.name[0] }}
                                         </div>
                                         <div class="flex-grow-1">
-                                            <h6 class="mb-0">{{ personality.name }}</h6>
-                                            <small class="text-muted d-block">{{ personality.category or 'Uncategorized' }}</small>
-                                            <small class="text-muted">{{ personality.personality[:50] }}...</small>
+                                            <h6 class="mb-0">{{ persona.name }}</h6>
+                                            <small class="text-muted d-block">{{ persona.category or 'Uncategorized' }}</small>
+                                            <small class="text-muted">{{ persona.personality[:50] }}...</small>
                                         </div>
                                     </div>
                                 </div>
@@ -138,7 +129,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
                                 <i class="fas fa-comments"></i> 
-                                Chat with <span id="currentPersonality">{{ active_personality or 'Select a personality' }}</span>
+                                Chat with <span id="currentPersona">{{ active_persona or 'Select a persona' }}</span>
                             </h5>
                             <div>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearChat()">
@@ -150,8 +141,7 @@
                     <div class="card-body">
                         <div class="chat-container" id="chatContainer">
                             <div class="text-center text-muted">
-                                <i class="fas fa-comments fa-3x mb-3"></i>
-                                <p>Start a conversation with your selected personality!</p>
+                                <p>Start a conversation with your selected persona!</p>
                             </div>
                         </div>
                         
@@ -180,7 +170,7 @@
         }
 
         let currentCharacterId = getQueryParam('character_id');
-        let currentPersonality = '';
+        let currentPersona = '';
         let currentSessionId = localStorage.getItem('currentSessionId');
         let currentCharacterVersion = null;
         let chatHistory = [];
@@ -192,8 +182,8 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data && !data.error) {
-                        currentPersonality = data.name;
-                        document.getElementById('currentPersonality').textContent = data.name;
+                        currentPersona = data.name;
+                        document.getElementById('currentPersona').textContent = data.name;
                         document.getElementById('messageInput').disabled = false;
                         document.querySelector('#chatForm button').disabled = false;
                         
@@ -208,36 +198,36 @@
                 });
         }
 
-        // Personality selection
-        document.querySelectorAll('.personality-card').forEach(card => {
+        // Persona selection
+        document.querySelectorAll('.persona-card').forEach(card => {
             card.addEventListener('click', function() {
-                const personalityName = this.dataset.personality;
+                const personaName = this.dataset.persona;
                 const characterId = this.dataset.characterId;
-                selectPersonality(personalityName, characterId);
+                selectPersona(personaName, characterId);
             });
         });
         
-        function selectPersonality(name, characterId) {
-            console.log('Selecting personality:', { name, characterId });
+        function selectPersona(name, characterId) {
+            console.log('Selecting persona:', { name, characterId });
             
             // Update active state
-            document.querySelectorAll('.personality-card').forEach(card => {
+            document.querySelectorAll('.persona-card').forEach(card => {
                 card.classList.remove('active');
             });
-            document.querySelector(`[data-personality="${name}"]`).classList.add('active');
+            document.querySelector(`[data-persona="${name}"]`).classList.add('active');
             
-            // Update current personality and character ID
-            currentPersonality = name;
+            // Update current persona and character ID
+            currentPersona = name;
             currentCharacterId = characterId;
-            document.getElementById('currentPersonality').textContent = name;
+            document.getElementById('currentPersona').textContent = name;
             
-            console.log('Updated state:', { currentPersonality, currentCharacterId });
+            console.log('Updated state:', { currentPersona, currentCharacterId });
             
             // Enable chat
             document.getElementById('messageInput').disabled = false;
             document.querySelector('#chatForm button').disabled = false;
             
-            // Clear chat for new personality
+            // Clear chat for new persona
             clearChat();
             
             // Add welcome message
@@ -250,7 +240,7 @@
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
             
-            console.log('Chat form submitted:', { message, currentCharacterId, currentPersonality });
+            console.log('Chat form submitted:', { message, currentCharacterId, currentPersona });
             
             if (message && currentCharacterId) {
                 addMessage('user', message);
@@ -295,7 +285,7 @@
             } else {
                 console.log('Cannot send message:', { message: !!message, currentCharacterId: !!currentCharacterId });
                 if (!currentCharacterId) {
-                    alert('Please select a personality first.');
+                    alert('Please select a persona first.');
                 }
             }
         });
@@ -307,7 +297,7 @@
             messageDiv.innerHTML = `
                 <div class="d-flex align-items-start">
                     <div class="flex-grow-1">
-                        <strong>${sender === 'user' ? 'You' : currentPersonality}:</strong>
+                        <strong>${sender === 'user' ? 'You' : currentPersona}:</strong>
                         <div class="mt-1">${content}</div>
                     </div>
                 </div>
@@ -323,8 +313,7 @@
         function clearChat() {
             document.getElementById('chatContainer').innerHTML = `
                 <div class="text-center text-muted">
-                    <i class="fas fa-comments fa-3x mb-3"></i>
-                    <p>Start a conversation with your selected personality!</p>
+                    <p>Start a conversation with your selected persona!</p>
                 </div>
             `;
             chatHistory = [];
@@ -356,14 +345,14 @@
                             currentSessionId = null;
                             localStorage.removeItem('currentSessionId');
                             clearChat();
-                            addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                            addMessage('assistant', `Hello! I'm ${currentPersona}. How can I help you today?`);
                         }
                     } else {
                         // Session not found, clear it
                         currentSessionId = null;
                         localStorage.removeItem('currentSessionId');
                         clearChat();
-                        addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                        addMessage('assistant', `Hello! I'm ${currentPersona}. How can I help you today?`);
                     }
                 })
                 .catch(error => {
@@ -372,7 +361,7 @@
                     currentSessionId = null;
                     localStorage.removeItem('currentSessionId');
                     clearChat();
-                    addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                    addMessage('assistant', `Hello! I'm ${currentPersona}. How can I help you today?`);
                 });
         }
         
@@ -398,7 +387,7 @@
             notification.className = 'alert alert-info alert-dismissible fade show';
             notification.innerHTML = `
                 <i class="fas fa-info-circle"></i>
-                <strong>Character Updated!</strong> ${currentPersonality} has been updated. 
+                <strong>Character Updated!</strong> ${currentPersona} has been updated. 
                 <button type="button" class="btn btn-sm btn-primary ms-2" onclick="migrateConversation('auto')">
                     Update Conversation
                 </button>
@@ -443,11 +432,11 @@
                         currentSessionId = null;
                         localStorage.removeItem('currentSessionId');
                         clearChat();
-                        addMessage('assistant', `Hello! I'm ${currentPersonality}. How can I help you today?`);
+                        addMessage('assistant', `Hello! I'm ${currentPersona}. How can I help you today?`);
                     } else {
                         // Auto-migration: just update the version
                         migrationAvailable = false;
-                        addMessage('assistant', `*Character updated* Hello again! I'm ${currentPersonality}. How can I help you today?`);
+                        addMessage('assistant', `*Character updated* Hello again! I'm ${currentPersona}. How can I help you today?`);
                     }
                 }
             })
@@ -457,39 +446,10 @@
             });
         }
         
-        // Search functionality
-        document.getElementById('searchPersonalities').addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase();
-            document.querySelectorAll('.personality-card').forEach(card => {
-                const name = card.dataset.personality.toLowerCase();
-                if (name.includes(query)) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-        
-        // Category filter
-        document.getElementById('categoryFilter').addEventListener('change', function(e) {
-            const category = e.target.value;
-            const cards = document.querySelectorAll('.personality-card');
-            
-            cards.forEach(card => {
-                const cardCategory = card.dataset.category || '';
-                if (category === '' || cardCategory === category) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-            
-            console.log('Filtered by category:', category);
-        });
         
         // Initialize
-        if (currentPersonality && currentCharacterId) {
-            selectPersonality(currentPersonality, currentCharacterId);
+        if (currentPersona && currentCharacterId) {
+            selectPersona(currentPersona, currentCharacterId);
         }
     </script>
 </body>

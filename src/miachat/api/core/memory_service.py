@@ -6,8 +6,8 @@ import re
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from ...database.models import Conversation, Message
-from ...database.config import get_db
+from ..models.chat import Conversation, Message
+from ..core.database import get_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,74 +24,102 @@ class MemoryService:
         self.default_context_window = default_context_window
     
     def get_context(
-        self, 
-        conversation_id: int, 
-        current_message: str, 
+        self,
+        conversation_id: int,
+        current_message: str,
         context_window: Optional[int] = None,
         db: Session = None
     ) -> List[Dict[str, Any]]:
         """Get context for a conversation, combining recent messages and relevant search results.
-        
+
         Args:
             conversation_id: ID of the conversation
             current_message: The current user message
             context_window: Number of recent messages to include (defaults to self.default_context_window)
             db: Database session (optional, will create one if not provided)
-            
+
         Returns:
             List of message dictionaries with role, content, and timestamp
         """
         if db is None:
             db = next(get_db())
-        
+
         context_window = context_window or self.default_context_window
-        
+
+        logger.debug(f"Getting context for conversation {conversation_id} with window {context_window}")
+        logger.debug(f"Current message: {current_message[:100]}...")
+
         try:
             # Get recent messages
+            logger.debug("Fetching recent messages...")
             recent_messages = self._get_recent_messages(conversation_id, context_window, db)
-            
+            logger.debug(f"Got {len(recent_messages)} recent messages")
+
             # Get relevant messages from search
+            logger.debug("Fetching relevant messages...")
             relevant_messages = self._search_conversation(conversation_id, current_message, db)
-            
+            logger.debug(f"Got {len(relevant_messages)} relevant messages")
+
             # Combine and deduplicate messages
+            logger.debug("Combining context...")
             combined_context = self._combine_context(recent_messages, relevant_messages)
-            
+            logger.debug(f"Combined context has {len(combined_context)} messages")
+
             logger.info(f"Retrieved context for conversation {conversation_id}: "
                        f"{len(recent_messages)} recent + {len(relevant_messages)} relevant = {len(combined_context)} total")
-            
+
             return combined_context
-            
+
         except Exception as e:
             logger.error(f"Error retrieving context for conversation {conversation_id}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Fallback to just recent messages
             return self._get_recent_messages(conversation_id, context_window, db)
     
     def _get_recent_messages(
-        self, 
-        conversation_id: int, 
-        limit: int, 
+        self,
+        conversation_id: int,
+        limit: int,
         db: Session
     ) -> List[Dict[str, Any]]:
         """Get the most recent messages from a conversation.
-        
+
         Args:
             conversation_id: ID of the conversation
             limit: Maximum number of messages to retrieve
             db: Database session
-            
+
         Returns:
             List of message dictionaries
         """
         try:
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conversation:
-                return []
-            
-            messages = conversation.get_messages(limit=limit)
-            return [msg.to_dict() for msg in messages]
-            
+            logger.debug(f"Querying recent messages for conversation_id={conversation_id}, limit={limit}")
+
+            # Query messages directly from the database
+            messages = db.query(Message).filter(
+                Message.conversation_id == conversation_id
+            ).order_by(Message.timestamp.desc()).limit(limit).all()
+
+            logger.debug(f"Found {len(messages)} messages in database")
+
+            # Debug: check if any messages exist at all for this conversation
+            total_messages = db.query(Message).filter(
+                Message.conversation_id == conversation_id
+            ).count()
+            logger.debug(f"Total messages in conversation {conversation_id}: {total_messages}")
+
+            if messages:
+                logger.debug(f"Sample message: id={messages[0].id}, role={messages[0].role}, content={messages[0].content[:50]}...")
+
+            result = [msg.to_dict() for msg in messages]
+            logger.debug(f"Returning {len(result)} message dictionaries")
+            return result
+
         except Exception as e:
             logger.error(f"Error getting recent messages for conversation {conversation_id}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return []
     
     def _search_conversation(
@@ -125,9 +153,9 @@ class MemoryService:
             for keyword in keywords:
                 result = db.execute(
                     text("""
-                        SELECT id, role, content, timestamp, message_data
-                        FROM messages 
-                        WHERE conversation_id = :conversation_id 
+                        SELECT id, role, content, timestamp, file_attachments
+                        FROM messages
+                        WHERE conversation_id = :conversation_id
                         AND LOWER(content) LIKE :keyword
                         ORDER BY timestamp DESC
                         LIMIT :limit

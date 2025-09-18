@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% from "chat/personality_selector.html" import personality_selector %}
+{% from "chat/persona_selector.html" import persona_selector %}
 
 {% block content %}
 <div class="chat-container">
     <div class="chat-sidebar">
-        {{ personality_selector(personalities, active_personality) }}
+        {{ persona_selector(personas, active_persona) }}
         
         <div class="chat-history">
             <h3>Chat History</h3>

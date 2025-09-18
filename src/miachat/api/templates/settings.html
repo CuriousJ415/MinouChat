@@ -77,7 +77,7 @@
                         <a class="nav-link" href="/chat">Chat</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/personality">Personalities</a>
+                        <a class="nav-link" href="/persona">Personas</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" aria-current="page" href="/settings">Settings</a>
@@ -341,7 +341,9 @@
             
             async loadAvailableModels() {
                 try {
-                    const response = await fetch('/api/models');
+                    // Always use cloud_allowed mode in settings to show all available models
+                    // This enables full model switching regardless of setup preference
+                    const response = await fetch('/api/models?privacy_mode=cloud_allowed');
                     if (!response.ok) throw new Error('Failed to load models');
                     
                     this.availableModels = await response.json();
@@ -349,12 +351,12 @@
                     
                 } catch (error) {
                     console.error('Error loading available models:', error);
-                    // Fallback to default models if API fails
+                    // Fallback to comprehensive model lists if API fails
                     this.availableModels = {
                         'ollama': ['llama3.1:8b', 'llama3.1:latest', 'mistral:latest'],
-                        'openai': ['gpt-5', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+                        'openai': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'o1-preview', 'o1-mini'],
                         'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-                        'openrouter': ['openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet']
+                        'openrouter': ['openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5']
                     };
                     this.populateModelSelects();
                 }

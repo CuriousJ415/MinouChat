@@ -34,19 +34,19 @@ class ModelConfig(BaseModel):
     temperature: float = Field(ge=0.0, le=1.0, description="Creativity level")
     max_tokens: int = Field(gt=0, description="Maximum tokens per response")
 
-class PersonalityConfig(BaseModel):
-    name: str = Field(..., description="Personality name")
-    description: str = Field(..., description="Personality description")
-    category: Optional[str] = Field(None, description="Personality category")
-    tags: List[str] = Field(default_factory=list, description="Personality tags")
-    core_traits: CoreTraits = Field(..., description="Core personality traits")
+class PersonaConfig(BaseModel):
+    name: str = Field(..., description="Persona name")
+    description: str = Field(..., description="Persona description")
+    category: Optional[str] = Field(None, description="Persona category")
+    tags: List[str] = Field(default_factory=list, description="Persona tags")
+    core_traits: CoreTraits = Field(..., description="Core persona traits")
     communication_style: CommunicationStyle = Field(..., description="Communication style preferences")
     interaction_style: InteractionStyle = Field(..., description="Interaction style preferences")
     communication_preferences: CommunicationPreferences = Field(..., description="Communication preferences and adaptations")
     model: ModelConfig = Field(..., description="Model configuration")
 
-def parse_personality_xml(xml_string: str) -> PersonalityConfig:
-    """Parse personality XML configuration string into a PersonalityConfig object."""
+def parse_persona_xml(xml_string: str) -> PersonaConfig:
+    """Parse persona XML configuration string into a PersonaConfig object."""
     try:
         root = ET.fromstring(xml_string)
         
@@ -107,7 +107,7 @@ def parse_personality_xml(xml_string: str) -> PersonalityConfig:
             max_tokens=int(model_elem.get("max_tokens", 2000))
         )
         
-        return PersonalityConfig(
+        return PersonaConfig(
             name=name,
             description=description,
             category=category,
@@ -121,9 +121,9 @@ def parse_personality_xml(xml_string: str) -> PersonalityConfig:
     except Exception as e:
         raise ValueError(f"Invalid XML configuration: {str(e)}")
 
-def generate_personality_xml(config: PersonalityConfig) -> str:
-    """Generate XML string from PersonalityConfig object."""
-    root = ET.Element("personality")
+def generate_persona_xml(config: PersonaConfig) -> str:
+    """Generate XML string from PersonaConfig object."""
+    root = ET.Element("persona")
     root.set("name", config.name)
     
     # Add description
@@ -181,18 +181,18 @@ def generate_personality_xml(config: PersonalityConfig) -> str:
     return ET.tostring(root, encoding="unicode")
 
 # Legacy functions for backward compatibility
-def parse_xml_config(xml_string: str) -> PersonalityConfig:
-    """Legacy function - use parse_personality_xml instead."""
-    return parse_personality_xml(xml_string)
+def parse_xml_config(xml_string: str) -> PersonaConfig:
+    """Legacy function - use parse_persona_xml instead."""
+    return parse_persona_xml(xml_string)
 
 def validate_xml_config(xml_string: str) -> bool:
     """Validate XML configuration string."""
     try:
-        parse_personality_xml(xml_string)
+        parse_persona_xml(xml_string)
         return True
     except Exception:
         return False
 
-def config_to_xml(config: PersonalityConfig) -> str:
-    """Legacy function - use generate_personality_xml instead."""
-    return generate_personality_xml(config) 
+def config_to_xml(config: PersonaConfig) -> str:
+    """Legacy function - use generate_persona_xml instead."""
+    return generate_persona_xml(config) 

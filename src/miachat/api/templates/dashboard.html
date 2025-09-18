@@ -24,7 +24,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
-        .personality-card {
+        .persona-card {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
         }
@@ -49,7 +49,7 @@
                         <a class="nav-link" href="/chat">Chat</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/personality">Personalities</a>
+                        <a class="nav-link" href="/persona">Personas</a>
                     </li>
                 </ul>
                 <ul class="navbar-nav">
@@ -73,7 +73,7 @@
         <div class="row mb-4">
             <div class="col-12">
                 <h2>Welcome back, {{ user.username if user else 'User' }}!</h2>
-                <p class="text-muted">Here's what's happening with your AI personalities.</p>
+                <p class="text-muted">Here's what's happening with your AI personas.</p>
             </div>
         </div>
 
@@ -92,7 +92,7 @@
                 <div class="card dashboard-card stat-card">
                     <div class="card-body text-center">
                         <i class="fas fa-users fa-3x mb-3"></i>
-                        <h5 class="card-title">Available Personalities</h5>
+                        <h5 class="card-title">Available Personas</h5>
                         <h2 class="display-4">2</h2>
                     </div>
                 </div>
@@ -110,16 +110,16 @@
 
         <!-- Content Grid -->
         <div class="row">
-            <!-- Available Personalities -->
+            <!-- Available Personas -->
             <div class="col-md-6">
                 <div class="card dashboard-card mb-4">
                     <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Available Personalities</h5>
+                        <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Available Personas</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <div class="card personality-card">
+                                <div class="card persona-card">
                                     <div class="card-body text-center">
                                         <i class="fas fa-compass fa-2x mb-2"></i>
                                         <h6>Sage</h6>
@@ -131,7 +131,7 @@
                                 </div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <div class="card personality-card">
+                                <div class="card persona-card">
                                     <div class="card-body text-center">
                                         <i class="fas fa-clipboard-list fa-2x mb-2"></i>
                                         <h6>Mia</h6>
@@ -158,8 +158,11 @@
                             <a href="/chat" class="btn btn-primary">
                                 <i class="fas fa-comments me-2"></i>Start New Conversation
                             </a>
-                            <a href="/personality" class="btn btn-outline-primary">
-                                <i class="fas fa-users me-2"></i>Manage Personalities
+                            <a href="/documents" class="btn btn-outline-info">
+                                <i class="fas fa-file-alt me-2"></i>Manage Documents
+                            </a>
+                            <a href="/persona" class="btn btn-outline-primary">
+                                <i class="fas fa-users me-2"></i>Manage Personas
                             </a>
                             <a href="/settings" class="btn btn-outline-secondary">
                                 <i class="fas fa-cog me-2"></i>Settings

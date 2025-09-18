@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Persona - MiaChat{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Edit Persona</h2>
+                </div>
+                <div class="card-body">
+                    <form id="edit-persona-form">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="system_prompt" class="form-label">System Prompt</label>
+                            <textarea class="form-control" id="system_prompt" name="system_prompt" rows="5" required></textarea>
+                            <div class="form-text">This prompt defines how the persona behaves and responds.</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active">
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="/persona" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Get persona ID from URL
+const personaId = window.location.pathname.split('/').pop();
+
+// Load persona data
+async function loadPersona() {
+    try {
+        const response = await fetch(`/api/persona/${personaId}`);
+        const persona = await response.json();
+        
+        // Fill form with persona data
+        document.getElementById('name').value = persona.name;
+        document.getElementById('description').value = persona.description;
+        document.getElementById('system_prompt').value = persona.system_prompt;
+        document.getElementById('is_active').checked = persona.is_active;
+    } catch (error) {
+        console.error('Error loading persona:', error);
+        alert('Failed to load persona data. Please try again later.');
+    }
+}
+
+// Load persona data when page loads
+loadPersona();
+
+// Handle form submission
+document.getElementById('edit-persona-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        system_prompt: document.getElementById('system_prompt').value,
+        is_active: document.getElementById('is_active').checked
+    };
+    
+    try {
+        const response = await fetch(`/api/persona/${personaId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            window.location.href = '/persona';
+        } else {
+            throw new Error('Failed to update persona');
+        }
+    } catch (error) {
+        console.error('Error updating persona:', error);
+        alert('Failed to update persona. Please try again later.');
+    }
+});
+</script>
+{% endblock %} 

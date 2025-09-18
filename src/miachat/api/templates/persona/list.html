@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiaChat - Personas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .persona-card {
+            transition: all 0.2s;
+        }
+        .persona-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .persona-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .trait-bar {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .trait-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot"></i> MiaChat
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/chat">Chat</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/persona">Personas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">Settings</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-users"></i> Personas</h1>
+                    <a href="/persona/create" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Persona
+                    </a>
+                </div>
+                
+                <div class="row">
+                    {% for persona in personas %}
+                    <div class="col-md-6 col-lg-4 mb-4" data-persona-id="{{ persona.id }}">
+                        <div class="card persona-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="persona-avatar me-3">
+                                        {{ persona.name[0] }}
+                                    </div>
+                                    <div>
+                                        <h5 class="mb-0">{{ persona.name }}</h5>
+                                        <small class="text-muted">{{ persona.category }}</small>
+                                    </div>
+                                </div>
+                                
+                                <p class="card-text">{{ persona.description }}</p>
+                                
+                                <div class="mb-3">
+                                    {% for tag in persona.tags %}
+                                    <span class="badge bg-secondary me-1">{{ tag }}</span>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <h6>Persona Traits</h6>
+                                    {% for trait, value in (persona.traits or {}).items() %}
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-muted">{{ trait.title() }}</small>
+                                            <small class="text-muted">{{ (value * 100) | int }}%</small>
+                                        </div>
+                                        <div class="trait-bar">
+                                            <div class="trait-fill" style="width: {{ (value * 100) | int }}%"></div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <h6>Communication Style</h6>
+                                    {% for style, value in (persona.communication_style or {}).items() %}
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-muted">{{ style.title() }}</small>
+                                            <small class="text-muted">{{ (value * 100) | int }}%</small>
+                                        </div>
+                                        <div class="trait-bar">
+                                            <div class="trait-fill" style="width: {{ (value * 100) | int }}%"></div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="d-flex justify-content-between">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="selectPersona('{{ persona.id }}')">
+                                        <i class="fas fa-comments"></i> Chat
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/persona/edit/{{ persona.id }}'">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm ms-1" onclick="showDeleteModal('{{ persona.id }}', '{{ persona.name | escape }}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if not personas %}
+                <div class="text-center py-5">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <h3 class="text-muted">No Personas Found</h3>
+                    <p class="text-muted">Create your first persona to get started!</p>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Persona
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteModalLabel">Delete Persona</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p id="deleteModalText">Are you sure you want to delete this character? All memories will be lost. This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function selectPersona(id) {
+            window.location.href = `/chat?character_id=${encodeURIComponent(id)}`;
+        }
+        
+        function editPersona(name) {
+            // In a real implementation, this would open the persona editor
+            alert(`Edit persona: ${name}`);
+        }
+    </script>
+    <script>
+        let deletePersonaId = null;
+        function showDeleteModal(id, name) {
+            deletePersonaId = id;
+            document.getElementById('deleteModalText').innerText = `Are you sure you want to delete '${name}'? All memories will be lost. This action cannot be undone.`;
+            var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        }
+        document.getElementById('confirmDeleteBtn').onclick = async function() {
+            if (!deletePersonaId) return;
+            try {
+                const response = await fetch(`/api/characters/${deletePersonaId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    // Remove the card from the DOM
+                    const card = document.querySelector(`[data-persona-id='${deletePersonaId}']`);
+                    if (card) card.remove();
+                    // Hide modal
+                    var deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+                    deleteModal.hide();
+                } else {
+                    alert('Failed to delete persona.');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+            deletePersonaId = null;
+        };
+    </script>
+</body>
+</html> 

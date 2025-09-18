@@ -259,4 +259,41 @@ async def login_user_session(user: User, request: Request):
 async def logout_user_session(request: Request):
     """Logout user and clear session"""
     request.session.clear()
-    return True 
+    return True
+
+def get_or_create_setup_user(db: Session) -> Optional[User]:
+    """Get or create a default setup user for anonymous setup sessions"""
+    setup_username = "setup_user"
+    setup_email = "setup@miachat.local"
+    
+    # Check if setup user already exists
+    existing_user = db.query(User).filter(User.username == setup_username).first()
+    if existing_user:
+        return existing_user
+    
+    # Create setup user with random password
+    import secrets
+    setup_password = secrets.token_urlsafe(32)
+    
+    try:
+        # Hash the password
+        hashed_password = pwd_context.hash(setup_password)
+        
+        # Create the user
+        setup_user = User(
+            username=setup_username,
+            email=setup_email,
+            password_hash=hashed_password,
+            created_at=datetime.utcnow(),
+            last_login=datetime.utcnow()
+        )
+        
+        db.add(setup_user)
+        db.commit()
+        db.refresh(setup_user)
+        
+        return setup_user
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating setup user: {e}")
+        return None 

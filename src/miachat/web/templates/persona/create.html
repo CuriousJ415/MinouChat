@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Create Persona - MiaChat{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Create New Persona</h2>
+                </div>
+                <div class="card-body">
+                    <form id="create-persona-form">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="system_prompt" class="form-label">System Prompt</label>
+                            <textarea class="form-control" id="system_prompt" name="system_prompt" rows="5" required></textarea>
+                            <div class="form-text">This prompt defines how the persona behaves and responds.</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="/persona" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Create Persona</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="alert-container"></div>
+
+<script>
+document.getElementById('create-persona-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        system_prompt: document.getElementById('system_prompt').value,
+        is_active: document.getElementById('is_active').checked
+    };
+    
+    try {
+        const response = await fetch('/api/persona/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            document.getElementById('alert-container').innerHTML = `
+                <div class="alert alert-success mt-3" role="alert">
+                    Persona created successfully! <a href="/persona" class="alert-link">View all personas</a>.
+                </div>
+            `;
+            // Optionally, reset the form
+            document.getElementById('create-persona-form').reset();
+        } else {
+            throw new Error('Failed to create persona');
+        }
+    } catch (error) {
+        console.error('Error creating persona:', error);
+        document.getElementById('alert-container').innerHTML = `
+            <div class="alert alert-danger mt-3" role="alert">
+                Failed to create persona. Please try again later.
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %} 

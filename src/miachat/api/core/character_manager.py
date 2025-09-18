@@ -52,7 +52,7 @@ class CharacterManager:
     
     def create_character(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         try:
-            if 'model_config' in data and 'provider' not in data['model_config']:
+            if 'model_config' in data and data['model_config'] is not None and 'provider' not in data['model_config']:
                 data['model_config']['provider'] = 'ollama'
             if 'id' not in data:
                 data['id'] = str(uuid.uuid4())

@@ -65,11 +65,11 @@ class UserSettings(Base):
         return f"<UserSettings(user_id={self.user_id}, provider='{self.default_llm_provider}')>" 
 
 class CharacterVersion(BaseModel):
-    """Represents a version of a character's personality"""
+    """Represents a version of a character's persona"""
     character_id: str
     version: int
     system_prompt: str
-    personality: str
+    persona: str
     traits: Optional[Dict[str, float]] = None
     communication_style: Optional[Dict[str, float]] = None
     created_at: datetime

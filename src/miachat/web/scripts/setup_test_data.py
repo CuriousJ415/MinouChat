@@ -14,9 +14,9 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.append(str(project_root))
 
 from miachat.web.app import create_app
-from miachat.web.models import db, Personality, Conversation, Message
+from miachat.web.models import db, Persona, Conversation, Message
 from miachat.web.utils import generate_uuid
-from miachat.core.personality import PersonalityManager
+from miachat.core.persona import PersonaManager
 from miachat.llm.base import LLMProvider
 from datetime import datetime, timedelta
 
@@ -28,25 +28,25 @@ def create_test_data():
         # Clear existing data
         Message.query.delete()
         Conversation.query.delete()
-        Personality.query.delete()
+        Persona.query.delete()
         
         # Create personalities
         personalities = [
-            Personality(
+            Persona(
                 id=generate_uuid(),
                 name="Mia",
                 description="A friendly and helpful assistant",
                 system_prompt="You are Mia, a friendly and helpful assistant.",
                 avatar_url="/static/avatars/mia.png"
             ),
-            Personality(
+            Persona(
                 id=generate_uuid(),
                 name="Alex",
                 description="A technical expert",
                 system_prompt="You are Alex, a technical expert.",
                 avatar_url="/static/avatars/alex.png"
             ),
-            Personality(
+            Persona(
                 id=generate_uuid(),
                 name="Sam",
                 description="A creative writer",
@@ -54,16 +54,16 @@ def create_test_data():
                 avatar_url="/static/avatars/sam.png"
             )
         ]
-        for personality in personalities:
-            db.session.add(personality)
+        for persona in personalities:
+            db.session.add(persona)
         db.session.commit()
 
         # Create conversations and messages
-        for personality in personalities:
+        for persona in personalities:
             conversation = Conversation(
                 id=generate_uuid(),
-                personality_id=personality.id,
-                title=f"Chat with {personality.name}"
+                persona_id=persona.id,
+                title=f"Chat with {persona.name}"
             )
             db.session.add(conversation)
             db.session.commit()
@@ -74,7 +74,7 @@ def create_test_data():
                     id=generate_uuid(),
                     conversation_id=conversation.id,
                     role="user",
-                    content=f"Hello {personality.name}!",
+                    content=f"Hello {persona.name}!",
                     timestamp=datetime.utcnow() - timedelta(minutes=30)
                 ),
                 Message(
@@ -95,7 +95,7 @@ def create_test_data():
                     id=generate_uuid(),
                     conversation_id=conversation.id,
                     role="assistant",
-                    content=f"I am {personality.name}, {personality.description}",
+                    content=f"I am {persona.name}, {persona.description}",
                     timestamp=datetime.utcnow() - timedelta(minutes=27)
                 )
             ]
