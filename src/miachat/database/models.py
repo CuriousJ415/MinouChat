@@ -205,6 +205,7 @@ class User(Base):
     
     # Relationships
     documents = relationship('Document', back_populates='user', cascade='all, delete-orphan')
+    settings = relationship('UserSettings', back_populates='user', cascade='all, delete-orphan', uselist=False)
 
     def to_dict(self):
         return {
@@ -308,4 +309,55 @@ class DocumentChunk(Base):
             'word_count': self.word_count,
             'created_at': self.created_at.isoformat(),
             'metadata': self.doc_metadata
-        } 
+        }
+
+class UserSettings(Base):
+    """User preferences and LLM provider configuration."""
+    __tablename__ = 'user_settings'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
+
+    # LLM Provider Settings
+    default_llm_provider = Column(String(50), default='ollama')
+    default_model = Column(String(100), default='llama3:8b')
+    privacy_mode = Column(String(20), default='local_only')
+
+    # Provider-specific API settings
+    ollama_url = Column(String(255), default='http://localhost:11434')
+    openai_api_key = Column(String(255))
+    openai_model = Column(String(100), default='gpt-4')
+    anthropic_api_key = Column(String(255))
+    anthropic_model = Column(String(100), default='claude-3-opus-20240229')
+    openrouter_api_key = Column(String(255))
+    openrouter_model = Column(String(100), default='openai/gpt-4')
+
+    # UI/UX Preferences
+    theme = Column(String(20), default='light')
+    notifications_enabled = Column(Integer, default=1)  # Boolean: 0=False, 1=True
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', back_populates='settings')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'default_llm_provider': self.default_llm_provider,
+            'default_model': self.default_model,
+            'privacy_mode': self.privacy_mode,
+            'ollama_url': self.ollama_url,
+            'openai_model': self.openai_model,
+            'anthropic_model': self.anthropic_model,
+            'openrouter_model': self.openrouter_model,
+            'theme': self.theme,
+            'notifications_enabled': bool(self.notifications_enabled),
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+ 

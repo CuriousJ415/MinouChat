@@ -218,9 +218,11 @@
     <script>
         // Global variables
         let documents = [];
-        
+        let characters = [];
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            loadCharacters();
             loadDocuments();
             refreshStats();
             setupUpload();
@@ -370,9 +372,21 @@
                                 Size: ${formatFileSize(doc.file_size)} | 
                                 Uploaded: ${new Date(doc.upload_date).toLocaleDateString()}
                             </p>
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge ${getStatusBadge(doc.processing_status)}">${doc.processing_status}</span>
                                 <small class="text-muted">Accessed: ${doc.access_count} times</small>
+                            </div>
+                            <!-- Character Assignment Section -->
+                            <div class="character-assignment mt-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted"><i class="fas fa-users me-1"></i>Assigned Personas:</small>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="manageAssignments('${doc.id}', '${doc.original_filename}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                                <div id="assignments-${doc.id}" class="assignment-chips">
+                                    <small class="text-muted">Loading...</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -380,6 +394,9 @@
             `).join('');
             
             container.innerHTML = `<div class="row">${documentsHtml}</div>`;
+
+            // Load character assignments after rendering documents
+            loadCharacterAssignments();
         }
         
         // Search documents
@@ -569,6 +586,187 @@
                 searchDocuments();
             }
         });
+
+        // Load available characters
+        async function loadCharacters() {
+            try {
+                const response = await fetch('/api/characters');
+                const data = await response.json();
+                if (response.ok) {
+                    characters = data.characters || [];
+                } else {
+                    console.error('Error loading characters:', data);
+                    characters = [];
+                }
+            } catch (error) {
+                console.error('Error loading characters:', error);
+                characters = [];
+            }
+        }
+
+        // Load character assignments for all documents
+        async function loadCharacterAssignments() {
+            for (const doc of documents) {
+                await loadDocumentAssignments(doc.id);
+            }
+        }
+
+        // Load assignments for a specific document
+        async function loadDocumentAssignments(documentId) {
+            try {
+                const response = await fetch(`/api/documents/character-associations/${documentId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Handle both old and new API response formats
+                    const associations = data.character_associations || data.associations || [];
+                    const activeAssignments = Array.isArray(associations) ?
+                        associations.filter(assoc => assoc.is_active !== false) : [];
+                    displayAssignments(documentId, activeAssignments);
+                } else {
+                    console.error('Error loading assignments:', data);
+                    displayAssignments(documentId, []);
+                }
+            } catch (error) {
+                console.error('Error loading assignments:', error);
+                displayAssignments(documentId, []);
+            }
+        }
+
+        // Display character assignments as chips
+        function displayAssignments(documentId, assignments) {
+            const container = document.getElementById(`assignments-${documentId}`);
+            if (!container) return;
+
+            if (assignments.length === 0) {
+                container.innerHTML = '<small class="text-muted">No personas assigned</small>';
+                return;
+            }
+
+            const chips = assignments.map(assoc => {
+                const character = characters.find(c => c.id === assoc.character_id);
+                const characterName = character ? character.name : 'Unknown';
+                return `<span class="badge bg-primary me-1 mb-1">${characterName}</span>`;
+            }).join('');
+
+            container.innerHTML = chips;
+        }
+
+        // Manage character assignments for a document
+        function manageAssignments(documentId, filename) {
+            // Create modal for assignment management
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div class="modal fade" id="assignmentModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Manage Persona Assignments</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <h6>${filename}</h6>
+                                <p class="text-muted">Select which personas should have access to this document:</p>
+                                <div id="characterCheckboxes">
+                                    <div class="text-center">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading personas...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="saveAssignments('${documentId}')">Save Changes</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Load current assignments and show modal
+            loadAssignmentModal(documentId);
+
+            const modalInstance = new bootstrap.Modal(modal.querySelector('.modal'));
+            modalInstance.show();
+
+            // Clean up when modal is hidden
+            modal.querySelector('.modal').addEventListener('hidden.bs.modal', () => {
+                document.body.removeChild(modal);
+            });
+        }
+
+        // Load assignment modal with character checkboxes
+        async function loadAssignmentModal(documentId) {
+            try {
+                // Get current assignments
+                const response = await fetch(`/api/documents/character-associations/${documentId}`);
+                const data = await response.json();
+
+                const currentAssignments = response.ok ?
+                    data.associations.filter(assoc => assoc.is_active).map(assoc => assoc.character_id) : [];
+
+                // Create checkboxes for all characters
+                const checkboxesHtml = characters.map(character => `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               id="char-${character.id}"
+                               data-character-id="${character.id}"
+                               ${currentAssignments.includes(character.id) ? 'checked' : ''}>
+                        <label class="form-check-label" for="char-${character.id}">
+                            ${character.name}
+                        </label>
+                    </div>
+                `).join('');
+
+                document.getElementById('characterCheckboxes').innerHTML = checkboxesHtml;
+
+            } catch (error) {
+                console.error('Error loading assignment modal:', error);
+                document.getElementById('characterCheckboxes').innerHTML =
+                    '<div class="alert alert-danger">Error loading personas</div>';
+            }
+        }
+
+        // Save character assignments
+        async function saveAssignments(documentId) {
+            const checkboxes = document.querySelectorAll('#characterCheckboxes input[type="checkbox"]');
+            const assignments = [];
+
+            checkboxes.forEach(checkbox => {
+                assignments.push({
+                    character_id: checkbox.dataset.characterId,
+                    document_id: documentId,
+                    is_active: checkbox.checked
+                });
+            });
+
+            // Save each assignment
+            let successCount = 0;
+            for (const assignment of assignments) {
+                try {
+                    const response = await fetch('/api/documents/character-associations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(assignment)
+                    });
+
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        console.error('Error saving assignment:', await response.json());
+                    }
+                } catch (error) {
+                    console.error('Error saving assignment:', error);
+                }
+            }
+
+            // Close modal and refresh assignments
+            bootstrap.Modal.getInstance(document.getElementById('assignmentModal')).hide();
+
+            if (successCount > 0) {
+                await loadDocumentAssignments(documentId);
+            }
+        }
     </script>
 </body>
 </html>

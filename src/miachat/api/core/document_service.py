@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
-from .models import Document, DocumentChunk, User
-from .database import get_db
+from ...database.models import Document, DocumentChunk, User
+from ...database.config import get_db
 from .document_processor import document_processor
 from .embedding_service import embedding_service
 
@@ -247,22 +247,24 @@ class DocumentService:
             return False
     
     def search_documents(
-        self, 
-        query: str, 
-        user_id: int, 
+        self,
+        query: str,
+        user_id: int,
         top_k: int = 10,
         similarity_threshold: float = 0.3,
+        character_id: Optional[str] = None,
         db: Session = None
     ) -> List[Dict[str, Any]]:
         """Search user's documents using vector similarity.
-        
+
         Args:
             query: Search query
             user_id: User ID
             top_k: Maximum number of results
             similarity_threshold: Minimum similarity score
+            character_id: Optional character ID for persona-specific filtering
             db: Database session
-            
+
         Returns:
             List of search results with document chunks and metadata
         """
@@ -274,11 +276,31 @@ class DocumentService:
             results = embedding_service.search_similar_chunks(
                 query=query,
                 user_id=user_id,
-                top_k=top_k,
+                top_k=top_k * 2,  # Get more results to filter
                 similarity_threshold=similarity_threshold,
                 db=db
             )
-            
+
+            # Filter by character if specified
+            if character_id:
+                # Get document IDs assigned to this character
+                character_doc_ids = db.query(CharacterDocument.document_id).filter(
+                    CharacterDocument.character_id == character_id,
+                    CharacterDocument.is_active == True
+                ).all()
+                character_doc_ids = {doc_id[0] for doc_id in character_doc_ids}
+
+                # Filter results to only include documents assigned to this character
+                filtered_results = []
+                for result in results:
+                    if result.get('document_id') in character_doc_ids:
+                        filtered_results.append(result)
+                        if len(filtered_results) >= top_k:
+                            break
+
+                results = filtered_results
+                logger.info(f"Character-filtered search for {character_id}: {len(results)} results")
+
             logger.info(f"Document search for user {user_id}: '{query}' returned {len(results)} results")
             return results
             
@@ -418,21 +440,28 @@ class DocumentService:
             # Create chunk records
             chunks_data = []
             for chunk_data in processing_result['chunks']:
-                chunk = DocumentChunk(
-                    id=chunk_data['id'],
-                    document_id=document.id,
-                    chunk_index=chunk_data['chunk_index'],
-                    text_content=chunk_data['text_content'],
-                    chunk_type=chunk_data['chunk_type'],
-                    start_char=chunk_data['start_char'],
-                    end_char=chunk_data['end_char'],
-                    word_count=chunk_data['word_count'],
-                    metadata={}
-                )
-                db.add(chunk)
-                chunks_data.append(chunk_data)
-            
+                try:
+                    chunk = DocumentChunk(
+                        id=chunk_data['id'],
+                        document_id=document.id,
+                        chunk_index=chunk_data['chunk_index'],
+                        text_content=chunk_data['text_content'],
+                        chunk_type=chunk_data['chunk_type'],
+                        start_char=chunk_data['start_char'],
+                        end_char=chunk_data['end_char'],
+                        word_count=chunk_data['word_count'],
+                        doc_metadata={}
+                    )
+                    logger.info(f"Creating chunk {chunk.id} for document {document.id}")
+                    db.add(chunk)
+                    chunks_data.append(chunk_data)
+                except Exception as e:
+                    logger.error(f"Error creating chunk {chunk_data.get('id', 'unknown')}: {e}")
+                    raise
+
+            logger.info(f"Committing {len(chunks_data)} chunks to database")
             db.commit()
+            logger.info(f"Successfully committed chunks to database")
             
             # Create embeddings
             embedding_success = embedding_service.add_document_embeddings(

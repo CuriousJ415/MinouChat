@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, 
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from ..core.database import get_db
-from ..core.models import User
+from ...database.config import get_db
+from ...database.models import User, Document
 from ..core.document_service import document_service
 from ..core.rag_service import rag_service
 from ..core.embedding_service import embedding_service
@@ -210,18 +210,31 @@ async def get_document_content(
 ):
     """Get the full text content of a document."""
     try:
+        logger.info(f"Fetching content for document {document_id} for user {current_user.id}")
+
+        # First check if document exists and user has access
+        document = document_service.get_document(document_id, current_user.id, db)
+        if not document:
+            logger.warning(f"Document {document_id} not found or user {current_user.id} has no access")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found or access denied"
+            )
+
         content = document_service.get_document_content(
             document_id=document_id,
             user_id=current_user.id,
             db=db
         )
-        
+
         if content is None:
+            logger.warning(f"Document {document_id} exists but has no content")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found or not processed"
+                detail="Document content not available"
             )
-        
+
+        logger.info(f"Successfully retrieved content for document {document_id} ({len(content)} characters)")
         return {"content": content}
         
     except HTTPException:
@@ -470,6 +483,209 @@ async def get_supported_formats():
         
     except Exception as e:
         logger.error(f"Error in supported formats endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+# Pydantic models for character-document association
+class CharacterDocumentAssignRequest(BaseModel):
+    character_id: str
+    document_id: str
+    is_active: bool = True
+
+
+class CharacterDocumentResponse(BaseModel):
+    character_id: str
+    document_id: str
+    user_id: int
+    assigned_date: str
+    is_active: bool
+    assigned_by_user: bool
+
+
+@router.get("/character-associations/{document_id}")
+async def get_document_character_associations(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all character associations for a document."""
+    try:
+        # Get document and verify ownership
+        document = db.query(Document).filter(
+            Document.id == document_id,
+            Document.user_id == current_user.id
+        ).first()
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+
+        # Get character associations from metadata and format for frontend
+        associations = []
+        if document.doc_metadata and 'character_associations' in document.doc_metadata:
+            character_ids = document.doc_metadata['character_associations']
+            # Convert character IDs to the format expected by frontend
+            for char_id in character_ids:
+                associations.append({
+                    "character_id": char_id,
+                    "is_active": True,  # All metadata-based associations are active
+                    "assigned_at": document.upload_date.isoformat() if document.upload_date else None
+                })
+
+        return {
+            "document_id": document_id,
+            "associations": associations,  # Use 'associations' key for consistency
+            "character_associations": [assoc["character_id"] for assoc in associations],  # Backward compatibility
+            "auto_assigned": document.doc_metadata.get('auto_assigned', False) if document.doc_metadata else False
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting character associations: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/character-associations")
+async def assign_document_to_character(
+    request: CharacterDocumentAssignRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Assign a document to a character/persona."""
+    try:
+        # Get document and verify ownership
+        document = db.query(Document).filter(
+            Document.id == request.document_id,
+            Document.user_id == current_user.id
+        ).first()
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+
+        # Initialize metadata if it doesn't exist
+        if not document.doc_metadata:
+            document.doc_metadata = {}
+
+        # Initialize character associations if they don't exist
+        if 'character_associations' not in document.doc_metadata:
+            document.doc_metadata['character_associations'] = []
+
+        # Update character association
+        if request.is_active:
+            # Add character if not already associated
+            if request.character_id not in document.doc_metadata['character_associations']:
+                document.doc_metadata['character_associations'].append(request.character_id)
+                document.doc_metadata['assigned_by_user'] = True
+        else:
+            # Remove character association
+            if request.character_id in document.doc_metadata['character_associations']:
+                document.doc_metadata['character_associations'].remove(request.character_id)
+
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Document {'assigned to' if request.is_active else 'unassigned from'} character"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning document to character: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/characters/{character_id}/documents")
+async def get_character_documents(
+    character_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all documents assigned to a specific character."""
+    try:
+        # Get all user documents
+        documents = db.query(Document).filter(
+            Document.user_id == current_user.id
+        ).all()
+
+        # Filter documents that are associated with this character
+        character_documents = []
+        for doc in documents:
+            if (doc.doc_metadata and
+                'character_associations' in doc.doc_metadata and
+                character_id in doc.doc_metadata['character_associations']):
+                character_documents.append(doc.to_dict())
+
+        return {
+            "character_id": character_id,
+            "documents": character_documents,
+            "total_count": len(character_documents)
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting character documents: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.delete("/character-associations/{character_id}/{document_id}")
+async def remove_document_from_character(
+    character_id: str,
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove a document assignment from a character."""
+    try:
+        # Get document and verify ownership
+        document = db.query(Document).filter(
+            Document.id == document_id,
+            Document.user_id == current_user.id
+        ).first()
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+
+        # Remove character association from metadata
+        if (document.doc_metadata and
+            'character_associations' in document.doc_metadata and
+            character_id in document.doc_metadata['character_associations']):
+
+            document.doc_metadata['character_associations'].remove(character_id)
+            db.commit()
+            return {"success": True, "message": "Document unassigned from character"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Association not found"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing document from character: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

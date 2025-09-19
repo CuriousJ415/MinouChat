@@ -29,9 +29,14 @@ class DatabaseConfig:
             if env_url:
                 self.database_url = env_url
             else:
-                # Use default SQLite database in the miachat directory
-                db_path = Path(__file__).parent / "miachat.db"
-                self.database_url = f"sqlite:///{db_path}"
+                # Check for DATABASE_PATH environment variable (used in Docker)
+                db_path_env = os.getenv('DATABASE_PATH')
+                if db_path_env:
+                    self.database_url = f"sqlite:///{db_path_env}"
+                else:
+                    # Use default SQLite database in the data directory
+                    db_path = "/app/data/memories.db"
+                    self.database_url = f"sqlite:///{db_path}"
         
         # Configure engine with connection pooling
         self.engine = create_engine(

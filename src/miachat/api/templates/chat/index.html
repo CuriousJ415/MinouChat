@@ -76,6 +76,104 @@
             background-color: #f0f8ff;
         }
 
+        /* Document Panel Styles */
+        .document-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background-color: white;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            transition: right 0.3s ease-in-out;
+            z-index: 1050;
+            border-left: 1px solid #dee2e6;
+        }
+
+        .document-panel.open {
+            right: 0;
+        }
+
+        .document-panel-header {
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+        }
+
+        .document-panel-body {
+            padding: 1rem;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .document-item {
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .document-item:hover {
+            background-color: #f8f9fa;
+            border-color: #007bff;
+        }
+
+        .document-item.active {
+            background-color: #e3f2fd;
+            border-color: #007bff;
+        }
+
+        .document-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0,0,0,0.3);
+            z-index: 1040;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .document-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Source Citation Styles */
+        .document-analysis {
+            border-left: 3px solid #007bff;
+        }
+
+        .citation-badge {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .citation-badge:hover {
+            background-color: #0056b3 !important;
+            transform: translateY(-1px);
+        }
+
+        .similarity-score {
+            background-color: rgba(255,255,255,0.2);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 0.8em;
+        }
+
+        .source-citations .badge {
+            font-size: 0.8em;
+            font-weight: normal;
+        }
+
+        .context-summary {
+            font-style: italic;
+        }
+
         .file-upload-area input[type="file"] {
             display: none;
         }
@@ -190,6 +288,9 @@
                             <div>
                                 <button class="btn btn-outline-primary btn-sm me-2" onclick="toggleFileUpload()">
                                     <i class="fas fa-paperclip"></i> Attach
+                                </button>
+                                <button class="btn btn-outline-info btn-sm me-2" onclick="toggleDocumentPanel()">
+                                    <i class="fas fa-file-alt"></i> Documents
                                 </button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearChat()">
                                     <i class="fas fa-trash"></i> Clear
@@ -641,14 +742,61 @@
 
                         addMessage('assistant', responseContent);
 
+                        // Show document upload success notification if file was uploaded
+                        if (selectedFile && data.uploaded_document) {
+                            const uploadNotification = document.createElement('div');
+                            uploadNotification.className = 'alert alert-success alert-dismissible fade show mt-2';
+                            uploadNotification.innerHTML = `
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Document uploaded successfully!</strong>
+                                "${selectedFile.name}" has been automatically assigned to <strong>${currentPersona}</strong> and is now available for future conversations.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            `;
+
+                            // Add notification after the last message
+                            const lastMessage = document.querySelector('.message.assistant:last-child');
+                            if (lastMessage) {
+                                lastMessage.appendChild(uploadNotification);
+
+                                // Auto-dismiss after 5 seconds
+                                setTimeout(() => {
+                                    if (uploadNotification) {
+                                        uploadNotification.classList.remove('show');
+                                        setTimeout(() => uploadNotification.remove(), 150);
+                                    }
+                                }, 5000);
+                            }
+
+                            // Refresh document panel if it's open
+                            if (documentPanelOpen) {
+                                loadCharacterDocuments();
+                            }
+                        }
+
                         // Show context information if available
                         if (data.document_context_used && data.sources && data.sources.length > 0) {
+                            const sourcesList = renderSourceCitations(data.sources);
                             const contextInfo = `
-                                <div class="document-analysis">
-                                    <small class="text-muted">
-                                        <i class="fas fa-book"></i> Used context from: ${data.sources.join(', ')}
-                                        ${data.context_summary ? `<br>${data.context_summary}` : ''}
-                                    </small>
+                                <div class="document-analysis mt-2 p-2 bg-light rounded">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-quote-right text-primary me-2 mt-1"></i>
+                                        <div class="flex-grow-1">
+                                            <small class="text-muted d-block mb-1">
+                                                <strong>Sources Referenced:</strong>
+                                            </small>
+                                            <div class="source-citations">
+                                                ${sourcesList}
+                                            </div>
+                                            ${data.context_summary ? `
+                                                <div class="context-summary mt-2 p-2 bg-white rounded">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-info-circle me-1"></i>
+                                                        <strong>Context:</strong> ${data.context_summary}
+                                                    </small>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
                                 </div>
                             `;
                             const lastMessage = document.querySelector('.message.assistant:last-child');
@@ -703,10 +851,352 @@
             return html;
         }
 
+        // Document Panel Functions
+        let documentPanelOpen = false;
+        let availableDocuments = [];
+
+        function toggleDocumentPanel() {
+            console.log('Toggle document panel clicked, current state:', documentPanelOpen);
+            if (documentPanelOpen) {
+                closeDocumentPanel();
+            } else {
+                openDocumentPanel();
+            }
+        }
+
+        function openDocumentPanel() {
+            console.log('Opening document panel, currentCharacterId:', currentCharacterId);
+            if (!currentCharacterId) {
+                alert('Please select a persona first');
+                return;
+            }
+
+            console.log('Adding classes to show document panel');
+            const overlay = document.getElementById('documentOverlay');
+            const panel = document.getElementById('documentPanel');
+            const personaName = document.getElementById('panelPersonaName');
+
+            console.log('Elements found:', {overlay, panel, personaName});
+
+            overlay.classList.add('show');
+            panel.classList.add('open');
+            personaName.textContent = currentPersona;
+            documentPanelOpen = true;
+
+            console.log('Document panel should now be visible');
+            // Load documents for current character
+            loadCharacterDocuments();
+        }
+
+        function closeDocumentPanel() {
+            document.getElementById('documentOverlay').classList.remove('show');
+            document.getElementById('documentPanel').classList.remove('open');
+            documentPanelOpen = false;
+        }
+
+        async function loadCharacterDocuments() {
+            const documentListContainer = document.getElementById('documentList');
+
+            try {
+                documentListContainer.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p class="mt-2">Loading documents...</p>
+                    </div>
+                `;
+
+                const response = await fetch(`/api/documents/characters/${currentCharacterId}/documents`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    availableDocuments = data.documents || [];
+                    renderDocumentList();
+                } else {
+                    documentListContainer.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error loading documents: ${data.detail || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                documentListContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle me-2"></i>
+                        Failed to load documents
+                    </div>
+                `;
+            }
+        }
+
+        function renderDocumentList() {
+            const documentListContainer = document.getElementById('documentList');
+
+            if (availableDocuments.length === 0) {
+                documentListContainer.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                        <h6>No Documents Assigned</h6>
+                        <p class="small">This persona has no documents assigned.</p>
+                        <a href="/documents" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-plus me-1"></i>Manage Documents
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+
+            const documentsHtml = availableDocuments.map(doc => `
+                <div class="document-item" data-document-id="${doc.id}">
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            <i class="fas fa-file-${getFileIcon(doc.doc_type)} fa-lg text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${doc.original_filename}</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    ${formatFileSize(doc.file_size)} •
+                                    ${new Date(doc.upload_date).toLocaleDateString()}
+                                </small>
+                                <span class="badge ${getStatusBadge(doc.processing_status)} small">
+                                    ${doc.processing_status}
+                                </span>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                Accessed ${doc.access_count} times
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            documentListContainer.innerHTML = `
+                <div class="mb-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        ${availableDocuments.length} document${availableDocuments.length !== 1 ? 's' : ''} available to this persona
+                    </small>
+                </div>
+                ${documentsHtml}
+                <div class="mt-3 pt-3 border-top">
+                    <a href="/documents" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-cog me-1"></i>Manage Document Assignments
+                    </a>
+                </div>
+            `;
+        }
+
+        function getFileIcon(docType) {
+            const icons = {
+                'pdf': 'pdf',
+                'docx': 'word',
+                'doc': 'word',
+                'xlsx': 'excel',
+                'xls': 'excel',
+                'csv': 'csv',
+                'txt': 'alt',
+                'md': 'markdown'
+            };
+            return icons[docType] || 'alt';
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'completed': 'bg-success',
+                'processing': 'bg-warning',
+                'pending': 'bg-secondary',
+                'failed': 'bg-danger'
+            };
+            return badges[status] || 'bg-secondary';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Source Citation Functions
+        function renderSourceCitations(sources) {
+            if (!sources || sources.length === 0) {
+                return '<small class="text-muted">No sources available</small>';
+            }
+
+            return sources.map((source, index) => {
+                // Handle both string sources (legacy) and object sources (new format)
+                if (typeof source === 'string') {
+                    return `
+                        <span class="badge bg-secondary me-1 mb-1">
+                            <i class="fas fa-file-alt me-1"></i>${source}
+                        </span>
+                    `;
+                }
+
+                // New object format with document metadata
+                const filename = source.filename || source.document_filename || 'Unknown Document';
+                const similarity = source.similarity_score ? Math.round(source.similarity_score * 100) : null;
+                const documentId = source.document_id;
+
+                return `
+                    <div class="source-citation d-inline-block me-2 mb-1">
+                        <span class="badge bg-primary citation-badge"
+                              data-document-id="${documentId}"
+                              onclick="showSourcePreview('${documentId}', '${filename}')"
+                              title="Click to view document details">
+                            <i class="fas fa-file-alt me-1"></i>
+                            ${filename}
+                            ${similarity ? `<span class="similarity-score ms-1">${similarity}%</span>` : ''}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showSourcePreview(documentId, filename) {
+            // Create modal to show document preview
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div class="modal fade" id="sourcePreviewModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-file-alt me-2"></i>Document Source
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <h6>${filename}</h6>
+                                <p class="text-muted">Loading document content...</p>
+                                <div id="documentPreviewContent">
+                                    <div class="text-center py-4">
+                                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <a href="/documents" class="btn btn-outline-primary">
+                                    <i class="fas fa-external-link-alt me-1"></i>Manage Documents
+                                </a>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Load document content
+            loadDocumentPreview(documentId);
+
+            const modalElement = modal.querySelector('.modal');
+            const modalInstance = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true,
+                focus: true
+            });
+            modalInstance.show();
+
+            // Clean up when modal is hidden
+            modalElement.addEventListener('hidden.bs.modal', () => {
+                document.body.removeChild(modal);
+            });
+        }
+
+        async function loadDocumentPreview(documentId) {
+            console.log('Loading document preview for ID:', documentId);
+            try {
+                const response = await fetch(`/api/documents/${documentId}/content`);
+                console.log('Document content response status:', response.status);
+
+                const previewContainer = document.getElementById('documentPreviewContent');
+
+                if (response.status === 404) {
+                    console.warn('Document not found:', documentId);
+                    previewContainer.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            This document is no longer available or you don't have access to it.
+                        </div>
+                    `;
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (response.ok && data.content) {
+                    // Show first 1000 characters with option to view more
+                    const content = data.content;
+                    const truncated = content.length > 1000;
+                    const displayContent = truncated ? content.substring(0, 1000) + '...' : content;
+
+                    previewContainer.innerHTML = `
+                        <div class="document-preview">
+                            <pre class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9em;">${displayContent}</pre>
+                            ${truncated ? `
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        Showing first 1000 characters of ${content.length} total.
+                                        <a href="/documents" class="text-primary">View full document</a>
+                                    </small>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    previewContainer.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Document content could not be loaded.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading document preview:', error);
+                document.getElementById('documentPreviewContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle me-2"></i>
+                        Error loading document content.
+                    </div>
+                `;
+            }
+        }
+
         // Initialize
         if (currentPersona && currentCharacterId) {
             selectPersona(currentPersona, currentCharacterId);
         }
     </script>
+
+    <!-- Document Panel -->
+    <div class="document-overlay" id="documentOverlay" onclick="closeDocumentPanel()"></div>
+    <div class="document-panel" id="documentPanel">
+        <div class="document-panel-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>Available Documents
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="closeDocumentPanel()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mt-2">
+                <small class="text-muted">Documents available to <span id="panelPersonaName">current persona</span></small>
+            </div>
+        </div>
+        <div class="document-panel-body">
+            <div id="documentList">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p class="mt-2">Loading documents...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html> 

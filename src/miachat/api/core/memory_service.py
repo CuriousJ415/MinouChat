@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from ..models.chat import Conversation, Message
-from ..core.database import get_db
+from ...database.config import get_db
 import logging
 
 logger = logging.getLogger(__name__)

@@ -140,7 +140,8 @@ class DocumentProcessor:
             for page_num in range(len(doc)):
                 page = doc.load_page(page_num)
                 text = page.get_text()
-                text_content += f"\n--- Page {page_num + 1} ---\n{text}\n"
+                # Add page markers for better chunking
+                text_content += f"\n\n--- Page {page_num + 1} ---\n{text}\n"
             
             doc.close()
             
@@ -454,8 +455,8 @@ class DocumentProcessor:
             List of chunk dictionaries
         """
         chunks = []
-        char_chunk_size = self.chunk_size * 4  # Approximate 4 chars per token
-        char_overlap = self.chunk_overlap * 4
+        char_chunk_size = self.chunk_size * 3  # Reduced from 4 to 3 chars per token for tighter chunks
+        char_overlap = self.chunk_overlap * 3
         
         start = 0
         chunk_index = 0
@@ -463,11 +464,14 @@ class DocumentProcessor:
         while start < len(text):
             end = min(start + char_chunk_size, len(text))
             
-            # Try to end at a sentence or paragraph boundary
+            # Try to end at a sentence, paragraph, or page boundary
             if end < len(text):
-                # Look for sentence ending
+                # Look for page boundaries first (highest priority)
                 for i in range(end, max(start + char_chunk_size // 2, start + 1), -1):
-                    if text[i-1] in '.!?\n':
+                    if '--- Page' in text[max(0, i-20):i+10]:
+                        end = i
+                        break
+                    elif text[i-1] in '.!?\n':
                         end = i
                         break
             

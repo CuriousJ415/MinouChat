@@ -5,7 +5,8 @@ from .core.templates import render_template
 from .core.static import mount_static_files
 from .core.character_manager import character_manager
 from .core.llm_client import llm_client
-from .core.database import create_tables, get_db
+from ..database.config import get_db
+from ..database.models import Base
 from .core.auth import require_session_auth, get_current_user_from_session
 from .core.settings_service import settings_service
 from .core.conversation_manager import ConversationManager
@@ -23,6 +24,37 @@ import json
 import re
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+
+def _should_use_comprehensive_analysis(message: str) -> bool:
+    """Detect if a message requires comprehensive document analysis.
+
+    Args:
+        message: User message to analyze
+
+    Returns:
+        True if comprehensive analysis should be used
+    """
+    # Convert to lowercase for analysis
+    msg_lower = message.lower()
+
+    # Phrases that indicate comprehensive document analysis
+    comprehensive_indicators = [
+        'analyze', 'review', 'summarize', 'summary', 'document', 'report', 'look at',
+        'take a look', 'examine', 'study', 'assess', 'evaluate', 'overall', 'complete',
+        'full', 'entire', 'whole', 'comprehensive', 'thorough', 'understand', 'learn',
+        'tell me about', 'what does', 'what is', 'overview', 'breakdown', 'findings'
+    ]
+
+    # Check if any comprehensive indicators are present
+    for indicator in comprehensive_indicators:
+        if indicator in msg_lower:
+            return True
+
+    # If message is very general or short, likely needs comprehensive analysis
+    if len(msg_lower.strip()) < 50 and any(word in msg_lower for word in ['document', 'file', 'report', 'it']):
+        return True
+
+    return False
 
 # --- Fixed trait and comm style keys ---
 FIXED_TRAITS = [
@@ -86,7 +118,8 @@ conversation_manager = ConversationManager()
 @app.on_event("startup")
 async def startup_event():
     """Initialize database tables on startup"""
-    create_tables()
+    from ..database.config import db_config
+    db_config.create_tables()
     logger.info("Database tables created")
 
 # Pydantic models
@@ -105,7 +138,8 @@ class ChatResponse(BaseModel):
     migration_available: bool = False
     document_context_used: bool = False
     sources: List[Dict[str, Any]] = []
-    context_summary: Optional[str] = None
+    context_summary: Optional[str] = None  # Compact version for UI display
+    context_summary_full: Optional[str] = None  # Full version for detailed view
 
 class CharacterCreateRequest(BaseModel):
     name: str
@@ -677,7 +711,7 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             logger.info(f"Character {request.character_id} has been updated, migration available")
         
         # Initialize RAG context variables
-        rag_context = None
+        rag_context = {}
         enhanced_prompt = None
         document_context_used = False
         sources = []
@@ -686,6 +720,9 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         # Get enhanced context if document RAG is enabled
         if request.use_documents:
             try:
+                # Detect if this is a comprehensive document analysis request
+                comprehensive_analysis = _should_use_comprehensive_analysis(request.message)
+
                 # Get RAG context
                 rag_context = rag_service.get_enhanced_context(
                     user_message=request.message,
@@ -694,21 +731,22 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
                     character_id=request.character_id,
                     include_conversation_history=True,
                     include_documents=True,
+                    comprehensive_analysis=comprehensive_analysis,
                     db=db
                 )
                 
                 if rag_context.get('document_chunks'):
                     document_context_used = True
                     sources = rag_context.get('sources', [])
-                    context_summary = rag_context.get('context_summary', '')
-                    
-                    # Create enhanced prompt with document context
+                    context_summary = rag_context.get('context_summary_compact', '')  # Use compact for display
+
+                    # Create enhanced prompt with document context (use full context for LLM)
                     enhanced_prompt = rag_service.format_rag_prompt(
                         user_message=request.message,
                         context=rag_context,
                         character_instructions=character['system_prompt']
                     )
-                    
+
                     logger.info(f"RAG enabled for {character['name']}: {len(rag_context.get('document_chunks', []))} document chunks included")
                 
             except Exception as e:
@@ -759,18 +797,13 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             for msg in history:
                 messages.append({"role": msg.role, "content": msg.content})
 
-        # Add current user message with RAG context if available
-        final_message = request.message
-        if rag_context and rag_context.get('document_chunks'):
-            # Prepend document context to the message
-            document_context = "\n\n--- Document Context ---\n"
-            for i, chunk in enumerate(rag_context['document_chunks'], 1):
-                document_context += f"Document {i}: {chunk.get('document_filename', 'Unknown')}\n"
-                document_context += f"Content: {chunk.get('text_content', '')[:1000]}...\n\n"
-            document_context += "--- End Context ---\n\n"
-            final_message = document_context + request.message
-
-        messages.append({"role": "user", "content": final_message})
+        # Add current user message (use enhanced prompt if RAG context available)
+        if enhanced_prompt:
+            # Use the properly formatted RAG prompt that includes both context and user message
+            messages.append({"role": "user", "content": enhanced_prompt})
+        else:
+            # Use regular user message
+            messages.append({"role": "user", "content": request.message})
         
         # Generate response using the character's model configuration
         model_config = character['model_config']
@@ -828,7 +861,8 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             migration_available=migration_available,
             document_context_used=document_context_used,
             sources=sources,
-            context_summary=context_summary if document_context_used else None
+            context_summary=context_summary if document_context_used else None,
+            context_summary_full=rag_context.get('context_summary', '') if document_context_used else None
         )
         
     except Exception as e:
@@ -871,6 +905,32 @@ async def chat_with_document(
                 uploaded_document = upload_result['document']
                 document_analysis = upload_result['processing_result']
                 logger.info(f"Document processed successfully: {uploaded_document['id']}")
+
+                # Auto-assign document to the current character via metadata
+                try:
+                    from ..database.models import Document
+
+                    # Update document metadata to include character association
+                    document = db.query(Document).filter(Document.id == uploaded_document['id']).first()
+                    if document:
+                        if not document.doc_metadata:
+                            document.doc_metadata = {}
+
+                        # Add character association to metadata
+                        if 'character_associations' not in document.doc_metadata:
+                            document.doc_metadata['character_associations'] = []
+
+                        if character_id not in document.doc_metadata['character_associations']:
+                            document.doc_metadata['character_associations'].append(character_id)
+                            document.doc_metadata['auto_assigned'] = True
+                            db.commit()
+                            logger.info(f"Auto-assigned document {uploaded_document['id']} to character {character_id}")
+                        else:
+                            logger.info(f"Document {uploaded_document['id']} already assigned to character {character_id}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to auto-assign document to character: {e}")
+                    # Don't fail the entire request if assignment fails
             else:
                 logger.error(f"Document upload failed: {upload_result.get('error')}")
                 return {"error": f"Document upload failed: {upload_result.get('error')}"}, 400
