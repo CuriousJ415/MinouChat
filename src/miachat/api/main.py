@@ -735,19 +735,28 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
                     db=db
                 )
                 
-                if rag_context.get('document_chunks'):
-                    document_context_used = True
-                    sources = rag_context.get('sources', [])
-                    context_summary = rag_context.get('context_summary_compact', '')  # Use compact for display
+                # Check if we have relevant document chunks
+                document_chunks = rag_context.get('document_chunks', [])
+                if document_chunks:
+                    # Additional relevance check: ensure at least one chunk has decent similarity
+                    relevant_chunks = [chunk for chunk in document_chunks
+                                     if chunk.get('similarity_score', 0) >= 0.5]
 
-                    # Create enhanced prompt with document context (use full context for LLM)
-                    enhanced_prompt = rag_service.format_rag_prompt(
-                        user_message=request.message,
-                        context=rag_context,
-                        character_instructions=character['system_prompt']
-                    )
+                    if relevant_chunks or comprehensive_analysis:
+                        document_context_used = True
+                        sources = rag_context.get('sources', [])
+                        context_summary = rag_context.get('context_summary_compact', '')  # Use compact for display
 
-                    logger.info(f"RAG enabled for {character['name']}: {len(rag_context.get('document_chunks', []))} document chunks included")
+                        # Create enhanced prompt with document context (use full context for LLM)
+                        enhanced_prompt = rag_service.format_rag_prompt(
+                            user_message=request.message,
+                            context=rag_context,
+                            character_instructions=character['system_prompt']
+                        )
+
+                        logger.info(f"RAG enabled for {character['name']}: {len(relevant_chunks)} relevant document chunks included")
+                    else:
+                        logger.info(f"No sufficiently relevant documents found for query: '{request.message}'")
                 
             except Exception as e:
                 logger.warning(f"RAG context generation failed, falling back to regular chat: {e}")
@@ -757,6 +766,11 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
 
         # Add system prompt (always)
         system_prompt_text = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
+
+        # Add fallback instruction for when no relevant documents are found
+        if request.use_documents and not document_context_used:
+            system_prompt_text += "\n\nIMPORTANT: If the user asks about specific information that you don't have access to in your training data or the user's documents, politely acknowledge that you don't have access to this information and offer to help find it through web search or other research methods when those capabilities become available."
+
         messages.append({"role": "system", "content": system_prompt_text})
 
         # Try to use semantic memory service for intelligent context retrieval

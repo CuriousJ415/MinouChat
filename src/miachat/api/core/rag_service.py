@@ -18,7 +18,7 @@ class RAGService:
     def __init__(
         self,
         max_context_chunks: int = 10,  # Increased for better document coverage
-        similarity_threshold: float = 0.2,  # Lower threshold for more inclusive matching
+        similarity_threshold: float = 0.5,  # Higher threshold for better relevance
         max_context_length: int = 6000  # Increased context length
     ):
         """Initialize the RAG service.
@@ -281,8 +281,11 @@ class RAGService:
 
             for result in search_results:
                 if result['chunk_id'] not in seen_chunk_ids:
-                    all_chunks.append(result)
-                    seen_chunk_ids.add(result['chunk_id'])
+                    # Only include chunks that meet the similarity threshold
+                    similarity_score = result.get('similarity_score', 0)
+                    if similarity_score >= self.similarity_threshold:
+                        all_chunks.append(result)
+                        seen_chunk_ids.add(result['chunk_id'])
 
             if not all_chunks:
                 return {

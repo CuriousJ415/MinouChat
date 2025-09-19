@@ -8,12 +8,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .chat-container {
-            height: 70vh;
+            height: 65vh;
             overflow-y: auto;
             border: 1px solid #dee2e6;
             border-radius: 0.375rem;
             padding: 1rem;
             background-color: #f8f9fa;
+        }
+
+        .chat-area.expanded .chat-container {
+            height: 70vh;
         }
         .message {
             margin-bottom: 1rem;
@@ -53,6 +57,75 @@
             justify-content: center;
             font-size: 1.2rem;
             font-weight: bold;
+        }
+
+        /* Clean Collapsible Sidebar */
+        .persona-sidebar {
+            transition: all 0.3s ease-in-out;
+            overflow: hidden;
+        }
+
+        .persona-sidebar.minimized {
+            width: 0;
+            min-width: 0;
+            padding: 0;
+            margin: 0;
+        }
+
+        .chat-area {
+            transition: all 0.3s ease-in-out;
+        }
+
+        .chat-area.expanded {
+            flex: 1;
+            max-width: 100%;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            top: 140px;
+            left: 15px;
+            z-index: 1000;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+
+        .sidebar-toggle.minimized {
+            left: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .sidebar-toggle {
+                top: 120px;
+                left: 10px;
+                width: 28px;
+                height: 28px;
+                font-size: 10px;
+            }
+
+            .chat-container {
+                height: 60vh;
+            }
+
+            .chat-area.expanded .chat-container {
+                height: 65vh;
+            }
         }
 
         /* File upload styles */
@@ -208,6 +281,31 @@
         .processing-status.show {
             display: block;
         }
+
+        /* Message Input Improvements */
+        .message-input {
+            transition: all 0.2s ease;
+        }
+
+        .message-input:focus {
+            border-color: #007bff !important;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+            outline: none !important;
+        }
+
+        .message-input:not(:disabled) {
+            cursor: text;
+        }
+
+        .message-input:disabled {
+            background-color: #e9ecef !important;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .input-group .form-control:focus {
+            z-index: 3;
+        }
     </style>
 </head>
 <body>
@@ -241,10 +339,15 @@
             </div>
         </div>
     </nav>
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle sidebar">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar with personas -->
-            <div class="col-md-3">
+            <div class="col-md-3 persona-sidebar" id="personaSidebar">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">
@@ -252,11 +355,11 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        
                         <div id="personasList">
                             {% for persona in personas %}
-                            <div class="persona-card card mb-2 {% if persona.name == active_persona %}active{% endif %}" 
-                                 data-persona="{{ persona.name }}" data-character-id="{{ persona.id }}" data-category="{{ persona.category or '' }}">
+                            <div class="persona-card card mb-2 {% if persona.name == active_persona %}active{% endif %}"
+                                 data-persona="{{ persona.name }}" data-character-id="{{ persona.id }}" data-category="{{ persona.category or '' }}"
+                                 title="{{ persona.name }} - {{ persona.category or 'Uncategorized' }}">
                                 <div class="card-body p-2">
                                     <div class="d-flex align-items-center">
                                         <div class="persona-avatar me-2">
@@ -277,14 +380,39 @@
             </div>
             
             <!-- Chat area -->
-            <div class="col-md-9">
+            <div class="col-md-9 chat-area" id="chatArea">
                 <div class="card">
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-comments"></i>
-                                Chat with <span id="currentPersona">{{ active_persona or 'Select a persona' }}</span>
-                            </h5>
+                            <div class="d-flex align-items-center">
+                                <h5 class="mb-0 me-3">
+                                    <i class="fas fa-comments"></i>
+                                    Chat with <span id="currentPersona">{{ active_persona or 'Select a persona' }}</span>
+                                </h5>
+                                <!-- Quick persona selector (shows when sidebar is minimized) -->
+                                <div class="dropdown" id="quickPersonaSelector" style="display: none;">
+                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-user-circle"></i> Switch Persona
+                                    </button>
+                                    <ul class="dropdown-menu" id="quickPersonaList">
+                                        {% for persona in personas %}
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="selectPersona('{{ persona.name }}', '{{ persona.id }}')">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="persona-avatar me-2" style="width: 25px; height: 25px; font-size: 0.8rem;">
+                                                        {{ persona.name[0] }}
+                                                    </div>
+                                                    <div>
+                                                        <strong>{{ persona.name }}</strong>
+                                                        <br><small class="text-muted">{{ persona.category or 'Uncategorized' }}</small>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
                             <div>
                                 <button class="btn btn-outline-primary btn-sm me-2" onclick="toggleFileUpload()">
                                     <i class="fas fa-paperclip"></i> Attach
@@ -300,9 +428,7 @@
                     </div>
                     <div class="card-body">
                         <div class="chat-container" id="chatContainer">
-                            <div class="text-center text-muted">
-                                <p>Start a conversation with your selected persona!</p>
-                            </div>
+                            <!-- Chat messages will appear here -->
                         </div>
                         
                         <div class="mt-3">
@@ -330,7 +456,7 @@
                             <!-- Chat Form -->
                             <form id="chatForm">
                                 <div class="input-group">
-                                    <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." disabled>
+                                    <input type="text" class="form-control message-input" id="messageInput" placeholder="Type your message..." disabled autocomplete="off">
                                     <button class="btn btn-primary" type="submit" disabled>
                                         <i class="fas fa-paper-plane"></i> Send
                                     </button>
@@ -366,8 +492,17 @@
                     if (data && !data.error) {
                         currentPersona = data.name;
                         document.getElementById('currentPersona').textContent = data.name;
-                        document.getElementById('messageInput').disabled = false;
-                        document.querySelector('#chatForm button').disabled = false;
+
+                        const messageInput = document.getElementById('messageInput');
+                        const sendButton = document.querySelector('#chatForm button');
+
+                        messageInput.disabled = false;
+                        sendButton.disabled = false;
+
+                        // Focus the input
+                        setTimeout(() => {
+                            messageInput.focus();
+                        }, 100);
                         
                         // Check if we have an existing session for this character
                         if (currentSessionId) {
@@ -406,14 +541,25 @@
             console.log('Updated state:', { currentPersona, currentCharacterId });
             
             // Enable chat
-            document.getElementById('messageInput').disabled = false;
-            document.querySelector('#chatForm button').disabled = false;
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.querySelector('#chatForm button');
+
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+
+            // Ensure proper focus behavior
+            setTimeout(() => {
+                messageInput.focus();
+            }, 100);
             
             // Clear chat for new persona
             clearChat();
-            
+
             // Add welcome message
             addMessage('assistant', `Hello! I'm ${name}. How can I help you today?`);
+
+            // Auto-minimize sidebar after selecting persona
+            autoMinimizeSidebar();
         }
         
         function addMessage(sender, content) {
@@ -437,11 +583,7 @@
         }
         
         function clearChat() {
-            document.getElementById('chatContainer').innerHTML = `
-                <div class="text-center text-muted">
-                    <p>Start a conversation with your selected persona!</p>
-                </div>
-            `;
+            document.getElementById('chatContainer').innerHTML = '';
             chatHistory = [];
         }
         
@@ -1166,9 +1308,49 @@
             }
         }
 
+        // Sidebar toggle functionality
+        let sidebarMinimized = false;
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('personaSidebar');
+            const chatArea = document.getElementById('chatArea');
+            const toggleButton = document.getElementById('sidebarToggle');
+            const toggleIcon = document.querySelector('#sidebarToggle i');
+            const quickSelector = document.getElementById('quickPersonaSelector');
+
+            sidebarMinimized = !sidebarMinimized;
+
+            if (sidebarMinimized) {
+                sidebar.classList.add('minimized');
+                chatArea.classList.add('expanded');
+                toggleIcon.className = 'fas fa-chevron-right';
+                toggleButton.title = 'Show sidebar';
+                quickSelector.style.display = 'block';
+            } else {
+                sidebar.classList.remove('minimized');
+                chatArea.classList.remove('expanded');
+                toggleIcon.className = 'fas fa-chevron-left';
+                toggleButton.title = 'Hide sidebar';
+                quickSelector.style.display = 'none';
+            }
+        }
+
+        // Auto-minimize sidebar after selecting a persona (optional)
+        function autoMinimizeSidebar() {
+            // Automatically minimize sidebar after 3 seconds when a persona is selected
+            if (!sidebarMinimized && currentPersona) {
+                setTimeout(() => {
+                    if (!sidebarMinimized) { // Check if user hasn't manually toggled
+                        toggleSidebar();
+                    }
+                }, 3000);
+            }
+        }
+
         // Initialize
         if (currentPersona && currentCharacterId) {
             selectPersona(currentPersona, currentCharacterId);
+            autoMinimizeSidebar();
         }
     </script>
 
