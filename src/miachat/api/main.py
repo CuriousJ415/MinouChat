@@ -111,6 +111,14 @@ app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(setup_router)
 
+# Artifact routes
+from .routes.artifacts import router as artifacts_router
+app.include_router(artifacts_router, prefix="/api/artifacts", tags=["artifacts"])
+
+# Reminder routes
+from .routes.reminders import router as reminders_router
+app.include_router(reminders_router, prefix="/api/reminders", tags=["reminders"])
+
 # Initialize conversation manager
 conversation_manager = ConversationManager()
 
@@ -268,8 +276,28 @@ async def documents_page(request: Request, db = Depends(get_db)):
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
-    
+
     return await render_template(request, "documents", user=current_user)
+
+@app.get("/artifacts")
+async def artifacts_page(request: Request, db = Depends(get_db)):
+    """Artifacts management page."""
+    # Check if user is authenticated
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    return await render_template(request, "artifacts", user=current_user)
+
+@app.get("/reminders")
+async def reminders_page(request: Request, db = Depends(get_db)):
+    """Reminders management page."""
+    # Check if user is authenticated
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    return await render_template(request, "reminders", user=current_user)
 
 @app.get("/settings")
 async def settings_page(request: Request, db = Depends(get_db)):
@@ -710,56 +738,70 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             migration_available = True
             logger.info(f"Character {request.character_id} has been updated, migration available")
         
-        # Initialize RAG context variables
-        rag_context = {}
+        # Initialize Enhanced Context variables
+        enhanced_context = {}
         enhanced_prompt = None
         document_context_used = False
         sources = []
         context_summary = None
-        
-        # Get enhanced context if document RAG is enabled
-        if request.use_documents:
-            try:
-                # Detect if this is a comprehensive document analysis request
-                comprehensive_analysis = _should_use_comprehensive_analysis(request.message)
+        reasoning_chain = []
 
-                # Get RAG context
-                rag_context = rag_service.get_enhanced_context(
-                    user_message=request.message,
-                    user_id=current_user.id,
-                    conversation_id=session_id,
-                    character_id=request.character_id,
-                    include_conversation_history=True,
-                    include_documents=True,
-                    comprehensive_analysis=comprehensive_analysis,
-                    db=db
-                )
-                
-                # Check if we have relevant document chunks
-                document_chunks = rag_context.get('document_chunks', [])
-                if document_chunks:
-                    # Additional relevance check: ensure at least one chunk has decent similarity
-                    relevant_chunks = [chunk for chunk in document_chunks
-                                     if chunk.get('similarity_score', 0) >= 0.5]
+        # Always get enhanced context for intelligent conversation
+        try:
+            # Import Enhanced Context Service
+            from .core.enhanced_context_service import enhanced_context_service
 
-                    if relevant_chunks or comprehensive_analysis:
-                        document_context_used = True
-                        sources = rag_context.get('sources', [])
-                        context_summary = rag_context.get('context_summary_compact', '')  # Use compact for display
+            # Detect if this is a comprehensive document analysis request
+            comprehensive_analysis = _should_use_comprehensive_analysis(request.message)
 
-                        # Create enhanced prompt with document context (use full context for LLM)
-                        enhanced_prompt = rag_service.format_rag_prompt(
-                            user_message=request.message,
-                            context=rag_context,
-                            character_instructions=character['system_prompt']
-                        )
+            # Get enhanced context with conversation history, semantic memory, and documents
+            enhanced_context = enhanced_context_service.get_enhanced_context(
+                user_message=request.message,
+                user_id=current_user.id,
+                conversation_id=session_id,
+                character_id=request.character_id,
+                include_conversation_history=True,  # Always include conversation context
+                include_documents=request.use_documents,  # Include documents if requested
+                comprehensive_analysis=comprehensive_analysis,
+                enable_reasoning=True,  # Enable reasoning for transparency
+                db=db
+            )
 
-                        logger.info(f"RAG enabled for {character['name']}: {len(relevant_chunks)} relevant document chunks included")
-                    else:
-                        logger.info(f"No sufficiently relevant documents found for query: '{request.message}'")
-                
-            except Exception as e:
-                logger.warning(f"RAG context generation failed, falling back to regular chat: {e}")
+            # Extract context information
+            document_chunks = enhanced_context.get('document_chunks', [])
+            reasoning_chain = enhanced_context.get('reasoning_chain', [])
+            conflicts_detected = enhanced_context.get('conflicts_detected', [])
+            document_references = enhanced_context.get('document_references', [])
+
+            # Check if we have relevant document context
+            if document_chunks:
+                # Additional relevance check for documents
+                relevant_chunks = [chunk for chunk in document_chunks
+                                 if chunk.get('similarity_score', 0) >= 0.5]
+
+                if relevant_chunks or comprehensive_analysis:
+                    document_context_used = True
+                    sources = enhanced_context.get('sources', [])
+                    context_summary = enhanced_context.get('context_summary', '')
+
+                    logger.info(f"Enhanced context enabled for {character['name']}: "
+                              f"{len(enhanced_context.get('recent_interactions', []))} recent interactions, "
+                              f"{len(relevant_chunks)} relevant document chunks, "
+                              f"{len(document_references)} document references detected")
+                else:
+                    logger.info(f"Enhanced context with conversation history but no relevant documents for: '{request.message}'")
+            else:
+                # Even without documents, we have conversation context
+                recent_interactions = enhanced_context.get('recent_interactions', [])
+                semantic_context = enhanced_context.get('semantic_context', [])
+
+                if recent_interactions or semantic_context:
+                    logger.info(f"Enhanced conversation context for {character['name']}: "
+                              f"{len(recent_interactions)} recent interactions, "
+                              f"{len(semantic_context)} semantic memories")
+
+        except Exception as e:
+            logger.warning(f"Enhanced context generation failed, falling back to regular chat: {e}")
         
         # Build messages array
         messages = []
@@ -771,17 +813,96 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         if request.use_documents and not document_context_used:
             system_prompt_text += "\n\nIMPORTANT: If the user asks about specific information that you don't have access to in your training data or the user's documents, politely acknowledge that you don't have access to this information and offer to help find it through web search or other research methods when those capabilities become available."
 
+        # Add time-aware context for the persona
+        try:
+            from .core.reminder_service import reminder_service
+            time_context = reminder_service.get_context_for_chat(
+                db=db,
+                user_id=current_user.id,
+                persona_name=character.get('name', 'Assistant')
+            )
+
+            if time_context:
+                system_prompt_text += f"\n\nCurrent time and context:\n{time_context}"
+
+        except Exception as e:
+            logger.warning(f"Failed to get time context for chat: {e}")
+
+        # Add artifact generation capabilities
+        artifact_instructions = """
+
+ARTIFACT GENERATION CAPABILITIES:
+You can help users create and generate various types of documents and files. When a user asks you to create, generate, write, or export any kind of document, you should:
+
+**Available formats:**
+- **Markdown files (.md)**: For formatted documents, summaries, reports, and structured content
+- **Text files (.txt)**: For plain text documents and simple exports
+- **PDF files (.pdf)**: For professional reports, summaries, and formatted documents
+- **CSV files (.csv)**: For data tables, spreadsheets, and structured data exports
+
+**Available document types:**
+- Summaries and abstracts
+- Reports and analyses
+- Document exports and compilations
+- Data tables and structured information
+- Conversation exports
+- Custom documents based on user specifications
+
+**IMPORTANT: When a user requests document creation:**
+1. Acknowledge that you can help create the requested document
+2. Ask for any specific requirements or preferences if needed
+3. **DO NOT create fake attachment links or pretend to generate files directly**
+4. **ALWAYS direct them to use the "Generate" dropdown menu in the chat interface** to actually create and download the file
+5. You can provide the content outline or preview of what the document would contain, but make it clear they need to use the artifact generation UI to get the actual file
+
+Example response: "I can help you create that document! Based on your request, the document would include [describe content]. To generate the actual file, please click the 'Generate' button in the chat interface and select the format you prefer (Markdown, PDF, etc.)."
+
+You should be proactive about offering to create documents when it would be helpful for organizing or presenting information, but always direct users to the proper artifact generation interface."""
+
+        system_prompt_text += artifact_instructions
+
         messages.append({"role": "system", "content": system_prompt_text})
 
-        # Try to use semantic memory service for intelligent context retrieval
-        try:
-            from .core.memory_service import memory_service
-            from .core.conversation_service import conversation_service
+        # Use Enhanced Context Service for intelligent message construction
+        if enhanced_context:
+            # Create enhanced prompt using the Enhanced Context Service
+            enhanced_prompt = enhanced_context_service.format_enhanced_prompt(
+                user_message=request.message,
+                context=enhanced_context,
+                character_instructions=system_prompt_text,
+                show_reasoning=False  # Don't show reasoning in chat (save for artifacts)
+            )
 
-            # Get database conversation for semantic memory
+            # Add the enhanced prompt as the user message
+            messages.append({"role": "user", "content": enhanced_prompt})
+
+            logger.info(f"Using Enhanced Context Service for {character['name']}: "
+                       f"{len(enhanced_context.get('recent_interactions', []))} recent interactions, "
+                       f"{len(enhanced_context.get('semantic_context', []))} semantic memories, "
+                       f"{len(enhanced_context.get('document_chunks', []))} document chunks")
+
+        else:
+            # Fallback to simple conversation history and current message
+            try:
+                # Fallback conversation history
+                history = conversation_manager.get_conversation_history(session_id, limit=8)
+                for msg in history:
+                    messages.append({"role": msg.role, "content": msg.content})
+
+                logger.info(f"Using fallback conversation history: {len(history)} messages for {character['name']}")
+
+            except Exception as e:
+                logger.warning(f"Fallback conversation history failed: {e}")
+
+            # Add current user message
+            messages.append({"role": "user", "content": request.message})
+
+        # Save current message to database for future semantic search
+        try:
+            from .core.conversation_service import conversation_service
             db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
 
-            # Save current message to database for semantic search
+            # Save current user message to database for semantic search
             conversation_service.add_message(
                 conversation_id=db_conversation.id,
                 content=request.message,
@@ -789,35 +910,8 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
                 db=db
             )
 
-            # Use semantic memory to get intelligent context (recent + relevant)
-            context_messages = memory_service.get_context(
-                conversation_id=db_conversation.id,
-                current_message=request.message,
-                context_window=15,  # Start with 15 recent messages
-                db=db
-            )
-
-            # Add context messages to conversation
-            for msg in context_messages:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-
-            logger.info(f"Using semantic memory: {len(context_messages)} messages retrieved for {character['name']}")
-
         except Exception as e:
-            logger.warning(f"Semantic memory failed, falling back to simple history: {e}")
-
-            # Fallback to simple conversation history
-            history = conversation_manager.get_conversation_history(session_id, limit=15)
-            for msg in history:
-                messages.append({"role": msg.role, "content": msg.content})
-
-        # Add current user message (use enhanced prompt if RAG context available)
-        if enhanced_prompt:
-            # Use the properly formatted RAG prompt that includes both context and user message
-            messages.append({"role": "user", "content": enhanced_prompt})
-        else:
-            # Use regular user message
-            messages.append({"role": "user", "content": request.message})
+            logger.warning(f"Failed to save message for semantic memory: {e}")
         
         # Generate response using the character's model configuration
         model_config = character['model_config']
@@ -852,6 +946,23 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
                 db=db
             )
 
+            # Save reasoning chain to semantic memory if available (for future context)
+            if reasoning_chain:
+                reasoning_summary = "AI Reasoning: " + " → ".join([
+                    f"{step['step']}: {step['thought'][:100]}..." if len(step['thought']) > 100
+                    else f"{step['step']}: {step['thought']}"
+                    for step in reasoning_chain[-3:]  # Save last 3 reasoning steps
+                ])
+
+                conversation_service.add_message(
+                    conversation_id=db_conversation.id,
+                    content=reasoning_summary,
+                    role="system",  # Use system role for reasoning chains
+                    db=db
+                )
+
+                logger.info(f"Saved reasoning chain to semantic memory for {character['name']}")
+
             logger.info(f"Saved assistant response to semantic memory for {character['name']}")
 
         except Exception as e:
@@ -876,7 +987,7 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             document_context_used=document_context_used,
             sources=sources,
             context_summary=context_summary if document_context_used else None,
-            context_summary_full=rag_context.get('context_summary', '') if document_context_used else None
+            context_summary_full=enhanced_context.get('context_summary', '') if document_context_used else None
         )
         
     except Exception as e:
@@ -1033,8 +1144,57 @@ async def chat_with_document(
         # Build messages for the conversation
         messages = []
 
-        # Add system prompt (with fallback for null values)
+        # Add system prompt with time awareness (with fallback for null values)
         system_prompt = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
+
+        # Add time-aware context for the persona
+        try:
+            from .core.reminder_service import reminder_service
+            time_context = reminder_service.get_context_for_chat(
+                db=db,
+                user_id=current_user.id,
+                persona_name=character.get('name', 'Assistant')
+            )
+
+            if time_context:
+                system_prompt += f"\n\nCurrent time and context:\n{time_context}"
+
+        except Exception as e:
+            logger.warning(f"Failed to get time context for chat: {e}")
+
+        # Add artifact generation capabilities
+        artifact_instructions = """
+
+ARTIFACT GENERATION CAPABILITIES:
+You can help users create and generate various types of documents and files. When a user asks you to create, generate, write, or export any kind of document, you should:
+
+**Available formats:**
+- **Markdown files (.md)**: For formatted documents, summaries, reports, and structured content
+- **Text files (.txt)**: For plain text documents and simple exports
+- **PDF files (.pdf)**: For professional reports, summaries, and formatted documents
+- **CSV files (.csv)**: For data tables, spreadsheets, and structured data exports
+
+**Available document types:**
+- Summaries and abstracts
+- Reports and analyses
+- Document exports and compilations
+- Data tables and structured information
+- Conversation exports
+- Custom documents based on user specifications
+
+**IMPORTANT: When a user requests document creation:**
+1. Acknowledge that you can help create the requested document
+2. Ask for any specific requirements or preferences if needed
+3. **DO NOT create fake attachment links or pretend to generate files directly**
+4. **ALWAYS direct them to use the "Generate" dropdown menu in the chat interface** to actually create and download the file
+5. You can provide the content outline or preview of what the document would contain, but make it clear they need to use the artifact generation UI to get the actual file
+
+Example response: "I can help you create that document! Based on your request, the document would include [describe content]. To generate the actual file, please click the 'Generate' button in the chat interface and select the format you prefer (Markdown, PDF, etc.)."
+
+You should be proactive about offering to create documents when it would be helpful for organizing or presenting information, but always direct users to the proper artifact generation interface."""
+
+        system_prompt += artifact_instructions
+
         messages.append({"role": "system", "content": system_prompt})
 
         # Try to use semantic memory service for intelligent context retrieval

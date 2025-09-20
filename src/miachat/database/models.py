@@ -360,4 +360,113 @@ class UserSettings(Base):
             'updated_at': self.updated_at.isoformat()
         }
 
- 
+class Reminder(Base):
+    """Reminder model for personas."""
+    __tablename__ = 'reminders'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    persona_name = Column(String(100), nullable=False)  # Reference to persona
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    reminder_time = Column(DateTime, nullable=False)
+    is_recurring = Column(Integer, default=0)  # Boolean: 0=False, 1=True
+    recurrence_pattern = Column(String(50))  # daily, weekly, monthly, yearly
+    recurrence_interval = Column(Integer, default=1)  # Every N units
+    recurrence_days = Column(String(20))  # For weekly: mon,tue,wed etc
+    is_completed = Column(Integer, default=0)  # Boolean: 0=False, 1=True
+    is_active = Column(Integer, default=1)  # Boolean: 0=False, 1=True
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime)
+
+    # Context awareness
+    context_type = Column(String(50))  # meeting, task, event, birthday, etc.
+    context_data = Column(MutableDict.as_mutable(JSON), default=dict)
+
+    # Relationships
+    user = relationship('User', backref='reminders')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'persona_name': self.persona_name,
+            'title': self.title,
+            'description': self.description,
+            'reminder_time': self.reminder_time.isoformat(),
+            'is_recurring': bool(self.is_recurring),
+            'recurrence_pattern': self.recurrence_pattern,
+            'recurrence_interval': self.recurrence_interval,
+            'recurrence_days': self.recurrence_days,
+            'is_completed': bool(self.is_completed),
+            'is_active': bool(self.is_active),
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'context_type': self.context_type,
+            'context_data': self.context_data
+        }
+
+    def mark_completed(self):
+        """Mark reminder as completed."""
+        self.is_completed = 1
+        self.completed_at = datetime.utcnow()
+
+    def is_due(self, check_time: datetime = None) -> bool:
+        """Check if reminder is due."""
+        if not check_time:
+            check_time = datetime.utcnow()
+        return self.reminder_time <= check_time and not self.is_completed and self.is_active
+
+class PersonaTimeContext(Base):
+    """Time-aware context for personas."""
+    __tablename__ = 'persona_time_context'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    persona_name = Column(String(100), nullable=False)
+
+    # Timezone and locale settings
+    timezone = Column(String(50), default='UTC')
+    date_format = Column(String(20), default='%Y-%m-%d')
+    time_format = Column(String(20), default='%H:%M:%S')
+
+    # Schedule and availability
+    work_schedule = Column(MutableDict.as_mutable(JSON), default=dict)  # {"monday": {"start": "09:00", "end": "17:00"}}
+    availability_status = Column(String(20), default='available')  # available, busy, away
+
+    # Important dates and events
+    important_dates = Column(MutableDict.as_mutable(JSON), default=dict)
+    recurring_events = Column(MutableDict.as_mutable(JSON), default=dict)
+
+    # Behavioral patterns
+    morning_routine_time = Column(String(10))  # e.g., "07:00"
+    evening_routine_time = Column(String(10))  # e.g., "22:00"
+    preferred_meeting_times = Column(MutableDict.as_mutable(JSON), default=dict)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='persona_time_contexts')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'persona_name': self.persona_name,
+            'timezone': self.timezone,
+            'date_format': self.date_format,
+            'time_format': self.time_format,
+            'work_schedule': self.work_schedule,
+            'availability_status': self.availability_status,
+            'important_dates': self.important_dates,
+            'recurring_events': self.recurring_events,
+            'morning_routine_time': self.morning_routine_time,
+            'evening_routine_time': self.evening_routine_time,
+            'preferred_meeting_times': self.preferred_meeting_times,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+

@@ -10,7 +10,7 @@ class OllamaClient:
     
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url
-        self.default_model = "llama3:8b"
+        self.default_model = "llama3.1:8b"
     
     def generate_response(self, messages: List[Dict[str, str]], model: str = None, **kwargs) -> str:
         """

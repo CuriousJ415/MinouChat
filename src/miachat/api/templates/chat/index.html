@@ -420,9 +420,42 @@
                                 <button class="btn btn-outline-info btn-sm me-2" onclick="toggleDocumentPanel()">
                                     <i class="fas fa-file-alt"></i> Documents
                                 </button>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="clearChat()">
+                                <button class="btn btn-outline-secondary btn-sm me-2" onclick="clearChat()">
                                     <i class="fas fa-trash"></i> Clear
                                 </button>
+                                <div class="btn-group">
+                                    <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-file-export"></i> Generate
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('document_analysis', 'md')">
+                                            <i class="fas fa-file-text"></i> Document Summary (Markdown)
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('document_analysis', 'pdf')">
+                                            <i class="fas fa-file-pdf"></i> Document Summary (PDF)
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('summary', 'md')">
+                                            <i class="fas fa-comments"></i> Conversation Summary (Markdown)
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('summary', 'pdf')">
+                                            <i class="fas fa-comments"></i> Conversation Summary (PDF)
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('conversation_export', 'md')">
+                                            <i class="fas fa-download"></i> Export Conversation (Markdown)
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('conversation_export', 'txt')">
+                                            <i class="fas fa-download"></i> Export Conversation (Text)
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="#" onclick="viewArtifacts()">
+                                            <i class="fas fa-folder-open"></i> View All Artifacts
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="viewReminders()">
+                                            <i class="fas fa-clock"></i> View Reminders
+                                        </a></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1345,6 +1378,158 @@
                     }
                 }, 3000);
             }
+        }
+
+        // Artifact generation functions
+        function generateArtifact(type, format) {
+            if (!currentSessionId) {
+                alert('Please start a conversation first');
+                return;
+            }
+
+            const button = document.querySelector('.btn-outline-success');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            button.disabled = true;
+
+            let endpoint = '';
+            let data = {};
+
+            if (type === 'summary') {
+                // Generate summary from current conversation
+                const summary = generateConversationSummary();
+                endpoint = '/api/artifacts/generate';
+                data = {
+                    artifact_type: 'summary',
+                    format: format,
+                    title: `Conversation Summary - ${new Date().toLocaleDateString()}`,
+                    content: {
+                        summary_text: summary.text,
+                        key_points: summary.keyPoints,
+                        character_name: currentPersona
+                    },
+                    character_id: currentCharacterId,
+                    session_id: currentSessionId
+                };
+            } else if (type === 'conversation_export') {
+                endpoint = '/api/artifacts/conversation-export';
+                data = {
+                    session_id: currentSessionId,
+                    format: format,
+                    title: `Conversation Export - ${new Date().toLocaleDateString()}`
+                };
+            } else if (type === 'document_analysis') {
+                endpoint = '/api/artifacts/document-analysis';
+                data = {
+                    session_id: currentSessionId,
+                    format: format,
+                    title: `Document Summary - ${new Date().toLocaleDateString()}`
+                };
+            }
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                // Show success notification
+                showNotification(`Artifact generated successfully! <a href="${result.download_url}" target="_blank">Download ${result.title}</a>`, 'success');
+
+                // Auto-download
+                setTimeout(() => {
+                    window.open(result.download_url, '_blank');
+                }, 1000);
+            })
+            .catch(error => {
+                console.error('Error generating artifact:', error);
+                showNotification(`Error generating artifact: ${error.message}`, 'error');
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+
+        function generateConversationSummary() {
+            if (chatHistory.length === 0) {
+                return {
+                    text: "No conversation to summarize.",
+                    keyPoints: []
+                };
+            }
+
+            // Extract key information from chat history
+            const userMessages = chatHistory.filter(msg => msg.sender === 'user');
+            const assistantMessages = chatHistory.filter(msg => msg.sender === 'assistant');
+
+            const keyPoints = [];
+
+            // Add some basic analytics
+            keyPoints.push(`Total messages: ${chatHistory.length}`);
+            keyPoints.push(`User messages: ${userMessages.length}`);
+            keyPoints.push(`Assistant responses: ${assistantMessages.length}`);
+
+            if (chatHistory.length > 0) {
+                const firstMessage = chatHistory[0];
+                const lastMessage = chatHistory[chatHistory.length - 1];
+                keyPoints.push(`Conversation started: ${firstMessage.timestamp || 'Unknown'}`);
+                keyPoints.push(`Last activity: ${lastMessage.timestamp || 'Unknown'}`);
+            }
+
+            // Create summary text
+            let summaryText = `This conversation involved ${chatHistory.length} messages between the user and ${currentPersona}. `;
+
+            if (userMessages.length > 0) {
+                const recentUserMessage = userMessages[userMessages.length - 1];
+                summaryText += `The most recent user message was: "${recentUserMessage.content.substring(0, 100)}${recentUserMessage.content.length > 100 ? '...' : ''}"`;
+            }
+
+            return {
+                text: summaryText,
+                keyPoints: keyPoints
+            };
+        }
+
+        function viewArtifacts() {
+            // Open artifacts in a new window/tab
+            window.open('/artifacts', '_blank');
+        }
+
+        function viewReminders() {
+            // Open reminders in a new window/tab
+            window.open('/reminders', '_blank');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.minWidth = '300px';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification && notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
         }
 
         // Initialize

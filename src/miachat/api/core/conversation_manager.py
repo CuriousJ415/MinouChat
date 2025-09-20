@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import logging
-from .models import CharacterVersion, ConversationSession, ChatMessage, CharacterUpdateEvent
+from .conversation_models import CharacterVersion, ConversationSession, ChatMessage, CharacterUpdateEvent
 
 logger = logging.getLogger(__name__)
 

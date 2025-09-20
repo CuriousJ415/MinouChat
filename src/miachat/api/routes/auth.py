@@ -15,8 +15,8 @@ from ..core.auth import (
     get_current_user_from_session
 )
 from ..core.templates import render_template
-from ..core.database import get_db
-from ..core.models import User
+from ...database.config import get_db
+from ...database.models import User
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
