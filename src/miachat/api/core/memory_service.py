@@ -6,7 +6,7 @@ import re
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from ..models.chat import Conversation, Message
+from ...database.models import Conversation, Message
 from ...database.config import get_db
 import logging
 

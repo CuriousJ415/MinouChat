@@ -123,8 +123,11 @@ class Conversation(Base):
 
     id = Column(Integer, primary_key=True)
     personality_id = Column(Integer, ForeignKey('personalities.id'), nullable=False)
+    title = Column(String, nullable=True)  # Optional conversation title
     started_at = Column(DateTime, default=datetime.utcnow)
-    ended_at = Column(DateTime)
+    ended_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)  # Added for consistency with chat.py
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # Added for consistency with chat.py
     conversation_data = Column(MutableDict.as_mutable(JSON), default=dict)
 
     personality = relationship('Personality', back_populates='conversations')
@@ -163,6 +166,7 @@ class Message(Base):
     role = Column(String(20), nullable=False)  # 'user' or 'assistant'
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
+    file_attachments = Column(JSON, nullable=True)  # For document attachments (from chat.py)
     message_data = Column(MutableDict.as_mutable(JSON), default=dict)
 
     conversation = relationship('Conversation', back_populates='messages')

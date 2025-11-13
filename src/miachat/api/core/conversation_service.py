@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, text
-from ..models.chat import Conversation, Message
+from ...database.models import Conversation, Message
 from ...database.config import get_db
 import logging
 

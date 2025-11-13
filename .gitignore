@@ -121,4 +121,34 @@ celerybeat-schedule
 memories.db
 .env.local
 .env.development
-.env.production 
+.env.production
+
+# MiaChat specific
+# Test scripts (temporary development files)
+test_*.py
+*_test.py
+simple_memory_test.py
+extended_memory_test.py
+focused_memory_test.py
+memory_test.py
+test_memory_retention.py
+test_semantic_memory.py
+test_debug_memory.py
+test_final_memory.py
+test_semantic_working.py
+test_document_upload.py
+fix_sage_category.py
+update_sage.py
+test_runner.py
+test_setup_wizard_simple.py
+
+# Generated output documents
+output_documents/
+!output_documents/.gitkeep
+
+# Runtime data directory
+data/
+!data/.gitkeep
+
+# Database backups
+*.db.backup* 
