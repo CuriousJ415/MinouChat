@@ -17,19 +17,20 @@ TEMPLATE_MAPPING = {
     "landing": "landing.html",
     "dashboard": "dashboard.html",
     "chat/index": "chat/index.html",
+    "documents": "documents.html",
     "settings": "settings.html",
     "config": "config.html",
     "first_time_setup": "first_time_setup.html",
-    
+
     # Setup pages
     "setup/wizard": "setup/wizard.html",
-    
+
     # Persona pages
     "persona/list": "persona/list.html",
     "persona/view": "persona/view.html",
     "persona/create": "persona/create.html",
     "persona/edit": "persona/edit.html",
-    
+
     # Auth pages
     "login": "auth/login.html",
     "register": "auth/register.html",

@@ -6,8 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from typing import Optional, Dict, Any, List
 import logging
 import os
-from .models import UserSettings, User
-from .database import get_db
+from ...database.models import UserSettings, User
+from ...database.config import get_db
 
 logger = logging.getLogger(__name__)
 

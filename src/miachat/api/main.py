@@ -834,10 +834,16 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
 ARTIFACT GENERATION CAPABILITIES:
 You can help users create and generate various types of documents and files. When a user asks you to create, generate, write, or export any kind of document, you should:
 
+**RESPONSE FORMATTING GUIDELINES:**
+When analyzing documents (especially Excel/CSV data), provide **clear, structured responses**:
+- Use bullet points and clear sections
+- Avoid walls of text - break up content
+- Focus on key insights and actionable recommendations
+- Example: "🔍 **Key Findings:** • [insight 1] • [insight 2]"
+
 **Available formats:**
 - **Markdown files (.md)**: For formatted documents, summaries, reports, and structured content
 - **Text files (.txt)**: For plain text documents and simple exports
-- **PDF files (.pdf)**: For professional reports, summaries, and formatted documents
 - **CSV files (.csv)**: For data tables, spreadsheets, and structured data exports
 
 **Available document types:**
@@ -1168,10 +1174,16 @@ async def chat_with_document(
 ARTIFACT GENERATION CAPABILITIES:
 You can help users create and generate various types of documents and files. When a user asks you to create, generate, write, or export any kind of document, you should:
 
+**RESPONSE FORMATTING GUIDELINES:**
+When analyzing documents (especially Excel/CSV data), provide **clear, structured responses**:
+- Use bullet points and clear sections
+- Avoid walls of text - break up content
+- Focus on key insights and actionable recommendations
+- Example: "🔍 **Key Findings:** • [insight 1] • [insight 2]"
+
 **Available formats:**
 - **Markdown files (.md)**: For formatted documents, summaries, reports, and structured content
 - **Text files (.txt)**: For plain text documents and simple exports
-- **PDF files (.pdf)**: For professional reports, summaries, and formatted documents
 - **CSV files (.csv)**: For data tables, spreadsheets, and structured data exports
 
 **Available document types:**

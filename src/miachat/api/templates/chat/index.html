@@ -431,15 +431,12 @@
                                         <li><a class="dropdown-item" href="#" onclick="generateArtifact('document_analysis', 'md')">
                                             <i class="fas fa-file-text"></i> Document Summary (Markdown)
                                         </a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('document_analysis', 'pdf')">
-                                            <i class="fas fa-file-pdf"></i> Document Summary (PDF)
+                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('document_analysis', 'csv')">
+                                            <i class="fas fa-file-csv"></i> Document Summary (CSV)
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="#" onclick="generateArtifact('summary', 'md')">
                                             <i class="fas fa-comments"></i> Conversation Summary (Markdown)
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="generateArtifact('summary', 'pdf')">
-                                            <i class="fas fa-comments"></i> Conversation Summary (PDF)
                                         </a></li>
                                         <li><a class="dropdown-item" href="#" onclick="generateArtifact('conversation_export', 'md')">
                                             <i class="fas fa-download"></i> Export Conversation (Markdown)
@@ -1432,6 +1429,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',  // Include session cookies for authentication
                 body: JSON.stringify(data)
             })
             .then(response => response.json())

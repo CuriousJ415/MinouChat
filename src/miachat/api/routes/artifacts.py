@@ -64,7 +64,6 @@ def convert_export_format(format_str: str) -> ExportFormat:
         'markdown': ExportFormat.MARKDOWN,
         'txt': ExportFormat.TEXT,
         'text': ExportFormat.TEXT,
-        'pdf': ExportFormat.PDF,
         'csv': ExportFormat.CSV
     }
     if format_str.lower() not in format_mapping:
@@ -420,41 +419,86 @@ async def generate_document_analysis(
                 logger.warning(f"Could not get character model config, using default: {e}")
                 model_config = {"provider": "ollama", "model": "llama3.1:8b", "temperature": 0.7, "max_tokens": 2048}
 
-            # Create enhanced analysis prompt using all available context
-            character_instructions = f"""You are an expert document analyst working with a user who has specific questions and context.
-Your goal is to provide intelligent, context-aware analysis that addresses their specific request while considering all available information.
+            # Detect document types for specialized analysis
+            document_types = []
+            excel_files = []
+            for source in sources:
+                filename = source.get('filename', '').lower()
+                if filename.endswith(('.xlsx', '.xls', '.csv')):
+                    document_types.append('data')
+                    excel_files.append(source.get('filename', ''))
+                elif filename.endswith('.pdf'):
+                    document_types.append('text')
+                else:
+                    document_types.append('text')
+
+            # Create specialized prompt based on document types
+            if 'data' in document_types and len(excel_files) > 0:
+                # Specialized Excel/Data Analysis Prompt
+                character_instructions = f"""You are an expert data analyst specializing in business intelligence and data insights.
+You're analyzing data from: {', '.join(excel_files)}
+
+The user asked: "{latest_user_message}"
+
+## Your Analysis Mission:
+Provide **actionable business insights** from the data, not just descriptions.
+
+## Focus On:
+• **Trends & Patterns**: What's increasing/decreasing over time?
+• **Top Performers**: Which products/regions/reps are winning?
+• **Key Metrics**: Total sales, average order size, growth rates
+• **Opportunities**: Where can performance be improved?
+• **Data Quality**: Any anomalies or data issues noticed?
+
+## Response Format:
+Keep responses **concise and structured**:
+
+**📊 Key Insights**
+• [Top 3 most important findings from the data]
+
+**🏆 Performance Highlights**
+• [Best performing products/regions/metrics]
+
+**📈 Trends Observed**
+• [Notable patterns or changes over time]
+
+**💡 Recommendations**
+• [Specific, actionable next steps]
+
+**📋 Data Summary**
+• [Brief overview of data scope and quality]
+
+{("⚠️ **Data Conflicts Detected:** " + ", ".join([conflict.get('conflict_reason', 'Unknown') for conflict in conflicts_detected])) if conflicts_detected else ""}
+
+Focus on **insights that drive business decisions**, not just data descriptions."""
+            else:
+                # Standard document analysis prompt
+                character_instructions = f"""You are an expert document analyst working with a user who has specific questions and context.
+Your goal is to provide intelligent, context-aware analysis that addresses their specific request.
 
 ## Analysis Requirements:
 - Address the user's specific request: "{latest_user_message}"
-- Consider recent conversation context
 - Analyze documents intelligently, not just summarize content
-- Highlight any conflicts or contradictions in the information
 - Provide actionable insights and recommendations
 - Format your response clearly and professionally
 
-Please provide your analysis in the following structured format:
+Please provide your analysis in a **structured, readable format**:
 
-## Title & Context
-[Brief title and context about what this document is and why it matters in relation to the user's request]
+**📄 Document Overview**
+[Brief context about what this document covers]
 
-## Key Points
-[3-5 most important points from the document that relate to the user's question]
+**🔍 Key Findings**
+• [3-5 most important points that relate to the user's question]
 
-## Important Details
-[Specific details that are noteworthy or significant for the user's request]
+**💡 Analysis & Insights**
+[Your analysis of what this document means for the user's goals]
 
-## Analysis & Insights
-[Your analysis of what this document means in context of the conversation and user's goals]
+**📋 Recommendations**
+[Specific recommendations or next steps]
 
-## Recommendations
-[Specific recommendations or next steps based on this analysis and the user's request]
+{("⚠️ **Information Conflicts:** " + ", ".join([conflict.get('conflict_reason', 'Unknown') for conflict in conflicts_detected])) if conflicts_detected else ""}
 
-## Summary
-[Concise summary that directly addresses the user's question using document insights]
-
-{("## ⚠️ Information Conflicts Detected" + chr(10) + chr(10).join([f"- {conflict.get('conflict_reason', 'Unknown conflict')}" for conflict in conflicts_detected]) + chr(10)) if conflicts_detected else ""}
-
-Provide a thorough, intelligent analysis that goes beyond simple document summarization."""
+Provide clear, actionable insights that go beyond simple summarization."""
 
             # Use Enhanced Context Service to create the complete prompt
             enhanced_prompt = enhanced_context_service.format_enhanced_prompt(

@@ -334,7 +334,7 @@ class EnhancedContextService:
             if comprehensive_analysis:
                 # Get all recent documents for comprehensive analysis
                 comprehensive_chunks = self._get_comprehensive_document_chunks(
-                    user_id, db, character_id, reasoning_chain
+                    user_id, db, character_id, reasoning_chain, conversation_id
                 )
                 all_chunks.extend(comprehensive_chunks)
             else:
@@ -503,7 +503,9 @@ class EnhancedContextService:
         user_id: int,
         db: Session,
         character_id: Optional[str] = None,
-        reasoning_chain: Optional[List[Dict[str, Any]]] = None
+        reasoning_chain: Optional[List[Dict[str, Any]]] = None,
+        session_id: Optional[str] = None,
+        hours_back: int = 2
     ) -> List[Dict[str, Any]]:
         """Get comprehensive document chunks for complete analysis.
 
@@ -512,17 +514,22 @@ class EnhancedContextService:
             db: Database session
             character_id: Optional character ID
             reasoning_chain: Optional reasoning chain to update
+            session_id: Optional session ID for session-scoped analysis
+            hours_back: How many hours back to look for documents
 
         Returns:
             List of document chunks
         """
         try:
             from ...database.models import Document, DocumentChunk
+            from datetime import datetime, timedelta
 
-            # Get recent documents
+            # Get recent documents with time-based filtering
+            cutoff_time = datetime.now() - timedelta(hours=hours_back)
             base_query = db.query(Document).filter(
                 Document.user_id == user_id,
-                Document.is_processed == 1
+                Document.is_processed == 1,
+                Document.upload_date >= cutoff_time  # Only recent uploads
             )
 
             # Filter by character if specified
@@ -540,7 +547,20 @@ class EnhancedContextService:
                 else:
                     return []  # No documents for this character
 
-            recent_documents = base_query.order_by(Document.upload_date.desc()).limit(2).all()
+            # Prioritize session-specific documents if session_id provided
+            if session_id:
+                # Get documents uploaded in current session (most recent)
+                session_documents = base_query.order_by(Document.upload_date.desc()).limit(1).all()
+                recent_documents = session_documents
+
+                if reasoning_chain:
+                    reasoning_chain.append({
+                        'step': 'session_filtering',
+                        'thought': f"Prioritizing {len(session_documents)} most recent documents for session-focused analysis"
+                    })
+            else:
+                # Fallback to recent documents
+                recent_documents = base_query.order_by(Document.upload_date.desc()).limit(2).all()
 
             chunks = []
             for doc in recent_documents:

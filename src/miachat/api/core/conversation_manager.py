@@ -184,15 +184,14 @@ class ConversationManager:
         if current_version.version > session.character_version:
             # Character has been updated
             return CharacterUpdateEvent(
+                event_id=f"update_{session.character_id}_{current_version.version}",
                 character_id=session.character_id,
                 old_version=session.character_version,
                 new_version=current_version.version,
-                updated_at=datetime.now(),
-                changes={
-                    "system_prompt_changed": True,
-                    "personality_changed": True
-                },
-                migration_required=True
+                change_type="major_update",
+                change_description="Character system prompt and personality updated",
+                timestamp=datetime.now(),
+                triggered_by="system"
             )
         
         return None

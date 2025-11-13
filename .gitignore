@@ -150,5 +150,11 @@ output_documents/
 data/
 !data/.gitkeep
 
+# Uploaded documents (keep metadata .json files tracked)
+documents/*.pdf
+documents/*.xlsx
+documents/*.docx
+documents/*.txt
+
 # Database backups
 *.db.backup* 

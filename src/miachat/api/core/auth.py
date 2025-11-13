@@ -14,8 +14,8 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from .database import get_db
-from .models import User
+from ...database.config import get_db
+from ...database.models import User
 
 # Security configuration
 SECRET_KEY = "your-secret-key-here-change-in-production"  # Change in production
