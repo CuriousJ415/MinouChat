@@ -20,22 +20,25 @@ logger = logging.getLogger(__name__)
 class EmbeddingService:
     """Service for creating and managing vector embeddings with FAISS."""
     
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2", index_path: str = "/app/data/faiss_index"):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", index_path: str = None):
         """Initialize the embedding service.
-        
+
         Args:
             model_name: SentenceTransformer model name for embeddings
             index_path: Path to store FAISS index files
         """
         self.model_name = model_name
-        self.index_path = index_path
+        # Use environment variable or default to local ./data directory
+        self.index_path = index_path or os.getenv("FAISS_INDEX_PATH", "./data/faiss_index")
         self.embedding_model = None
         self.faiss_index = None
         self.chunk_id_mapping = {}  # Maps FAISS index position to chunk ID
         self.dimension = 384  # Default for all-MiniLM-L6-v2
         
         # Ensure index directory exists
-        os.makedirs(os.path.dirname(index_path), exist_ok=True)
+        index_dir = os.path.dirname(self.index_path)
+        if index_dir:
+            os.makedirs(index_dir, exist_ok=True)
         
         self._initialize_model()
         self._load_or_create_index()

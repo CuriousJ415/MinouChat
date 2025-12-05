@@ -21,18 +21,18 @@ logger = logging.getLogger(__name__)
 class DocumentService:
     """Service for comprehensive document management with RAG capabilities."""
     
-    def __init__(self, documents_dir: str = "/app/documents", max_file_size: int = 50 * 1024 * 1024):
+    def __init__(self, documents_dir: str = None, max_file_size: int = 50 * 1024 * 1024):
         """Initialize the document service.
-        
+
         Args:
             documents_dir: Directory to store uploaded documents
             max_file_size: Maximum file size in bytes (default 50MB)
         """
-        self.documents_dir = documents_dir
+        self.documents_dir = documents_dir or os.getenv("DOCUMENTS_DIR", "./documents")
         self.max_file_size = max_file_size
-        
+
         # Ensure documents directory exists
-        os.makedirs(documents_dir, exist_ok=True)
+        os.makedirs(self.documents_dir, exist_ok=True)
     
     async def upload_document(
         self, 
