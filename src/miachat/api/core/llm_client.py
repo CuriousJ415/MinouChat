@@ -1,3 +1,9 @@
+"""
+Multi-provider LLM client supporting Ollama, OpenAI, Anthropic, and OpenRouter.
+Privacy-first design: Ollama (local) is the default provider.
+"""
+
+import os
 import requests
 import json
 from typing import List, Dict, Any, Optional
@@ -5,97 +11,68 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class OllamaClient:
-    """Client for interacting with Ollama API."""
-    
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
+
+class LLMClient:
+    """Multi-provider LLM client with privacy-first design."""
+
+    def __init__(self):
+        # Ollama configuration (local, private)
+        ollama_host = os.getenv('OLLAMA_HOST', 'localhost')
+        ollama_port = os.getenv('OLLAMA_PORT', '11434')
+        self.ollama_url = f"http://{ollama_host}:{ollama_port}"
         self.default_model = "llama3.1:8b"
-    
-    def generate_response(self, messages: List[Dict[str, str]], model: str = None, **kwargs) -> str:
-        """
-        Generate a response using Ollama.
-        
-        Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            model: Model name to use (defaults to llama3:8b)
-            **kwargs: Additional parameters for the API call
-            
-        Returns:
-            Generated response text
-        """
-        model = model or self.default_model
-        
-        try:
-            # Format the request for Ollama
-            payload = {
-                "model": model,
-                "messages": messages,
-                "stream": False,
-                **kwargs
-            }
-            
-            logger.info(f"Sending request to Ollama with model {model}")
-            logger.info(f"Messages being sent: {json.dumps(messages, indent=2)}")
-            
-            response = requests.post(
-                f"{self.base_url}/api/chat",
-                json=payload,
-                timeout=30
-            )
-            
-            if not response.ok:
-                logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                raise Exception(f"Ollama API request failed: {response.status_code}")
-            
-            data = response.json()
-            response_content = data.get('message', {}).get('content', '')
-            logger.info(f"Received response: {response_content[:200]}...")
-            
-            return response_content
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request error: {str(e)}")
-            raise Exception(f"Failed to connect to Ollama: {str(e)}")
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            raise Exception(f"Error generating response: {str(e)}")
-    
-    def generate_response_with_config(self, 
-                                    messages: List[Dict[str, str]], 
-                                    system_prompt: str,
-                                    model_config: Dict[str, Any]) -> str:
+
+        # Cloud provider API keys (optional)
+        self.openai_key = os.getenv('OPENAI_API_KEY')
+        self.anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+        self.openrouter_key = os.getenv('OPENROUTER_API_KEY')
+
+    def generate_response_with_config(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: Optional[str],
+        model_config: Dict[str, Any]
+    ) -> str:
         """
         Generate a response using the specified model configuration.
-        
+
         Args:
             messages: List of message dictionaries with 'role' and 'content'
             system_prompt: System prompt for the character
-            model_config: Model configuration dictionary
-            
+            model_config: Model configuration dictionary with 'provider' and 'model'
+
         Returns:
             Generated response text
         """
         provider = model_config.get('provider', 'ollama')
-        
+
+        # Route to appropriate provider
         if provider == 'ollama':
-            return self._generate_ollama_response(messages, system_prompt, model_config)
+            return self._generate_ollama(messages, system_prompt, model_config)
+        elif provider == 'openai':
+            return self._generate_openai(messages, system_prompt, model_config)
+        elif provider == 'anthropic':
+            return self._generate_anthropic(messages, system_prompt, model_config)
+        elif provider == 'openrouter':
+            return self._generate_openrouter(messages, system_prompt, model_config)
         else:
-            raise ValueError(f"Unsupported provider: {provider}")
-    
-    def _generate_ollama_response(self, 
-                                messages: List[Dict[str, str]], 
-                                system_prompt: str,
-                                model_config: Dict[str, Any]) -> str:
-        """Generate response using Ollama."""
+            logger.warning(f"Unknown provider {provider}, falling back to Ollama")
+            return self._generate_ollama(messages, system_prompt, model_config)
+
+    def _generate_ollama(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: Optional[str],
+        model_config: Dict[str, Any]
+    ) -> str:
+        """Generate response using local Ollama (fully private)."""
         model = model_config.get('model', self.default_model)
-        
-        # Prepare messages with system prompt (only if not null/empty)
+
+        # Prepare messages with system prompt
         all_messages = messages.copy()
         if system_prompt and system_prompt.strip():
             all_messages = [{"role": "system", "content": system_prompt}] + all_messages
-        
-        # Prepare request payload
+
         payload = {
             "model": model,
             "messages": all_messages,
@@ -106,81 +83,235 @@ class OllamaClient:
                 "num_predict": model_config.get('max_tokens', 2048)
             }
         }
-        
-        logger.info(f"Using system prompt: {system_prompt}")
-        logger.info(f"Final message count: {len(all_messages)}")
-        logger.info(f"Sending request to Ollama with model {model}")
-        logger.info(f"Messages being sent: {json.dumps(all_messages, indent=2)}")
-        
+
+        logger.info(f"[Ollama/LOCAL] Using model {model}")
+
         try:
             response = requests.post(
-                f"{self.base_url}/api/chat",
+                f"{self.ollama_url}/api/chat",
                 json=payload,
-                timeout=60
+                timeout=120
             )
             response.raise_for_status()
-            
             result = response.json()
-            ai_response = result.get('message', {}).get('content', '')
-            
-            logger.info(f"Received response: {ai_response}")
-            return ai_response
-            
+            return result.get('message', {}).get('content', '')
+
         except Exception as e:
-            logger.error(f"Error calling Ollama: {e}")
-            return f"Sorry, I'm having trouble connecting to my brain right now. Error: {str(e)}"
-    
-    def generate_personality_response(self, personality: Dict[str, Any], user_message: str, conversation_history: List[Dict[str, str]] = None) -> str:
-        """
-        Generate a response based on personality configuration.
-        
-        Args:
-            personality: Personality configuration dictionary
-            user_message: User's message
-            conversation_history: Previous conversation messages
-            
-        Returns:
-            Generated response text
-        """
-        # Build the conversation context
-        messages = []
-        
-        # Add system prompt based on personality
-        system_prompt = personality.get("system_prompt", "")
-        logger.info(f"Using system prompt: {system_prompt}")
-        
-        if system_prompt:
-            messages.append({
-                "role": "system",
-                "content": system_prompt
-            })
-        
-        # Add conversation history
-        if conversation_history:
-            messages.extend(conversation_history)
-        
-        # Add user message
-        messages.append({
-            "role": "user",
-            "content": user_message
-        })
-        
-        logger.info(f"Final message count: {len(messages)}")
-        
-        # Generate response
-        return self.generate_response(messages)
-    
-    def test_connection(self) -> bool:
-        """Test if Ollama is accessible."""
+            logger.error(f"Ollama error: {e}")
+            return f"Error connecting to Ollama: {str(e)}"
+
+    def _generate_openai(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: Optional[str],
+        model_config: Dict[str, Any]
+    ) -> str:
+        """Generate response using OpenAI API (cloud)."""
+        if not self.openai_key:
+            return "OpenAI API key not configured. Set OPENAI_API_KEY environment variable."
+
+        model = model_config.get('model', 'gpt-4o-mini')
+
+        # Prepare messages with system prompt
+        all_messages = messages.copy()
+        if system_prompt and system_prompt.strip():
+            all_messages = [{"role": "system", "content": system_prompt}] + all_messages
+
+        payload = {
+            "model": model,
+            "messages": all_messages,
+            "temperature": model_config.get('temperature', 0.7),
+            "max_tokens": model_config.get('max_tokens', 2048)
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.openai_key}",
+            "Content-Type": "application/json"
+        }
+
+        logger.info(f"[OpenAI/CLOUD] Using model {model}")
+
         try:
-            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
-            return response.ok
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=120
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result['choices'][0]['message']['content']
+
+        except Exception as e:
+            logger.error(f"OpenAI error: {e}")
+            return f"Error connecting to OpenAI: {str(e)}"
+
+    def _generate_anthropic(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: Optional[str],
+        model_config: Dict[str, Any]
+    ) -> str:
+        """Generate response using Anthropic API (cloud)."""
+        if not self.anthropic_key:
+            return "Anthropic API key not configured. Set ANTHROPIC_API_KEY environment variable."
+
+        model = model_config.get('model', 'claude-3-5-sonnet-20241022')
+
+        # Anthropic uses a different message format
+        # System prompt goes in a separate field, not in messages
+        anthropic_messages = []
+        for msg in messages:
+            if msg['role'] != 'system':
+                anthropic_messages.append({
+                    "role": msg['role'],
+                    "content": msg['content']
+                })
+
+        payload = {
+            "model": model,
+            "max_tokens": model_config.get('max_tokens', 2048),
+            "messages": anthropic_messages
+        }
+
+        if system_prompt and system_prompt.strip():
+            payload["system"] = system_prompt
+
+        headers = {
+            "x-api-key": self.anthropic_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01"
+        }
+
+        logger.info(f"[Anthropic/CLOUD] Using model {model}")
+
+        try:
+            response = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=payload,
+                timeout=120
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result['content'][0]['text']
+
+        except Exception as e:
+            logger.error(f"Anthropic error: {e}")
+            return f"Error connecting to Anthropic: {str(e)}"
+
+    def _generate_openrouter(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: Optional[str],
+        model_config: Dict[str, Any]
+    ) -> str:
+        """Generate response using OpenRouter API (cloud, multi-provider)."""
+        if not self.openrouter_key:
+            return "OpenRouter API key not configured. Set OPENROUTER_API_KEY environment variable."
+
+        model = model_config.get('model', 'openai/gpt-4o-mini')
+
+        # Prepare messages with system prompt
+        all_messages = messages.copy()
+        if system_prompt and system_prompt.strip():
+            all_messages = [{"role": "system", "content": system_prompt}] + all_messages
+
+        payload = {
+            "model": model,
+            "messages": all_messages,
+            "temperature": model_config.get('temperature', 0.7),
+            "max_tokens": model_config.get('max_tokens', 2048)
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://miachat.local",
+            "X-Title": "MiaChat"
+        }
+
+        logger.info(f"[OpenRouter/CLOUD] Using model {model}")
+
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=120
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result['choices'][0]['message']['content']
+
+        except Exception as e:
+            logger.error(f"OpenRouter error: {e}")
+            return f"Error connecting to OpenRouter: {str(e)}"
+
+    def generate_response(
+        self,
+        messages: List[Dict[str, str]],
+        model: str = None,
+        **kwargs
+    ) -> str:
+        """Simple response generation using default Ollama."""
+        model_config = {
+            'provider': 'ollama',
+            'model': model or self.default_model,
+            **kwargs
+        }
+        return self.generate_response_with_config(messages, None, model_config)
+
+    def test_connection(self, provider: str = 'ollama') -> bool:
+        """Test if a provider is accessible."""
+        try:
+            if provider == 'ollama':
+                response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+                return response.ok
+            elif provider == 'openai':
+                return bool(self.openai_key)
+            elif provider == 'anthropic':
+                return bool(self.anthropic_key)
+            elif provider == 'openrouter':
+                return bool(self.openrouter_key)
+            return False
         except:
             return False
 
+    def get_available_providers(self) -> List[Dict[str, Any]]:
+        """Get list of available providers with their status."""
+        providers = [
+            {
+                "id": "ollama",
+                "name": "Ollama (Local)",
+                "privacy": "full",
+                "available": self.test_connection('ollama'),
+                "description": "Fully private, runs locally"
+            },
+            {
+                "id": "openai",
+                "name": "OpenAI",
+                "privacy": "cloud",
+                "available": bool(self.openai_key),
+                "description": "GPT-4, GPT-4o, etc."
+            },
+            {
+                "id": "anthropic",
+                "name": "Anthropic",
+                "privacy": "cloud",
+                "available": bool(self.anthropic_key),
+                "description": "Claude 3.5, Claude 3, etc."
+            },
+            {
+                "id": "openrouter",
+                "name": "OpenRouter",
+                "privacy": "cloud",
+                "available": bool(self.openrouter_key),
+                "description": "Access to 100+ models"
+            }
+        ]
+        return providers
+
+
 # Global client instance
-import os
-ollama_host = os.getenv('OLLAMA_HOST', 'localhost')
-ollama_port = os.getenv('OLLAMA_PORT', '11434')
-ollama_url = f"http://{ollama_host}:{ollama_port}"
-llm_client = OllamaClient(ollama_url) 
+llm_client = LLMClient()
