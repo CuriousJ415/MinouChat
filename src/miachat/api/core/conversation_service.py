@@ -18,6 +18,118 @@ class ConversationService:
     
     def __init__(self):
         self.active_conversations: Dict[str, int] = {}  # character_id -> conversation_id
+        self.session_cache: Dict[str, int] = {}  # session_id -> conversation_id
+
+    # =====================
+    # Session-based methods (replacing ConversationManager)
+    # =====================
+
+    def create_session(self, character_id: str, user_id: str, db: Session) -> Dict[str, Any]:
+        """Create a new conversation session. Returns session data with session_id."""
+        session_id = str(uuid.uuid4())
+
+        conversation = Conversation(
+            personality_id=None,
+            title=f"Session with {character_id}",
+            conversation_data={
+                "character_id": character_id,
+                "session_id": session_id,
+                "user_id": user_id,
+                "created_at": datetime.utcnow().isoformat()
+            }
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+        self.session_cache[session_id] = conversation.id
+        self.active_conversations[character_id] = conversation.id
+
+        logger.info(f"Created session {session_id} for character {character_id}")
+
+        return {
+            "session_id": session_id,
+            "character_id": character_id,
+            "user_id": user_id,
+            "started_at": conversation.started_at.isoformat() if conversation.started_at else None,
+            "message_count": 0
+        }
+
+    def get_session(self, session_id: str, db: Session) -> Optional[Dict[str, Any]]:
+        """Get a conversation session by session_id."""
+        # Check cache first
+        if session_id in self.session_cache:
+            conversation_id = self.session_cache[session_id]
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if conversation:
+                return self._session_to_dict(conversation)
+
+        # Query by session_id in conversation_data
+        result = db.execute(
+            text("""
+                SELECT id, started_at, ended_at, conversation_data
+                FROM conversations
+                WHERE json_extract(conversation_data, '$.session_id') = :session_id
+            """),
+            {"session_id": session_id}
+        )
+
+        row = result.fetchone()
+        if row:
+            self.session_cache[session_id] = row[0]
+            return {
+                "session_id": session_id,
+                "conversation_id": row[0],
+                "character_id": row[3].get("character_id") if isinstance(row[3], dict) else None,
+                "user_id": row[3].get("user_id") if isinstance(row[3], dict) else None,
+                "started_at": row[1].isoformat() if hasattr(row[1], 'isoformat') else row[1],
+                "ended_at": row[2].isoformat() if row[2] and hasattr(row[2], 'isoformat') else row[2],
+                "is_active": row[2] is None
+            }
+
+        return None
+
+    def _session_to_dict(self, conversation: Conversation) -> Dict[str, Any]:
+        """Convert a Conversation to session dict format."""
+        data = conversation.conversation_data or {}
+        return {
+            "session_id": data.get("session_id"),
+            "conversation_id": conversation.id,
+            "character_id": data.get("character_id"),
+            "user_id": data.get("user_id"),
+            "started_at": conversation.started_at.isoformat() if conversation.started_at else None,
+            "ended_at": conversation.ended_at.isoformat() if conversation.ended_at else None,
+            "is_active": conversation.ended_at is None
+        }
+
+    def get_conversation_history(self, session_id: str, limit: int = 20, db: Session = None) -> List[Dict[str, Any]]:
+        """Get conversation history for a session."""
+        if db is None:
+            db = next(get_db())
+
+        # Get conversation_id from session
+        session = self.get_session(session_id, db)
+        if not session:
+            return []
+
+        conversation_id = session.get("conversation_id") or self.session_cache.get(session_id)
+        if not conversation_id:
+            return []
+
+        return self.get_conversation_messages(conversation_id, limit=limit, db=db)
+
+    def save_message(self, session_id: str, role: str, content: str, db: Session) -> Optional[Message]:
+        """Save a message to a session."""
+        session = self.get_session(session_id, db)
+        if not session:
+            logger.warning(f"Session {session_id} not found when saving message")
+            return None
+
+        conversation_id = session.get("conversation_id") or self.session_cache.get(session_id)
+        if not conversation_id:
+            return None
+
+        return self.add_message(conversation_id, content, role, db)
     
     def get_or_create_conversation(self, character_id: str, db: Session) -> Conversation:
         """Get existing active conversation or create a new one for a character."""

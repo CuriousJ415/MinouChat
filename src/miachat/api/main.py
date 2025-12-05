@@ -9,7 +9,7 @@ from ..database.config import get_db
 from ..database.models import Base
 from .core.auth import require_session_auth, get_current_user_from_session
 from .core.settings_service import settings_service
-from .core.conversation_manager import ConversationManager
+from .core.conversation_service import conversation_service
 from .routes.auth import router as auth_router
 from .routes.documents import router as documents_router
 from .routes.setup import router as setup_router
@@ -118,8 +118,7 @@ app.include_router(artifacts_router, prefix="/api/artifacts", tags=["artifacts"]
 from .routes.reminders import router as reminders_router
 app.include_router(reminders_router, prefix="/api/reminders", tags=["reminders"])
 
-# Initialize conversation manager
-conversation_manager = ConversationManager()
+# conversation_service is imported from .core.conversation_service
 
 # Create database tables on startup
 @app.on_event("startup")
@@ -439,17 +438,11 @@ async def import_example_character(example_id: str, request: Request, db = Depen
         character = character_manager.import_example_character(example_id, new_name)
         if not character:
             return {"error": "Example character not found or import failed"}, 404
-        
-        # Create initial character version for conversation history
-        initial_version = conversation_manager.create_character_version(
-            character, 
-            change_reason=f"Imported from example: {example_id}"
-        )
-        
+
         return {
             "success": True,
             "character": character,
-            "version": initial_version.version,
+            "version": 1,
             "message": f"Successfully imported {character['name']}"
         }
         
@@ -517,15 +510,9 @@ async def create_character(request: CharacterCreateRequest):
     if not character:
         return {"error": "Failed to create character"}, 400
 
-    # Create initial character version for conversation history
-    initial_version = conversation_manager.create_character_version(
-        character, 
-        change_reason="Initial character creation"
-    )
-
     return {
         "character": character,
-        "version": initial_version.version
+        "version": 1
     }
 
 @app.put("/api/characters/{character_id}")
@@ -556,20 +543,11 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
         updated_character = character_manager.update_character(character_id, update_data)
         if not updated_character:
             return {"error": "Failed to update character"}, 400
-        change_reason = "Character updated via API"
-        if 'system_prompt' in update_data:
-            change_reason = "System prompt updated"
-        elif 'persona' in update_data:
-            change_reason = "Persona updated"
-        new_version = conversation_manager.create_character_version(
-            updated_character, 
-            change_reason=change_reason
-        )
+
         return {
-            "message": "Character updated successfully", 
+            "message": "Character updated successfully",
             "character": updated_character,
-            "new_version": new_version.version,
-            "change_reason": change_reason
+            "new_version": 1
         }
     except Exception as e:
         logger.error(f"Error updating character: {e}")
@@ -584,10 +562,7 @@ async def delete_character(character_id: str, db = Depends(get_db)):
         return {"error": "Character not found"}, 404
 
     # Delete all conversations and memories for this character
-    # (Assume conversation_manager has a method to get all sessions or conversations for a character)
     try:
-        # If using ConversationService with DB:
-        from .core.conversation_service import conversation_service
         conversations = conversation_service.get_character_conversations(character_id, db)
         for conv in conversations:
             conversation_service.delete_conversation(conv["id"], db)
@@ -599,66 +574,42 @@ async def delete_character(character_id: str, db = Depends(get_db)):
 
 @app.post("/api/conversations/{session_id}/migrate")
 async def migrate_conversation(session_id: str, request: Request, db = Depends(get_db)):
-    """Migrate a conversation session to the latest character version."""
-    try:
-        # Get current user
-        current_user = await get_current_user_from_session(request, db)
-        if not current_user:
-            return {"error": "Authentication required"}, 401
-        
-        # Get request body
-        body = await request.json()
-        user_choice = body.get("choice", "auto")  # "auto", "new_session", or "keep_old"
-        
-        if user_choice == "keep_old":
-            return {"message": "Session kept on old version", "migrated": False}
-        
-        success = conversation_manager.migrate_session(session_id, user_choice)
-        if not success:
-            return {"error": "Failed to migrate session"}, 400
-        
-        return {
-            "message": "Session migrated successfully", 
-            "migrated": True,
-            "choice": user_choice
-        }
-        
-    except Exception as e:
-        logger.error(f"Error migrating conversation: {e}")
-        return {"error": str(e)}, 500
+    """Migrate a conversation session (deprecated - no longer needed)."""
+    # Character versioning removed - migration not needed
+    return {
+        "message": "Session migration not required",
+        "migrated": True,
+        "choice": "auto"
+    }
 
 @app.get("/api/conversations/{session_id}/history")
-async def get_conversation_history(session_id: str, request: Request, db = Depends(get_db)):
+async def get_conversation_history_endpoint(session_id: str, request: Request, db = Depends(get_db)):
     """Get conversation history for a session."""
     try:
         # Get current user
         current_user = await get_current_user_from_session(request, db)
         if not current_user:
             return {"error": "Authentication required"}, 401
-        
-        session = conversation_manager.get_session(session_id)
+
+        session = conversation_service.get_session(session_id, db)
         if not session:
             return {"error": "Session not found"}, 404
-        
+
         # Check if user owns this session
-        if str(session.user_id) != str(current_user.id):
+        if str(session.get("user_id")) != str(current_user.id):
             return {"error": "Access denied"}, 403
-        
-        history = conversation_manager.get_conversation_history(session_id)
-        
-        # Check for migration availability
-        update_event = conversation_manager.check_version_compatibility(session_id)
-        migration_available = update_event is not None
-        
+
+        history = conversation_service.get_conversation_history(session_id, limit=50, db=db)
+
         return {
             "session_id": session_id,
-            "character_id": session.character_id,
-            "character_version": session.character_version,
-            "message_count": session.message_count,
-            "migration_available": migration_available,
-            "history": [msg.dict() for msg in history]
+            "character_id": session.get("character_id"),
+            "character_version": 1,
+            "message_count": len(history),
+            "migration_available": False,
+            "history": history
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting conversation history: {e}")
         return {"error": str(e)}, 500
@@ -716,26 +667,21 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         # Handle session management
         session_id = request.session_id
         migration_available = False
-        
+
         if session_id:
             # Continue existing session
-            session = conversation_manager.get_session(session_id)
-            if not session or session.character_id != request.character_id:
+            session = conversation_service.get_session(session_id, db)
+            if not session or session.get("character_id") != request.character_id:
                 session_id = None  # Invalid session, create new one
-        
+
         if not session_id:
             # Create new session
-            session = conversation_manager.create_conversation_session(
-                request.character_id, 
-                str(current_user.id)
+            session = conversation_service.create_session(
+                request.character_id,
+                str(current_user.id),
+                db
             )
-            session_id = session.session_id
-        
-        # Check for character updates
-        update_event = conversation_manager.check_version_compatibility(session_id)
-        if update_event:
-            migration_available = True
-            logger.info(f"Character {request.character_id} has been updated, migration available")
+            session_id = session["session_id"]
         
         # Initialize Enhanced Context variables
         enhanced_context = {}
@@ -889,10 +835,10 @@ You should be proactive about offering to create documents when it would be help
         else:
             # Fallback to simple conversation history and current message
             try:
-                # Fallback conversation history
-                history = conversation_manager.get_conversation_history(session_id, limit=8)
+                # Fallback conversation history from database
+                history = conversation_service.get_conversation_history(session_id, limit=8, db=db)
                 for msg in history:
-                    messages.append({"role": msg.role, "content": msg.content})
+                    messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
 
                 logger.info(f"Using fallback conversation history: {len(history)} messages for {character['name']}")
 
@@ -902,22 +848,6 @@ You should be proactive about offering to create documents when it would be help
             # Add current user message
             messages.append({"role": "user", "content": request.message})
 
-        # Save current message to database for future semantic search
-        try:
-            from .core.conversation_service import conversation_service
-            db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
-
-            # Save current user message to database for semantic search
-            conversation_service.add_message(
-                conversation_id=db_conversation.id,
-                content=request.message,
-                role="user",
-                db=db
-            )
-
-        except Exception as e:
-            logger.warning(f"Failed to save message for semantic memory: {e}")
-        
         # Generate response using the character's model configuration
         model_config = character['model_config']
         provider = model_config.get('provider', 'ollama')
@@ -934,44 +864,22 @@ You should be proactive about offering to create documents when it would be help
             model_config=model_config
         )
         
-        # Save messages to conversation history (file-based system)
-        conversation_manager.save_message(session_id, "user", request.message)
-        conversation_manager.save_message(session_id, "assistant", response)
+        # Save messages to database
+        conversation_service.save_message(session_id, "user", request.message, db)
+        conversation_service.save_message(session_id, "assistant", response, db)
 
-        # Also save to database for semantic memory (if available)
-        try:
-            from .core.conversation_service import conversation_service
-            db_conversation = conversation_service.get_or_create_conversation(request.character_id, db)
-
-            # Save assistant response to database for future semantic search
-            conversation_service.add_message(
-                conversation_id=db_conversation.id,
-                content=response,
-                role="assistant",
-                db=db
-            )
-
-            # Save reasoning chain to semantic memory if available (for future context)
-            if reasoning_chain:
+        # Save additional reasoning context if available
+        if reasoning_chain:
+            try:
                 reasoning_summary = "AI Reasoning: " + " → ".join([
                     f"{step['step']}: {step['thought'][:100]}..." if len(step['thought']) > 100
                     else f"{step['step']}: {step['thought']}"
                     for step in reasoning_chain[-3:]  # Save last 3 reasoning steps
                 ])
-
-                conversation_service.add_message(
-                    conversation_id=db_conversation.id,
-                    content=reasoning_summary,
-                    role="system",  # Use system role for reasoning chains
-                    db=db
-                )
-
-                logger.info(f"Saved reasoning chain to semantic memory for {character['name']}")
-
-            logger.info(f"Saved assistant response to semantic memory for {character['name']}")
-
-        except Exception as e:
-            logger.warning(f"Failed to save to semantic memory: {e}")
+                conversation_service.save_message(session_id, "system", reasoning_summary, db)
+                logger.info(f"Saved reasoning chain for {character['name']}")
+            except Exception as e:
+                logger.warning(f"Failed to save reasoning chain: {e}")
         
         # Update character usage
         character_manager.update_character(request.character_id, {
@@ -987,8 +895,8 @@ You should be proactive about offering to create documents when it would be help
             character_name=character['name'],
             character_id=character['id'],
             session_id=session_id,
-            character_version=session.character_version,
-            migration_available=migration_available,
+            character_version=1,  # Simplified: no version tracking
+            migration_available=False,
             document_context_used=document_context_used,
             sources=sources,
             context_summary=context_summary if document_context_used else None,
@@ -1080,24 +988,19 @@ async def chat_with_document(
 
         # Handle session management (same as original chat endpoint)
         session_id = chat_request.session_id
-        migration_available = False
 
         if session_id:
-            session = conversation_manager.get_session(session_id)
-            if not session or session.character_id != chat_request.character_id:
+            session = conversation_service.get_session(session_id, db)
+            if not session or session.get("character_id") != chat_request.character_id:
                 session_id = None
 
         if not session_id:
-            session = conversation_manager.create_conversation_session(
+            session = conversation_service.create_session(
                 chat_request.character_id,
-                str(current_user.id)
+                str(current_user.id),
+                db
             )
-            session_id = session.session_id
-
-        # Check for character updates
-        update_event = conversation_manager.check_version_compatibility(session_id)
-        if update_event:
-            migration_available = True
+            session_id = session["session_id"]
 
         # Initialize context variables
         rag_context = None
@@ -1239,10 +1142,10 @@ You should be proactive about offering to create documents when it would be help
 
         except Exception as e:
             logger.warning(f"Semantic memory failed, falling back to simple history: {e}")
-            # Fallback to simple conversation history
-            history = conversation_manager.get_conversation_history(session_id, limit=15)
+            # Fallback to simple conversation history from database
+            history = conversation_service.get_conversation_history(session_id, limit=15, db=db)
             for msg in history:
-                messages.append({"role": msg.role, "content": msg.content})
+                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
 
         # Add current message with RAG context if available
         final_message = enhanced_message
@@ -1275,27 +1178,9 @@ You should be proactive about offering to create documents when it would be help
             model_config=model_config
         )
 
-        # Save messages to conversation manager
-        conversation_manager.save_message(session_id, "user", chat_request.message)
-        conversation_manager.save_message(session_id, "assistant", response)
-
-        # Also save to database for semantic memory (if available)
-        try:
-            from .core.conversation_service import conversation_service
-            db_conversation = conversation_service.get_or_create_conversation(chat_request.character_id, db)
-
-            # Save assistant response to database for future semantic search
-            conversation_service.add_message(
-                conversation_id=db_conversation.id,
-                content=response,
-                role="assistant",
-                db=db
-            )
-
-            logger.info(f"Saved assistant response to semantic memory for {character['name']}")
-
-        except Exception as e:
-            logger.warning(f"Failed to save to semantic memory: {e}")
+        # Save messages to database
+        conversation_service.save_message(session_id, "user", chat_request.message, db)
+        conversation_service.save_message(session_id, "assistant", response, db)
 
         # Update character usage
         character_manager.update_character(chat_request.character_id, {

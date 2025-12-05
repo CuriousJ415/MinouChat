@@ -285,45 +285,45 @@ async def export_conversation(
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        # Get conversation data (you'll need to implement this based on your conversation storage)
-        # This is a placeholder - replace with actual conversation retrieval
-        from ..core.conversation_manager import ConversationManager
-        conversation_manager = ConversationManager()
+        # Get conversation data from database
+        from ..core.conversation_service import conversation_service
 
         try:
-            # Get conversation history
-            history = conversation_manager.get_conversation_history(request_data.session_id)
-
             # Get session info
-            session = conversation_manager.get_session(request_data.session_id)
-            if not session or str(session.user_id) != str(current_user.id):
+            session = conversation_service.get_session(request_data.session_id, db)
+            if not session or str(session.get("user_id")) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Access denied")
+
+            # Get conversation history
+            history = conversation_service.get_conversation_history(request_data.session_id, limit=100, db=db)
 
             # Format messages
             messages = []
             for msg in history:
                 messages.append({
-                    "role": msg.role,
-                    "content": msg.content,
-                    "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, 'isoformat') else str(msg.timestamp)
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", ""),
+                    "timestamp": msg.get("timestamp", "")
                 })
 
             content = {
                 "messages": messages,
-                "character_name": "AI Assistant",  # Get from session if available
-                "date_range": f"{session.started_at} - {session.last_activity}"
+                "character_name": "AI Assistant",
+                "date_range": f"{session.get('started_at', '')} - {session.get('ended_at', 'ongoing')}"
             }
 
             request_obj = GenerateArtifactRequest(
                 artifact_type="conversation_export",
                 format=request_data.format,
-                title=request_data.title or f"Conversation Export - {session.started_at}",
+                title=request_data.title or f"Conversation Export - {session.get('started_at', 'Unknown')}",
                 content=content,
                 session_id=request_data.session_id
             )
 
             return await generate_artifact(request_obj, request, db)
 
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error retrieving conversation {request_data.session_id}: {str(e)}")
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -353,24 +353,23 @@ async def generate_document_analysis(
             raise HTTPException(status_code=401, detail="Authentication required")
 
         # Get conversation data and enhanced context for intelligent analysis
-        from ..core.conversation_manager import ConversationManager
+        from ..core.conversation_service import conversation_service
         from ..core.enhanced_context_service import enhanced_context_service
-        conversation_manager = ConversationManager()
 
         try:
-            # Get conversation history to understand what documents are being referenced
-            history = conversation_manager.get_conversation_history(request_data.session_id)
-
             # Get session info
-            session = conversation_manager.get_session(request_data.session_id)
-            if not session or str(session.user_id) != str(current_user.id):
+            session = conversation_service.get_session(request_data.session_id, db)
+            if not session or str(session.get("user_id")) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Access denied")
+
+            # Get conversation history to understand what documents are being referenced
+            history = conversation_service.get_conversation_history(request_data.session_id, limit=20, db=db)
 
             # Extract the most recent user message to understand the analysis request
             latest_user_message = None
             for msg in reversed(history):
-                if msg.role == "user":
-                    latest_user_message = msg.content
+                if msg.get("role") == "user":
+                    latest_user_message = msg.get("content")
                     break
 
             if not latest_user_message:
@@ -381,11 +380,11 @@ async def generate_document_analysis(
                 user_message=latest_user_message,
                 user_id=current_user.id,
                 conversation_id=request_data.session_id,
-                character_id=session.character_id,
-                include_conversation_history=True,  # Include conversation context
+                character_id=session.get("character_id"),
+                include_conversation_history=True,
                 include_documents=True,
-                comprehensive_analysis=True,  # Force comprehensive analysis
-                enable_reasoning=True,  # Enable reasoning chains
+                comprehensive_analysis=True,
+                enable_reasoning=True,
                 db=db
             )
 
