@@ -340,5 +340,27 @@
     "message_count": 10,
     "context_summary": null,
     "memory_context": null
+  },
+  "21307e9c-8852-47f8-a721-0bd67c446d14": {
+    "session_id": "21307e9c-8852-47f8-a721-0bd67c446d14",
+    "character_id": "e7954557-4736-4e5e-8c6e-0ce0d8618dad",
+    "character_version": 2,
+    "user_id": "1",
+    "started_at": "2025-11-13 19:05:30.534467",
+    "last_activity": "2025-11-13 19:48:22.047872",
+    "message_count": 22,
+    "context_summary": null,
+    "memory_context": null
+  },
+  "997e8a9c-2554-49bc-86de-af6acded3db9": {
+    "session_id": "997e8a9c-2554-49bc-86de-af6acded3db9",
+    "character_id": "e7954557-4736-4e5e-8c6e-0ce0d8618dad",
+    "character_version": 2,
+    "user_id": "1",
+    "started_at": "2025-11-14 19:20:25.543890",
+    "last_activity": "2025-11-14 19:25:34.824013",
+    "message_count": 6,
+    "context_summary": null,
+    "memory_context": null
   }
 }
