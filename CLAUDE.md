@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MiaChat (also known as MiaAI) is a sophisticated personal AI assistant platform that enables users to create and interact with customizable AI characters. The system features persistent memory, document analysis capabilities, and support for multiple LLM providers.
+MiaChat is a privacy-first AI assistant platform that enables users to create and interact with customizable AI characters. The system features persistent memory, document analysis (RAG), and support for multiple LLM providers with Ollama (local) as the default.
 
 ## Development Commands
 
@@ -24,7 +24,7 @@ docker compose --profile with-ollama up -d
 
 # Stop services
 ./stop.sh
-# or  
+# or
 docker compose down
 ```
 
@@ -69,56 +69,95 @@ curl -X POST http://localhost:8080/api/characters/restore-defaults
 
 ## Architecture Overview
 
-### Core Package Structure
+### Package Structure
 
-- **`/app/`** - Main Flask application package
-  - `api/` - REST API endpoints organized by feature (chat, characters, memories, documents, settings, models)
-  - `core/` - Business logic layer (chat processing, character management, document analysis)
-  - `llm/` - Language model adapters with unified interface for multiple providers
-  - `memory/` - Multi-tiered memory system (short-term, long-term, permanent) with vector search
-  - `static/` - Frontend assets (vanilla JavaScript SPA)
-  - `templates/` - Jinja2 HTML templates
-
-- **`/src/miachat/`** - Alternative package structure with additional features
-  - `personality/` - Advanced personality framework with conflict resolution and evolution
+```
+src/miachat/
+├── api/                    # FastAPI application
+│   ├── main.py            # Main app entry point
+│   ├── core/              # Business logic
+│   │   ├── auth.py        # Authentication
+│   │   ├── character_manager.py
+│   │   ├── conversation_service.py  # DB-backed conversations
+│   │   ├── document_service.py
+│   │   ├── embedding_service.py
+│   │   ├── enhanced_context_service.py  # RAG & memory
+│   │   ├── llm_client.py  # Multi-provider LLM
+│   │   └── settings_service.py
+│   ├── routes/            # API endpoints
+│   │   ├── auth.py
+│   │   ├── artifacts.py
+│   │   ├── documents.py
+│   │   ├── reminders.py
+│   │   └── setup.py
+│   └── static/            # Frontend (vanilla JS SPA)
+├── database/
+│   ├── config.py          # SQLAlchemy setup
+│   └── models.py          # ORM models
+└── personality/           # Character framework
+```
 
 ### Technology Stack
 
-- **Backend**: Flask 3.0.0 with CORS support
-- **Database**: SQLite for relational data, FAISS for vector embeddings
-- **LLM Providers**: OpenAI, Anthropic, Ollama (local models)
-- **Memory**: Sentence Transformers for embeddings, tiktoken for token counting
+- **Backend**: FastAPI with CORS support
+- **Database**: SQLite for all data (conversations, users, documents)
+- **Vector Search**: FAISS for semantic embeddings
+- **LLM Providers**:
+  - Ollama (local, default - fully private)
+  - OpenAI (GPT-4, GPT-4o)
+  - Anthropic (Claude 3.5)
+  - OpenRouter (100+ models)
+- **Embeddings**: Sentence Transformers
 - **Document Processing**: PyMuPDF for PDFs, Markdown support
-- **Deployment**: Docker with Gunicorn, optional Ngrok tunneling
+- **Deployment**: Docker with Uvicorn
 
-### Key System Components
+### Core Services
 
-1. **Character System**: XML-based personality definitions with validation schema
-2. **Memory Architecture**: Tiered memory with automatic summarization and relevance scoring
-3. **Multi-Provider LLM Interface**: Unified adapter pattern supporting multiple AI providers
-4. **Document Analysis**: Upload and reference system for PDFs and text documents
-5. **Conversation Management**: Persistent chat history with memory injection
+| Service | Purpose |
+|---------|---------|
+| `LLMClient` | Multi-provider LLM with privacy-first design |
+| `ConversationService` | Database-backed conversation management |
+| `EnhancedContextService` | RAG, semantic memory, document retrieval |
+| `CharacterManager` | Character CRUD and configuration |
+| `DocumentService` | Document upload, processing, search |
+| `EmbeddingService` | FAISS vector embeddings |
 
-### Configuration
+### LLM Provider Configuration
 
-- Environment variables configured via `.env` file
-- LLM provider settings in `config/llm_config.json`
-- Character personalities defined in `config/personalities/` as XML files
-- Database path configurable via `DATABASE_PATH` environment variable
+Set via environment variables:
+```bash
+# Local (default, fully private)
+OLLAMA_HOST=localhost
+OLLAMA_PORT=11434
+
+# Cloud providers (optional)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+OPENROUTER_API_KEY=sk-or-...
+```
+
+### Data Storage
+
+- **SQLite**: All persistent data (users, conversations, messages, documents)
+- **FAISS indexes**: Semantic search vectors
+- **File storage**:
+  - `documents/` - Uploaded documents
+  - `character_cards/` - Character JSON files
+  - `output_documents/` - Generated artifacts
+
+### API Endpoints
+
+All endpoints are under `/api/` prefix:
+- `/api/chat` - Main chat endpoint
+- `/api/chat/document` - Document-aware chat
+- `/api/characters/*` - Character management
+- `/api/documents/*` - Document CRUD and search
+- `/api/artifacts/*` - Export and generation
+- `/auth/*` - Authentication
 
 ### Development Notes
 
-- The application supports both `/app/` and `/src/miachat/` package structures
-- Memory system uses vector embeddings for semantic search across conversation history
-- Character personalities can evolve and develop conflicts through the personality framework
-- Document analysis integrates with conversation context for reference during chat
-- All API endpoints return JSON and follow RESTful conventions
-- Frontend uses vanilla JavaScript with modular chat management system
-
-### Data Persistence
-
-- SQLite database stores characters, conversations, and metadata
-- Vector embeddings stored in FAISS indexes for memory search
-- Documents uploaded to `documents/` directory with JSON metadata
-- Generated outputs saved to `output_documents/` directory
-- Docker volumes ensure data persistence: `./data`, `./documents`, `./output_documents`, `./config`
+- Single database (SQLite) for all storage - no file-based conversations
+- Privacy-first: Ollama is default, cloud providers require explicit keys
+- Enhanced context combines conversation history, semantic memory, and RAG
+- Frontend is vanilla JavaScript SPA with modular design
