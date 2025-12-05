@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from ...database.config import get_db
 from ...database.models import User, Document
 from ..core.document_service import document_service
-from ..core.rag_service import rag_service
+from ..core.enhanced_context_service import enhanced_context_service
 from ..core.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
@@ -279,7 +279,7 @@ async def get_rag_context(
 ):
     """Get enhanced context for RAG-powered conversations."""
     try:
-        context = rag_service.get_enhanced_context(
+        context = enhanced_context_service.get_enhanced_context(
             user_message=context_request.message,
             user_id=current_user.id,
             conversation_id=context_request.conversation_id,
@@ -309,7 +309,7 @@ async def format_rag_prompt(
     """Format a complete RAG prompt for LLM consumption."""
     try:
         # Get context first
-        context = rag_service.get_enhanced_context(
+        context = enhanced_context_service.get_enhanced_context(
             user_message=context_request.message,
             user_id=current_user.id,
             conversation_id=context_request.conversation_id,
@@ -320,7 +320,7 @@ async def format_rag_prompt(
         )
         
         # Format prompt
-        formatted_prompt = rag_service.format_rag_prompt(
+        formatted_prompt = enhanced_context_service.format_rag_prompt(
             user_message=message,
             context=context,
             character_instructions=character_instructions
@@ -350,7 +350,7 @@ async def suggest_related_documents(
     try:
         exclude_list = exclude.split(',') if exclude else None
         
-        suggestions = rag_service.suggest_related_documents(
+        suggestions = enhanced_context_service.suggest_related_documents(
             query=query,
             user_id=current_user.id,
             exclude_documents=exclude_list,

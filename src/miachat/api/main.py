@@ -10,7 +10,6 @@ from ..database.models import Base
 from .core.auth import require_session_auth, get_current_user_from_session
 from .core.settings_service import settings_service
 from .core.conversation_manager import ConversationManager
-from .core.rag_service import rag_service
 from .routes.auth import router as auth_router
 from .routes.documents import router as documents_router
 from .routes.setup import router as setup_router
@@ -1124,8 +1123,7 @@ async def chat_with_document(
         # Get enhanced context if document RAG is enabled
         if chat_request.use_documents:
             try:
-                from .core.rag_service import rag_service
-                rag_context = rag_service.get_enhanced_context(
+                rag_context = enhanced_context_service.get_enhanced_context(
                     user_message=enhanced_message,
                     user_id=current_user.id,
                     conversation_id=None,

@@ -861,5 +861,76 @@ class EnhancedContextService:
 
         return "\n".join(prompt_parts)
 
+    def suggest_related_documents(
+        self,
+        query: str,
+        user_id: int,
+        exclude_documents: Optional[List[str]] = None,
+        max_suggestions: int = 3,
+        db: Session = None
+    ) -> List[Dict[str, Any]]:
+        """Suggest documents that might be relevant to a query.
+
+        Args:
+            query: Search query
+            user_id: User ID
+            exclude_documents: Document IDs to exclude from suggestions
+            max_suggestions: Maximum number of suggestions
+            db: Database session
+
+        Returns:
+            List of suggested documents with relevance scores
+        """
+        if db is None:
+            db = next(get_db())
+
+        try:
+            # Get search results
+            search_results = document_service.search_documents(
+                query=query,
+                user_id=user_id,
+                top_k=max_suggestions * 3,  # Get more results to filter
+                similarity_threshold=0.2,  # Lower threshold for suggestions
+                db=db
+            )
+
+            # Group by document and get best score per document
+            document_scores = {}
+            for result in search_results:
+                doc_id = result['document_id']
+                if exclude_documents and doc_id in exclude_documents:
+                    continue
+
+                current_score = document_scores.get(doc_id, {}).get('similarity_score', 0)
+                if result['similarity_score'] > current_score:
+                    document_scores[doc_id] = {
+                        'document_id': doc_id,
+                        'filename': result['document_filename'],
+                        'similarity_score': result['similarity_score'],
+                        'relevant_chunk': result['text_content'][:200] + "..." if len(result['text_content']) > 200 else result['text_content']
+                    }
+
+            # Sort by similarity and return top suggestions
+            suggestions = sorted(
+                document_scores.values(),
+                key=lambda x: x['similarity_score'],
+                reverse=True
+            )[:max_suggestions]
+
+            return suggestions
+
+        except Exception as e:
+            logger.error(f"Error suggesting related documents: {e}")
+            return []
+
+    def format_rag_prompt(
+        self,
+        user_message: str,
+        context: Dict[str, Any],
+        character_instructions: Optional[str] = None
+    ) -> str:
+        """Alias for format_enhanced_prompt for backward compatibility."""
+        return self.format_enhanced_prompt(user_message, context, character_instructions)
+
 # Global Enhanced Context Service instance
 enhanced_context_service = EnhancedContextService()
