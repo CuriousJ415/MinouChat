@@ -42,7 +42,7 @@ class ConversationService:
         
         # Create new conversation
         conversation = Conversation(
-            persona_id=1,  # Use a default persona ID for now
+            personality_id=None,  # Personality is optional for chat conversations
             title=f"Conversation with {character_id}",
             conversation_data={
                 "character_id": character_id,

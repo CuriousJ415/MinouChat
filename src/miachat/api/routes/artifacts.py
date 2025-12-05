@@ -396,7 +396,10 @@ async def generate_document_analysis(
             conflicts_detected = enhanced_context.get('conflicts_detected', [])
 
             if not document_chunks:
-                raise HTTPException(status_code=404, detail="No documents found to analyze")
+                raise HTTPException(
+                    status_code=400,
+                    detail="No documents uploaded. Please upload documents first using the document upload feature, or use 'Export Conversation' to save your chat instead."
+                )
 
             # Generate the actual analysis content using Enhanced Context Service
             document_names = [source.get('filename', 'Unknown') for source in sources]

@@ -122,7 +122,7 @@ class Conversation(Base):
     __tablename__ = 'conversations'
 
     id = Column(Integer, primary_key=True)
-    personality_id = Column(Integer, ForeignKey('personalities.id'), nullable=False)
+    personality_id = Column(Integer, ForeignKey('personalities.id'), nullable=True)
     title = Column(String, nullable=True)  # Optional conversation title
     started_at = Column(DateTime, default=datetime.utcnow)
     ended_at = Column(DateTime, nullable=True)
@@ -206,7 +206,9 @@ class User(Base):
     username = Column(String(50), nullable=False, unique=True)
     email = Column(String(120), nullable=False, unique=True)
     password_hash = Column(String(128), nullable=False)
-    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, nullable=True)
+
     # Relationships
     documents = relationship('Document', back_populates='user', cascade='all, delete-orphan')
     settings = relationship('UserSettings', back_populates='user', cascade='all, delete-orphan', uselist=False)
@@ -215,7 +217,9 @@ class User(Base):
         return {
             'id': self.id,
             'username': self.username,
-            'email': self.email
+            'email': self.email,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None
         }
 
 class File(Base):
