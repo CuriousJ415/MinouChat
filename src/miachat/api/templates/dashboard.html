@@ -1,220 +1,615 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - MiaChat</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .navbar-brand {
-            font-weight: bold;
-            font-size: 1.5rem;
-        }
-        .dashboard-card {
-            transition: all 0.3s;
-            border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
-        }
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .persona-card {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-    </style>
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-comments me-2"></i>MiaChat
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/chat">Chat</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/persona">Personas</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i>{{ user.username if user else 'User' }}
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/settings">Settings</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/auth/logout">Logout</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <!-- Main Content -->
-    <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col-12">
-                <h2>Welcome back, {{ user.username if user else 'User' }}!</h2>
-                <p class="text-muted">Here's what's happening with your AI personas.</p>
-            </div>
-        </div>
+{% block title %}Dashboard - MinouChat{% endblock %}
 
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card dashboard-card stat-card">
-                    <div class="card-body text-center">
-                        <i class="fas fa-comments fa-3x mb-3"></i>
-                        <h5 class="card-title">Total Conversations</h5>
-                        <h2 class="display-4">0</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card dashboard-card stat-card">
-                    <div class="card-body text-center">
-                        <i class="fas fa-users fa-3x mb-3"></i>
-                        <h5 class="card-title">Available Personas</h5>
-                        <h2 class="display-4">2</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card dashboard-card stat-card">
-                    <div class="card-body text-center">
-                        <i class="fas fa-calendar-day fa-3x mb-3"></i>
-                        <h5 class="card-title">Messages Today</h5>
-                        <h2 class="display-4">0</h2>
-                    </div>
-                </div>
-            </div>
-        </div>
+{% set active_page = 'dashboard' %}
 
-        <!-- Content Grid -->
-        <div class="row">
-            <!-- Available Personas -->
-            <div class="col-md-6">
-                <div class="card dashboard-card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Available Personas</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <div class="card persona-card">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-compass fa-2x mb-2"></i>
-                                        <h6>Sage</h6>
-                                        <small>Coach</small>
-                                        <div class="mt-2">
-                                            <a href="/chat" class="btn btn-light btn-sm">Chat Now</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <div class="card persona-card">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-clipboard-list fa-2x mb-2"></i>
-                                        <h6>Mia</h6>
-                                        <small>Personal Assistant</small>
-                                        <div class="mt-2">
-                                            <a href="/chat" class="btn btn-light btn-sm">Chat Now</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+{% block head %}
+<style>
+    .dashboard-content {
+        padding: var(--space-8) 0;
+    }
 
-            <!-- Quick Actions -->
-            <div class="col-md-6">
-                <div class="card dashboard-card mb-4">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <a href="/chat" class="btn btn-primary">
-                                <i class="fas fa-comments me-2"></i>Start New Conversation
-                            </a>
-                            <a href="/documents" class="btn btn-outline-info">
-                                <i class="fas fa-file-alt me-2"></i>Manage Documents
-                            </a>
-                            <a href="/persona" class="btn btn-outline-primary">
-                                <i class="fas fa-users me-2"></i>Manage Personas
-                            </a>
-                            <a href="/settings" class="btn btn-outline-secondary">
-                                <i class="fas fa-cog me-2"></i>Settings
-                            </a>
-                        </div>
-                    </div>
-                </div>
+    .welcome-section {
+        margin-bottom: var(--space-8);
+        position: relative;
+    }
 
-                <!-- System Status -->
-                <div class="card dashboard-card">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>System Status</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-2">
-                            <span class="badge bg-success me-2">✓</span>
-                            <span>AI Characters Loaded</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge bg-success me-2">✓</span>
-                            <span>Database Connected</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge bg-success me-2">✓</span>
-                            <span>Ollama Available (Local)</span>
-                        </div>
-                        <hr>
-                        <h6 class="text-muted mb-2">Cloud Services:</h6>
-                        <div class="mb-2">
-                            <span class="badge bg-warning me-2">⚬</span>
-                            <span>OpenAI API (Configure in Settings)</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge bg-warning me-2">⚬</span>
-                            <span>Anthropic API (Configure in Settings)</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge bg-warning me-2">⚬</span>
-                            <span>OpenRouter API (Configure in Settings)</span>
-                        </div>
-                        <hr>
-                        <p class="text-muted mb-0">
-                            <i class="fas fa-shield-alt me-1"></i>
-                            Local processing ensures complete privacy. Cloud services optional for advanced capabilities.
-                        </p>
-                    </div>
-                </div>
+    .welcome-title {
+        font-size: var(--text-3xl);
+        font-weight: var(--font-light);
+        margin-bottom: var(--space-2);
+        letter-spacing: 0.02em;
+    }
+
+    .welcome-subtitle {
+        color: var(--text-muted);
+        font-weight: var(--font-light);
+    }
+
+    /* Art deco divider after welcome - more visible */
+    .welcome-divider {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        margin-top: var(--space-6);
+        margin-bottom: var(--space-4);
+    }
+
+    .welcome-divider-line {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--text-primary), transparent);
+    }
+
+    .welcome-divider-line.left {
+        width: 60px;
+    }
+
+    .welcome-divider-line.right {
+        flex: 1;
+        max-width: 200px;
+    }
+
+    .welcome-divider-center {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .welcome-divider-diamond {
+        width: 10px;
+        height: 10px;
+        background: var(--bg-primary);
+        border: 1px solid var(--text-primary);
+        transform: rotate(45deg);
+    }
+
+    .welcome-divider-dot {
+        width: 4px;
+        height: 4px;
+        background: var(--text-primary);
+        border-radius: 50%;
+    }
+
+    /* Art deco corner accents for cards */
+    .deco-card {
+        position: relative;
+    }
+
+    .deco-card::before,
+    .deco-card::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-color: var(--text-muted);
+        border-style: solid;
+        pointer-events: none;
+    }
+
+    .deco-card::before {
+        top: -1px;
+        left: -1px;
+        border-width: 1px 0 0 1px;
+    }
+
+    .deco-card::after {
+        bottom: -1px;
+        right: -1px;
+        border-width: 0 1px 1px 0;
+    }
+
+    /* Chevron section divider */
+    .section-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        margin: var(--space-6) 0;
+        color: var(--text-muted);
+    }
+
+    .section-divider-chevron {
+        display: flex;
+        gap: 2px;
+    }
+
+    .section-divider-chevron span {
+        display: block;
+        width: 8px;
+        height: 1px;
+        background: var(--text-muted);
+    }
+
+    .section-divider-chevron span:first-child {
+        transform: rotate(30deg) translateY(2px);
+    }
+
+    .section-divider-chevron span:last-child {
+        transform: rotate(-30deg) translateY(2px);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--space-6);
+        margin-bottom: var(--space-8);
+    }
+
+    .stat-card {
+        position: relative;
+        background: var(--bg-primary);
+        padding: var(--space-5);
+        border: 1px solid var(--border-color);
+        transition: all var(--transition-fast);
+    }
+
+    .stat-card:hover {
+        border-color: var(--text-primary);
+    }
+
+    .stat-card.deco-card {
+        padding: var(--space-6);
+    }
+
+    .stat-value {
+        font-size: var(--text-3xl);
+        font-weight: var(--font-light);
+        margin-bottom: var(--space-1);
+        letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .quick-actions {
+        margin-bottom: var(--space-8);
+    }
+
+    .section-title {
+        font-size: var(--text-sm);
+        font-weight: var(--font-normal);
+        margin-bottom: var(--space-4);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+    }
+
+    .section-title svg {
+        stroke-width: 1;
+    }
+
+    .action-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+    }
+
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-5);
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 0;
+        font-size: var(--text-sm);
+        font-weight: var(--font-light);
+        color: var(--text-primary);
+        text-decoration: none;
+        transition: all var(--transition-fast);
+        letter-spacing: 0.02em;
+    }
+
+    .action-btn:hover {
+        background: var(--bg-secondary);
+        border-color: var(--text-primary);
+        color: var(--text-primary);
+    }
+
+    .action-btn.primary {
+        background: var(--bg-inverse);
+        border-color: var(--bg-inverse);
+        color: var(--text-inverse);
+    }
+
+    .action-btn.primary:hover {
+        opacity: 0.9;
+    }
+
+    .action-btn svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1;
+    }
+
+    .recent-section {
+        margin-bottom: var(--space-8);
+    }
+
+    .recent-list {
+        background: var(--bg-primary);
+        border-left: 1px solid var(--border-color);
+    }
+
+    .recent-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+        border-bottom: 1px solid var(--border-subtle);
+        transition: all var(--transition-fast);
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .recent-item:last-child {
+        border-bottom: none;
+    }
+
+    .recent-item:hover {
+        background: var(--bg-secondary);
+        border-left: 2px solid var(--text-primary);
+        margin-left: -1px;
+    }
+
+    .recent-avatar {
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--border-color);
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: var(--font-light);
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        flex-shrink: 0;
+    }
+
+    .recent-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .recent-title {
+        font-weight: var(--font-normal);
+        margin-bottom: var(--space-1);
+        letter-spacing: 0.02em;
+    }
+
+    .recent-preview {
+        font-size: var(--text-sm);
+        font-weight: var(--font-light);
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .recent-time {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        white-space: nowrap;
+        letter-spacing: 0.05em;
+    }
+
+    .status-section {
+        background: var(--bg-primary);
+        border-left: 1px solid var(--border-color);
+        padding: var(--space-4) var(--space-6);
+    }
+
+    .status-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2) 0;
+        font-size: var(--text-sm);
+        font-weight: var(--font-light);
+    }
+
+    .status-item .status-dot {
+        flex-shrink: 0;
+        width: 6px;
+        height: 6px;
+    }
+
+    .status-divider {
+        height: 1px;
+        background: var(--border-subtle);
+        margin: var(--space-3) 0;
+    }
+
+    .status-note {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-2);
+        font-size: var(--text-sm);
+        font-weight: var(--font-light);
+        color: var(--text-muted);
+        margin-top: var(--space-3);
+    }
+
+    .status-note svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        margin-top: 2px;
+        stroke-width: 1;
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container dashboard-content">
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+        <h1 class="welcome-title">Welcome back</h1>
+        <div class="welcome-divider">
+            <div class="welcome-divider-line left"></div>
+            <div class="welcome-divider-center">
+                <div class="welcome-divider-dot"></div>
+                <div class="welcome-divider-diamond"></div>
+                <div class="welcome-divider-dot"></div>
             </div>
+            <div class="welcome-divider-line right"></div>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card deco-card">
+            <div class="stat-value" id="stat-conversations">0</div>
+            <div class="stat-label">Conversations</div>
+        </div>
+        <div class="stat-card deco-card">
+            <div class="stat-value" id="stat-personas">0</div>
+            <div class="stat-label">Personas</div>
+        </div>
+        <div class="stat-card deco-card">
+            <div class="stat-value" id="stat-documents">0</div>
+            <div class="stat-label">Documents</div>
+        </div>
+        <div class="stat-card deco-card">
+            <div class="stat-value" id="stat-facts">0</div>
+            <div class="stat-label">Learned Facts</div>
+        </div>
+    </div>
+
+    <!-- Section Divider -->
+    <div class="section-divider">
+        <div class="section-divider-chevron"><span></span><span></span></div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Quick Actions
+        </h2>
+        <div class="action-grid">
+            <a href="/chat" class="action-btn primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                New Chat
+            </a>
+            <a href="/documents" class="action-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Upload Document
+            </a>
+            <a href="/personas" class="action-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Manage Personas
+            </a>
+            <a href="/memory" class="action-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+                Memory & Facts
+            </a>
+            <a href="/settings" class="action-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-6);">
+        <!-- Recent Conversations -->
+        <div class="recent-section">
+            <h2 class="section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Recent Conversations
+            </h2>
+            <div class="recent-list" id="recent-conversations">
+                <!-- Will be populated by JS -->
+                <div class="empty-state" style="padding: 2rem; text-align: center;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom: 1rem; color: #888;">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <p style="font-size: 1.125rem; font-weight: 500; margin-bottom: 0.5rem;">No conversations yet</p>
+                    <p style="color: #888; margin-bottom: 1.5rem; max-width: 300px;">Start chatting with a persona to see your conversations here.</p>
+                    <a href="/chat" class="btn btn-primary" style="display: inline-flex; padding: 0.5rem 1rem; background: #111; color: #fff; border-radius: 8px; text-decoration: none;">Start a Chat</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="status-section">
+            <h2 class="section-title" style="margin-bottom: var(--space-4);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                System Status
+            </h2>
+
+            <div class="status-item">
+                <span class="status-dot status-dot-success"></span>
+                <span>AI Personas Ready</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot status-dot-success"></span>
+                <span>Database Connected</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot status-dot-success" id="ollama-status"></span>
+                <span>Ollama Available (Local)</span>
+            </div>
+
+            <div class="status-divider"></div>
+
+            <p class="text-sm text-muted mb-2">Cloud Services (Optional):</p>
+            <div class="status-item">
+                <span class="status-dot status-dot-muted" id="openai-status"></span>
+                <span>OpenAI API</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot status-dot-muted" id="anthropic-status"></span>
+                <span>Anthropic API</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot status-dot-muted" id="openrouter-status"></span>
+                <span>OpenRouter API</span>
+            </div>
+
+            <div class="status-note">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span>Local processing keeps your data private. Cloud services are optional.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Onboarding Script -->
+<script src="{{ url_for('static', path='js/onboarding.js') }}"></script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load dashboard data
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Fetch stats
+        try {
+            const response = await fetch('/api/dashboard/stats');
+            if (response.ok) {
+                const stats = await response.json();
+                document.getElementById('stat-conversations').textContent = stats.conversations || 0;
+                document.getElementById('stat-personas').textContent = stats.personas || 0;
+                document.getElementById('stat-documents').textContent = stats.documents || 0;
+            }
+        } catch (e) {
+            console.log('Could not load stats');
+        }
+
+        // Fetch personas for onboarding
+        try {
+            const response = await fetch('/api/characters');
+            if (response.ok) {
+                const personas = await response.json();
+                document.getElementById('stat-personas').textContent = personas.length || 0;
+
+                // Initialize onboarding with personas
+                OnboardingManager.init({
+                    personas: personas,
+                    username: '{{ user.username if user else "there" }}',
+                    isFirstLogin: {{ 'true' if is_first_login else 'false' }}
+                });
+            }
+        } catch (e) {
+            console.log('Could not load personas');
+        }
+
+        // Fetch facts count
+        try {
+            const response = await fetch('/api/facts');
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('stat-facts').textContent = data.count || 0;
+            }
+        } catch (e) {
+            console.log('Could not load facts count');
+        }
+
+        // Fetch recent conversations
+        try {
+            const response = await fetch('/api/conversations/recent?limit=5');
+            if (response.ok) {
+                const conversations = await response.json();
+                if (conversations.length > 0) {
+                    const container = document.getElementById('recent-conversations');
+                    container.innerHTML = conversations.map(conv => `
+                        <a href="/chat?session_id=${conv.id}" class="recent-item">
+                            <div class="recent-avatar">${(conv.character_name || 'A')[0].toUpperCase()}</div>
+                            <div class="recent-info">
+                                <div class="recent-title">${conv.character_name || 'Chat'}</div>
+                                <div class="recent-preview">${conv.last_message || 'No messages yet'}</div>
+                            </div>
+                            <div class="recent-time">${formatTime(conv.updated_at)}</div>
+                        </a>
+                    `).join('');
+                }
+            }
+        } catch (e) {
+            console.log('Could not load recent conversations');
+        }
+    });
+
+    function formatTime(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now - date;
+
+        if (diff < 3600000) {
+            const mins = Math.floor(diff / 60000);
+            return mins <= 1 ? 'Just now' : `${mins}m ago`;
+        } else if (diff < 86400000) {
+            const hours = Math.floor(diff / 3600000);
+            return `${hours}h ago`;
+        } else if (diff < 604800000) {
+            const days = Math.floor(diff / 86400000);
+            return `${days}d ago`;
+        } else {
+            return date.toLocaleDateString();
+        }
+    }
+</script>
+{% endblock %}

@@ -5,11 +5,14 @@ from .core.templates import render_template
 from .core.static import mount_static_files
 from .core.character_manager import character_manager
 from .core.llm_client import llm_client
+from sqlalchemy.orm import Session
 from ..database.config import get_db
 from ..database.models import Base
 from .core.auth import require_session_auth, get_current_user_from_session
 from .core.settings_service import settings_service
+from .core.style_overrides import get_style_overrides
 from .core.conversation_service import conversation_service
+from .core.enhanced_context_service import enhanced_context_service
 from .routes.auth import router as auth_router
 from .routes.documents import router as documents_router
 from .routes.setup import router as setup_router
@@ -118,6 +121,30 @@ app.include_router(artifacts_router, prefix="/api/artifacts", tags=["artifacts"]
 from .routes.reminders import router as reminders_router
 app.include_router(reminders_router, prefix="/api/reminders", tags=["reminders"])
 
+# World Info routes (lorebook/keyword-triggered context)
+from .routes.world_info import router as world_info_router
+app.include_router(world_info_router)
+
+# Persistent Memory routes
+from .routes.memory import router as memory_router
+app.include_router(memory_router)
+
+# Simplified Context System routes (Setting, Backstory, Facts)
+from .routes.setting import router as setting_router
+app.include_router(setting_router)
+
+from .routes.backstory import router as backstory_router
+app.include_router(backstory_router)
+
+from .routes.facts import router as facts_router
+app.include_router(facts_router)
+
+# Import new services for chat integration
+from .core.token_service import token_service
+from .core.world_info_service import world_info_service
+from .core.persistent_memory_service import persistent_memory_service
+from .core.fact_extraction_service import fact_extraction_service
+
 # conversation_service is imported from .core.conversation_service
 
 # Create database tables on startup
@@ -149,15 +176,15 @@ class ChatResponse(BaseModel):
 
 class CharacterCreateRequest(BaseModel):
     name: str
-    persona: str
-    system_prompt: str
+    persona: Optional[str] = ""
+    system_prompt: Optional[str] = ""
     role: str = "assistant"
     category: str = "General"
     backstory: str = ""
     gender: str = ""
     tags: List[str] = []
-    traits: Optional[Dict[str, float]] = None  # Dynamic traits
-    communication_style: Optional[Dict[str, float]] = None  # Dynamic comm styles
+    traits: Optional[Dict[str, Any]] = None  # Dynamic traits
+    communication_style: Optional[Dict[str, Any]] = None  # Dynamic comm styles (can be strings or floats)
     llm_config: Optional[Dict[str, Any]] = None
     llm_model_config: Optional[Dict[str, Any]] = None
     llm_provider: Optional[str] = None
@@ -314,8 +341,18 @@ async def config_page(request: Request, db = Depends(get_db)):
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
-    
+
     return await render_template(request, "config", user=current_user)
+
+@app.get("/memory")
+async def memory_page(request: Request, db = Depends(get_db)):
+    """Memory & Facts management page."""
+    # Check if user is authenticated
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    return await render_template(request, "memory", user=current_user)
 
 @app.get("/test-image")
 async def test_image_page(request: Request):
@@ -351,24 +388,29 @@ async def favicon():
     favicon_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\xf8\x00\x00\x00\x01\x00\x01\x00\x00\x00\x00\x7f\x06\xde\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_data, media_type="image/x-icon")
 
-@app.get("/persona")
-async def persona_list_page(request: Request, db = Depends(get_db)):
-    """Persona list page."""
+@app.get("/personas")
+async def personas_list_page(request: Request, db = Depends(get_db)):
+    """Persona list page (primary route)."""
     # Check if user is authenticated
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
-    
+
     personas = character_manager.list_characters()
     return await render_template(request, "persona/list", personas=personas, user=current_user)
+
+@app.get("/persona")
+async def persona_list_page_redirect(request: Request):
+    """Redirect /persona to /personas for consistency."""
+    return RedirectResponse(url="/personas", status_code=302)
 
 @app.get("/persona/create")
 async def create_persona_page(request: Request, db = Depends(get_db)):
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return RedirectResponse(url="/auth/login", status_code=302)
-    # Render the creation form with an empty persona
-    return await render_template(request, "persona/edit", persona={}, user=current_user)
+    # Render the new creation wizard
+    return await render_template(request, "persona/create", user=current_user)
 
 @app.get("/persona/edit/{persona_id}")
 async def edit_persona_page(persona_id: str, request: Request, db = Depends(get_db)):
@@ -378,7 +420,7 @@ async def edit_persona_page(persona_id: str, request: Request, db = Depends(get_
     # Fetch the persona by id
     persona = character_manager.get_character(persona_id)
     if not persona:
-        return RedirectResponse(url="/persona", status_code=302)
+        return RedirectResponse(url="/personas", status_code=302)
     return await render_template(request, "persona/edit", persona=persona, user=current_user)
 
 # API Routes
@@ -468,16 +510,20 @@ async def create_character(request: CharacterCreateRequest):
     """Create a new character card."""
     character_data = request.dict()
 
-    # Normalize traits and communication_style to 0-1 scale if needed
+    # Normalize traits and communication_style
     def normalize_dict(d):
         if not d:
             return d
         norm = {}
         for k, v in d.items():
-            if v > 1.0:
+            # If value is a string (e.g., "warm", "casual"), keep it as-is
+            if isinstance(v, str):
+                norm[k] = v
+            # If numeric and > 1.0, normalize to 0-1 scale
+            elif isinstance(v, (int, float)) and v > 1.0:
                 norm[k] = float(v) / 10.0
             else:
-                norm[k] = float(v)
+                norm[k] = float(v) if isinstance(v, (int, float)) else v
         return norm
     if 'traits' in character_data:
         character_data['traits'] = normalize_dict(character_data['traits'])
@@ -523,16 +569,20 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
         if not character:
             return {"error": "Character not found"}, 404
         update_data = {k: v for k, v in request.dict().items() if v is not None}
-        # Normalize traits and communication_style to 0-1 scale if needed
+        # Normalize traits and communication_style
         def normalize_dict(d):
             if not d:
                 return d
             norm = {}
             for k, v in d.items():
-                if v > 1.0:
+                # If value is a string (e.g., "warm", "casual"), keep it as-is
+                if isinstance(v, str):
+                    norm[k] = v
+                # If numeric and > 1.0, normalize to 0-1 scale
+                elif isinstance(v, (int, float)) and v > 1.0:
                     norm[k] = float(v) / 10.0
                 else:
-                    norm[k] = float(v)
+                    norm[k] = float(v) if isinstance(v, (int, float)) else v
             return norm
         if 'traits' in update_data:
             update_data['traits'] = normalize_dict(update_data['traits'])
@@ -613,6 +663,39 @@ async def get_conversation_history_endpoint(session_id: str, request: Request, d
     except Exception as e:
         logger.error(f"Error getting conversation history: {e}")
         return {"error": str(e)}, 500
+
+@app.get("/api/conversations/recent")
+async def get_recent_conversations(request: Request, limit: int = 5, db = Depends(get_db)):
+    """Get recent conversations for the current user to display on dashboard."""
+    try:
+        # Get current user from session
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return {"conversations": [], "error": "Authentication required"}
+
+        # Get recent conversations
+        conversations = conversation_service.get_recent_conversations(
+            user_id=current_user.id,
+            limit=limit,
+            db=db
+        )
+
+        # Enrich with character names
+        for conv in conversations:
+            if conv.get("character_id"):
+                character = character_manager.get_character(conv["character_id"])
+                if character:
+                    conv["character_name"] = character.get("name", "Unknown")
+                else:
+                    conv["character_name"] = "Unknown Persona"
+            else:
+                conv["character_name"] = "Chat"
+
+        return {"conversations": conversations, "count": len(conversations)}
+
+    except Exception as e:
+        logger.error(f"Error getting recent conversations: {e}")
+        return {"conversations": [], "error": str(e)}
 
 @app.get("/api/models")
 async def get_available_models(privacy_mode: str = "local_only"):
@@ -754,6 +837,17 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         # Add system prompt (always)
         system_prompt_text = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
 
+        # Add style overrides (only for styles that differ from category defaults)
+        try:
+            category = character.get('category', 'Other')
+            communication_style = character.get('communication_style', {})
+            style_overrides = get_style_overrides(category, communication_style)
+            if style_overrides:
+                system_prompt_text += f"\n\n{style_overrides}"
+                logger.info(f"Applied style overrides for category '{category}'")
+        except Exception as e:
+            logger.warning(f"Failed to apply style overrides: {e}")
+
         # Add fallback instruction for when no relevant documents are found
         if request.use_documents and not document_context_used:
             system_prompt_text += "\n\nIMPORTANT: If the user asks about specific information that you don't have access to in your training data or the user's documents, politely acknowledge that you don't have access to this information and offer to help find it through web search or other research methods when those capabilities become available."
@@ -812,6 +906,54 @@ You should be proactive about offering to create documents when it would be help
 
         system_prompt_text += artifact_instructions
 
+        # --- Enhanced RAG: Add Persistent Memory and World Info ---
+        try:
+            # Get model configuration for token budgeting
+            model_config = character.get('model_config', {})
+            model = model_config.get('model', 'llama3.1:8b')
+            provider = model_config.get('provider', 'ollama')
+
+            # Calculate token budgets
+            budgets = token_service.calculate_budget(model, provider)
+
+            # Get persistent memory (always-injected context)
+            persistent_memory_context = persistent_memory_service.build_memory_context(
+                user_id=current_user.id,
+                character_id=request.character_id,
+                token_budget=budgets.get('persistent_memory', 800),
+                insertion_position='after_system_prompt',
+                format_style='sections',
+                db=db
+            )
+
+            if persistent_memory_context:
+                system_prompt_text += f"\n\n{persistent_memory_context}"
+                logger.info(f"Added persistent memory: {token_service.count_tokens(persistent_memory_context)} tokens")
+
+            # Get World Info entries triggered by the user message
+            triggered_world_info = world_info_service.find_triggered_entries(
+                text=request.message,
+                user_id=current_user.id,
+                character_id=request.character_id,
+                token_budget=budgets.get('world_info', 1600),
+                context={'message_count': len(enhanced_context.get('recent_interactions', []))},
+                db=db
+            )
+
+            if triggered_world_info:
+                world_info_context = world_info_service.build_world_info_context(
+                    triggered_entries=triggered_world_info,
+                    token_budget=budgets.get('world_info', 1600),
+                    format_style='sections'
+                )
+                system_prompt_text += f"\n\n{world_info_context}"
+                triggered_keywords = [kw for entry in triggered_world_info for kw in entry.get('matched_keywords', [])]
+                logger.info(f"Added World Info: {len(triggered_world_info)} entries, triggered by: {triggered_keywords[:5]}")
+
+        except Exception as e:
+            logger.warning(f"Enhanced RAG (World Info/Memory) failed: {e}")
+        # --- End Enhanced RAG ---
+
         messages.append({"role": "system", "content": system_prompt_text})
 
         # Use Enhanced Context Service for intelligent message construction
@@ -868,6 +1010,28 @@ You should be proactive about offering to create documents when it would be help
         conversation_service.save_message(session_id, "user", request.message, db)
         conversation_service.save_message(session_id, "assistant", response, db)
 
+        # Fact extraction hook - automatically learn facts from conversation
+        try:
+            # Only extract from substantive exchanges (message > 20 chars)
+            if len(request.message) >= 20:
+                import asyncio
+                # Run fact extraction in background (non-blocking)
+                asyncio.create_task(
+                    fact_extraction_service.extract_facts_from_message(
+                        user_message=request.message,
+                        assistant_response=response,
+                        user_id=current_user.id,
+                        character_id=request.character_id,
+                        conversation_id=session_id,
+                        message_id=None,  # No specific message ID for now
+                        db=db
+                    )
+                )
+                logger.debug(f"Triggered fact extraction for conversation {session_id}")
+        except Exception as e:
+            # Don't fail the chat if fact extraction fails
+            logger.warning(f"Fact extraction hook failed: {e}")
+
         # Save additional reasoning context if available
         if reasoning_chain:
             try:
@@ -909,13 +1073,13 @@ You should be proactive about offering to create documents when it would be help
 
 @app.post("/api/chat/with-document")
 async def chat_with_document(
+    request_obj: Request,
     message: str = Form(...),
     character_id: str = Form(...),
     session_id: Optional[str] = Form(None),
     use_documents: bool = Form(True),
     file: Optional[UploadFile] = File(None),
-    request_obj: Request = None,
-    db = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Send a message with optional document upload to a character and get a response."""
     try:
@@ -1008,6 +1172,7 @@ async def chat_with_document(
         document_context_used = False
         sources = []
         context_summary = None
+        migration_available = False
 
         # Enhanced message with document analysis
         enhanced_message = chat_request.message
@@ -1113,7 +1278,7 @@ You should be proactive about offering to create documents when it would be help
         # Try to use semantic memory service for intelligent context retrieval
         try:
             from .core.memory_service import memory_service
-            from .core.conversation_service import conversation_service
+            # conversation_service already imported at module level
 
             # Get database conversation for semantic memory
             db_conversation = conversation_service.get_or_create_conversation(chat_request.character_id, db)
@@ -1197,7 +1362,7 @@ You should be proactive about offering to create documents when it would be help
             "character_name": character['name'],
             "character_id": character['id'],
             "session_id": session_id,
-            "character_version": session.character_version,
+            "character_version": session.get('character_version', 1),
             "migration_available": migration_available,
             "document_context_used": document_context_used,
             "sources": sources,
@@ -1219,10 +1384,19 @@ You should be proactive about offering to create documents when it would be help
         return {"error": str(e)}, 500
 
 @app.post("/api/suggest_system_prompt")
-async def suggest_system_prompt(request: Request):
+async def suggest_system_prompt(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     backstory = data.get('backstory', '')
     category = data.get('category', '')
+
+    # Get user's assistant LLM config
+    current_user = await get_current_user_from_session(request, db)
+    if current_user:
+        model_config = settings_service.get_assistant_llm_config(current_user.id, db)
+    else:
+        # Default config for unauthenticated users
+        model_config = {"provider": "ollama", "model": "llama3.1:8b", "temperature": 0.7, "max_tokens": 512}
+
     # Prompt for the LLM
     prompt = f"""
 Given the following backstory and category for a character, generate a concise, effective system prompt for an AI assistant to roleplay as this character. The system prompt should:
@@ -1234,7 +1408,6 @@ Given the following backstory and category for a character, generate a concise, 
 Backstory: {backstory}
 Category: {category}
 """
-    model_config = {"provider": "ollama", "model": "llama3:8b", "temperature": 0.7, "max_tokens": 128}
     response = llm_client.generate_response_with_config(
         messages=[{"role": "user", "content": prompt}],
         system_prompt="You are an expert at writing system prompts for AI roleplay based on character backstories and categories.",
@@ -1258,8 +1431,20 @@ Category: {category}
     return JSONResponse({"system_prompt": system_prompt_text})
 
 @app.post("/api/suggest_traits", response_model=SuggestTraitsResponse)
-async def suggest_traits(request: SuggestTraitsRequest = Body(...)):
+async def suggest_traits(
+    request_obj: Request,
+    request: SuggestTraitsRequest = Body(...),
+    db: Session = Depends(get_db)
+):
     """Suggest personality traits and communication style from a backstory using the LLM."""
+    # Get user's assistant LLM config
+    current_user = await get_current_user_from_session(request_obj, db)
+    if current_user:
+        model_config = settings_service.get_assistant_llm_config(current_user.id, db)
+    else:
+        # Default config for unauthenticated users
+        model_config = {"provider": "ollama", "model": "llama3.1:8b", "temperature": 0.7, "max_tokens": 512}
+
     prompt = f"""
 Given the following backstory for a character, suggest a set of core personality traits (as a dictionary of trait name to value from 0.0 to 1.0) and a communication style (as a dictionary of style name to value from 0.0 to 1.0). Only return valid JSON with two keys: 'traits' and 'communication_style'.
 
@@ -1268,7 +1453,6 @@ IMPORTANT: Only use the following traits: {', '.join(FIXED_TRAITS)}. Only use th
 Backstory: {request.backstory}
 Category: {request.category or ''}
 """
-    model_config = {"provider": "ollama", "model": "llama3:8b", "temperature": 0.7, "max_tokens": 512}
     response = llm_client.generate_response_with_config(
         messages=[{"role": "user", "content": prompt}],
         system_prompt="You are an expert at analyzing character backstories and suggesting realistic, balanced personality traits and communication styles in JSON format.",
@@ -1362,17 +1546,56 @@ async def test_llm_connection(request: TestConnectionRequest):
     result = settings_service.test_provider_connection(request.provider, request.config)
     return result
 
+@app.get("/api/settings/application-llm")
+async def get_application_llm_settings(request: Request, db = Depends(get_db)):
+    """Get current Application LLM settings for the authenticated user.
+
+    This is the LLM used for app-wide utility tasks like generating persona prompts,
+    suggesting traits, etc. Separate from per-persona chat LLMs.
+    """
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    config = settings_service.get_assistant_llm_config(current_user.id, db)
+    return {
+        "provider": config.get("provider", "ollama"),
+        "model": config.get("model", "llama3.1:8b")
+    }
+
+@app.post("/api/settings/application-llm")
+async def update_application_llm_settings(request: Request, db = Depends(get_db)):
+    """Update Application LLM settings for the authenticated user.
+
+    This is the LLM used for app-wide utility tasks like generating persona prompts,
+    suggesting traits, etc. Separate from per-persona chat LLMs.
+    """
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    data = await request.json()
+    provider = data.get("provider", "ollama")
+    model = data.get("model", "llama3.1:8b")
+
+    success = settings_service.update_assistant_llm_config(current_user.id, db, provider, model)
+
+    if success:
+        return {"success": True, "message": "Application LLM settings updated successfully"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to update settings")
+
 @app.get("/api/settings/user")
 async def get_user_settings(request: Request, db = Depends(get_db)):
     """Get all user settings for the authenticated user."""
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         return {"error": "Authentication required"}, 401
-    
+
     settings = settings_service.get_user_settings(current_user.id, db)
     if not settings:
         return {"message": "No settings found, using defaults"}
-    
+
     # Return settings without sensitive data
     return {
         "theme": settings.theme,

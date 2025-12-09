@@ -260,6 +260,11 @@ class Document(Base):
     is_processed = Column(Integer, default=0)  # Boolean: 0=False, 1=True
     processing_status = Column(String(50), default='pending')  # pending, processing, completed, failed
     doc_metadata = Column(MutableDict.as_mutable(JSON), default=dict)
+
+    # Priority and RAG settings (for enhanced context management)
+    priority = Column(Integer, default=100)  # Higher = more important in context selection
+    always_include = Column(Integer, default=0)  # Boolean: always include in RAG context
+    character_associations = Column(JSON, default=list)  # Character IDs this doc applies to
     
     # Relationships
     user = relationship('User', back_populates='documents')
@@ -326,10 +331,14 @@ class UserSettings(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
 
-    # LLM Provider Settings
+    # LLM Provider Settings (for chat with personas)
     default_llm_provider = Column(String(50), default='ollama')
     default_model = Column(String(100), default='llama3:8b')
     privacy_mode = Column(String(20), default='local_only')
+
+    # Assistant LLM Settings (for app utility tasks like generating prompts)
+    assistant_llm_provider = Column(String(50), default='ollama')
+    assistant_llm_model = Column(String(100), default='llama3.1:8b')
 
     # Provider-specific API settings
     ollama_url = Column(String(255), default='http://localhost:11434')
@@ -358,6 +367,8 @@ class UserSettings(Base):
             'default_llm_provider': self.default_llm_provider,
             'default_model': self.default_model,
             'privacy_mode': self.privacy_mode,
+            'assistant_llm_provider': self.assistant_llm_provider or 'ollama',
+            'assistant_llm_model': self.assistant_llm_model or 'llama3.1:8b',
             'ollama_url': self.ollama_url,
             'openai_model': self.openai_model,
             'anthropic_model': self.anthropic_model,
@@ -476,5 +487,213 @@ class PersonaTimeContext(Base):
             'preferred_meeting_times': self.preferred_meeting_times,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
+        }
+
+
+class WorldInfoEntry(Base):
+    """World Info / Lorebook entry for keyword-triggered context injection.
+
+    Similar to KoboldCpp's World Info feature - when keywords in user messages
+    match an entry's keywords, the entry's content is automatically injected
+    into the context.
+    """
+    __tablename__ = 'world_info_entries'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=True)  # NULL = global entry for all characters
+
+    # Entry metadata
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    category = Column(String(100))  # e.g., "lore", "technical", "character", "location"
+
+    # Trigger configuration
+    keywords = Column(JSON, nullable=False)  # ["keyword1", "keyword2"]
+    regex_pattern = Column(String(500))  # Optional regex trigger pattern
+    case_sensitive = Column(Integer, default=0)  # Boolean: 0=case insensitive
+    match_whole_word = Column(Integer, default=1)  # Boolean: 1=whole word only
+
+    # Content to inject
+    content = Column(Text, nullable=False)
+
+    # Priority and activation
+    priority = Column(Integer, default=100)  # Higher = injected first when budget limited
+    is_enabled = Column(Integer, default=1)  # Boolean
+    insertion_order = Column(Integer, default=0)  # Position in prompt (0=before other context)
+
+    # Token management
+    token_count = Column(Integer)  # Cached token count for budget calculations
+    max_tokens = Column(Integer)  # Optional per-entry token limit
+
+    # Conditional activation (optional advanced features)
+    activation_conditions = Column(MutableDict.as_mutable(JSON), default=dict)
+    # e.g., {"min_messages": 5, "requires_character": "mia", "time_range": {...}}
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='world_info_entries')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'name': self.name,
+            'description': self.description,
+            'category': self.category,
+            'keywords': self.keywords,
+            'regex_pattern': self.regex_pattern,
+            'case_sensitive': bool(self.case_sensitive),
+            'match_whole_word': bool(self.match_whole_word),
+            'content': self.content,
+            'priority': self.priority,
+            'is_enabled': bool(self.is_enabled),
+            'insertion_order': self.insertion_order,
+            'token_count': self.token_count,
+            'max_tokens': self.max_tokens,
+            'activation_conditions': self.activation_conditions,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+
+class PersistentMemory(Base):
+    """User-configurable persistent memory for always-injected context.
+
+    Similar to KoboldCpp's Memory feature - content that is always included
+    in the prompt, regardless of keywords or conversation context.
+    """
+    __tablename__ = 'persistent_memories'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=True)  # NULL = applies to all characters
+
+    # Memory content
+    name = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+
+    # Configuration
+    is_enabled = Column(Integer, default=1)  # Boolean
+    priority = Column(Integer, default=100)  # Higher = injected first
+    insertion_position = Column(String(50), default='before_conversation')
+    # Options: 'start', 'after_system_prompt', 'before_conversation', 'before_user_message'
+
+    # Token management
+    token_count = Column(Integer)  # Cached token count
+    max_tokens = Column(Integer)  # Optional token limit
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='persistent_memories')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'name': self.name,
+            'content': self.content,
+            'is_enabled': bool(self.is_enabled),
+            'priority': self.priority,
+            'insertion_position': self.insertion_position,
+            'token_count': self.token_count,
+            'max_tokens': self.max_tokens,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+
+class BackstoryChunk(Base):
+    """Semantic chunks of character backstory for retrieval.
+
+    When a user saves backstory text for a character, it gets split into
+    chunks and embedded for semantic search. During conversations, relevant
+    backstory is retrieved based on context similarity.
+    """
+    __tablename__ = 'backstory_chunks'
+
+    id = Column(Integer, primary_key=True)
+    character_id = Column(String(36), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+
+    # Chunk content
+    chunk_index = Column(Integer, nullable=False)  # Order within the backstory
+    text_content = Column(Text, nullable=False)
+
+    # Embedding for semantic search
+    embedding_vector = Column(Text)  # JSON-serialized vector
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='backstory_chunks')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'character_id': self.character_id,
+            'user_id': self.user_id,
+            'chunk_index': self.chunk_index,
+            'text_content': self.text_content,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class ConversationFact(Base):
+    """Facts automatically extracted from conversations.
+
+    The system learns about the user through conversation and stores
+    extracted facts here. These can be edited or deleted by the user
+    and are used to provide personalized context.
+    """
+    __tablename__ = 'conversation_facts'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=True, index=True)  # NULL = global fact
+
+    # The fact itself
+    fact_type = Column(String(50))  # 'preference', 'name', 'relationship', 'event', 'trait', 'other'
+    fact_key = Column(String(100))  # e.g., "user_name", "favorite_color", "job_title"
+    fact_value = Column(Text, nullable=False)
+
+    # Source tracking
+    source_conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=True)
+    source_message_id = Column(Integer, nullable=True)
+    confidence = Column(Float, default=1.0)  # How confident we are (0-1)
+
+    # Management
+    is_active = Column(Integer, default=1)  # Boolean - user can disable facts
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='conversation_facts')
+    source_conversation = relationship('Conversation', backref='extracted_facts')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'fact_type': self.fact_type,
+            'fact_key': self.fact_key,
+            'fact_value': self.fact_value,
+            'source_conversation_id': self.source_conversation_id,
+            'confidence': self.confidence,
+            'is_active': bool(self.is_active),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 

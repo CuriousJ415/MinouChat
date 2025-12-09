@@ -18,6 +18,10 @@ from ...database.config import get_db
 from .document_service import document_service
 from .embedding_service import embedding_service
 from .memory_service import memory_service
+from .setting_service import setting_service
+from .backstory_service import backstory_service
+from .fact_extraction_service import fact_extraction_service
+from .security.prompt_sanitizer import prompt_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +31,8 @@ class EnhancedContextService:
     def __init__(
         self,
         max_context_chunks: int = 10,
-        similarity_threshold: float = 0.5,
-        max_context_length: int = 6000,
+        similarity_threshold: float = 0.35,  # Lowered for better recall
+        max_context_length: int = 8000,  # Increased for richer context
         max_recent_interactions: int = 4  # Focus on last 4 interactions
     ):
         """Initialize the Enhanced Context Service.
@@ -43,6 +47,15 @@ class EnhancedContextService:
         self.similarity_threshold = similarity_threshold
         self.max_context_length = max_context_length
         self.max_recent_interactions = max_recent_interactions
+
+        # Context budget allocation (percentages)
+        self.context_budget = {
+            'setting': 0.10,      # 10% for world/location/time
+            'user_facts': 0.15,   # 15% for known user facts
+            'backstory': 0.15,   # 15% for character backstory
+            'conversation': 0.25, # 25% for recent conversation
+            'documents': 0.35    # 35% for document RAG
+        }
 
         # Document reference patterns for natural language parsing
         self.doc_reference_patterns = [
@@ -94,6 +107,9 @@ class EnhancedContextService:
                 'relevant_documents': [],
                 'document_chunks': [],
                 'document_references': [],
+                'setting_context': '',
+                'backstory_context': [],
+                'user_facts': [],
                 'context_summary': '',
                 'reasoning_chain': [],
                 'conflicts_detected': [],
@@ -161,6 +177,48 @@ class EnhancedContextService:
                 )
                 context.update(document_context)
 
+            # Get simplified context system data (setting, backstory, facts)
+            if character_id:
+                # Get setting context
+                setting_ctx = setting_service.format_setting_context(character_id)
+                if setting_ctx:
+                    context['setting_context'] = setting_ctx
+                    if enable_reasoning:
+                        context['reasoning_chain'].append({
+                            'step': 'setting_context',
+                            'thought': "Retrieved character setting/world context"
+                        })
+
+                # Get relevant backstory chunks
+                backstory_chunks = backstory_service.get_relevant_backstory(
+                    character_id=character_id,
+                    user_id=user_id,
+                    query=user_message,
+                    db=db,
+                    top_k=2
+                )
+                if backstory_chunks:
+                    context['backstory_context'] = backstory_chunks
+                    if enable_reasoning:
+                        context['reasoning_chain'].append({
+                            'step': 'backstory_retrieval',
+                            'thought': f"Retrieved {len(backstory_chunks)} relevant backstory chunks"
+                        })
+
+                # Get user facts
+                user_facts = fact_extraction_service.get_user_facts(
+                    user_id=user_id,
+                    character_id=character_id,
+                    db=db
+                )
+                if user_facts:
+                    context['user_facts'] = user_facts
+                    if enable_reasoning:
+                        context['reasoning_chain'].append({
+                            'step': 'user_facts',
+                            'thought': f"Retrieved {len(user_facts)} known facts about user"
+                        })
+
             # Detect conflicts between sources
             if enable_reasoning:
                 conflicts = self._detect_conflicts(
@@ -183,7 +241,10 @@ class EnhancedContextService:
                 document_chunks=context['document_chunks'],
                 document_references=context['document_references'],
                 conflicts=context['conflicts_detected'],
-                user_message=user_message
+                user_message=user_message,
+                setting_context=context.get('setting_context', ''),
+                backstory_context=context.get('backstory_context', []),
+                user_facts=context.get('user_facts', [])
             )
 
             # Final reasoning step
@@ -722,9 +783,12 @@ class EnhancedContextService:
         document_chunks: List[Dict[str, Any]],
         document_references: List[Dict[str, Any]],
         conflicts: List[Dict[str, Any]],
-        user_message: str
+        user_message: str,
+        setting_context: str = '',
+        backstory_context: Optional[List[str]] = None,
+        user_facts: Optional[List[Dict[str, Any]]] = None
     ) -> str:
-        """Create an intelligent context summary for the LLM.
+        """Create an intelligent context summary for the LLM with smart budget allocation.
 
         Args:
             recent_interactions: Recent conversation interactions
@@ -733,89 +797,182 @@ class EnhancedContextService:
             document_references: Parsed document references
             conflicts: Detected conflicts
             user_message: Current user message
+            setting_context: Formatted setting/world context
+            backstory_context: Relevant backstory chunks
+            user_facts: Known facts about the user
 
         Returns:
             Formatted context string
         """
+        backstory_context = backstory_context or []
+        user_facts = user_facts or []
+
         context_parts = []
 
-        # Add user request context
-        context_parts.append("## Current User Request")
-        context_parts.append(f"User Message: {user_message}")
+        # Calculate budget allocations based on max_context_length
+        budgets = {k: int(v * self.max_context_length) for k, v in self.context_budget.items()}
 
-        if document_references:
-            ref_text = ", ".join([ref['reference_text'] for ref in document_references])
-            context_parts.append(f"Document References Detected: {ref_text}")
+        # ============================================
+        # SECTION 1: Setting Context (highest priority - defines the world)
+        # ============================================
+        if setting_context:
+            truncated_setting = self._truncate_to_budget(setting_context, budgets['setting'])
+            context_parts.append(truncated_setting)
+            context_parts.append("")
 
-        context_parts.append("")
+        # ============================================
+        # SECTION 2: User Facts (high priority - personalizes interaction)
+        # ============================================
+        if user_facts:
+            facts_content = []
+            facts_content.append("[What you know about the user - use naturally in conversation]")
 
-        # Add recent conversation context (focused on last 4 interactions)
+            # Sort facts by recency and confidence
+            sorted_facts = sorted(
+                user_facts,
+                key=lambda f: (f.get('confidence', 0.5), f.get('created_at', '')),
+                reverse=True
+            )
+
+            current_length = 0
+            for fact in sorted_facts:
+                safe_value = prompt_sanitizer.sanitize_context_injection(fact.get('fact_value', ''))
+                fact_line = f"- {fact.get('fact_key', 'info')}: {safe_value}"
+                if current_length + len(fact_line) < budgets['user_facts']:
+                    facts_content.append(fact_line)
+                    current_length += len(fact_line)
+                else:
+                    break
+
+            if len(facts_content) > 1:  # More than just the header
+                context_parts.extend(facts_content)
+                context_parts.append("")
+
+        # ============================================
+        # SECTION 3: Relevant Backstory (character context)
+        # ============================================
+        if backstory_context:
+            context_parts.append("[Relevant Background - use naturally, don't explicitly reference]")
+            current_length = 0
+            for chunk in backstory_context:
+                safe_chunk = prompt_sanitizer.sanitize_context_injection(chunk)
+                if current_length + len(safe_chunk) < budgets['backstory']:
+                    context_parts.append(safe_chunk)
+                    current_length += len(safe_chunk)
+                else:
+                    # Truncate this chunk to fit remaining budget
+                    remaining = budgets['backstory'] - current_length
+                    if remaining > 50:  # Only add if meaningful content fits
+                        context_parts.append(safe_chunk[:remaining] + "...")
+                    break
+            context_parts.append("")
+
+        # ============================================
+        # SECTION 4: Recent Conversation Context
+        # ============================================
         if recent_interactions:
-            context_parts.append("## Recent Conversation Context (Last 4 Interactions)")
+            context_parts.append("## Recent Conversation")
+            current_length = 0
+            max_per_message = budgets['conversation'] // max(len(recent_interactions[-4:]), 1)
+
             for msg in recent_interactions[-4:]:
                 role = msg.get('role', 'unknown')
                 content = msg.get('content', '')
-                # Truncate very long messages
-                if len(content) > 300:
-                    content = content[:300] + "..."
-                context_parts.append(f"**{role.title()}**: {content}")
+
+                # Truncate based on available budget per message
+                if len(content) > max_per_message:
+                    content = content[:max_per_message - 3] + "..."
+
+                line = f"**{role.title()}**: {content}"
+                if current_length + len(line) < budgets['conversation']:
+                    context_parts.append(line)
+                    current_length += len(line)
+
             context_parts.append("")
 
-        # Add relevant historical context if different from recent
-        if semantic_context and len(semantic_context) > len(recent_interactions):
-            additional_context = [msg for msg in semantic_context if msg not in recent_interactions]
-            if additional_context:
-                context_parts.append("## Relevant Historical Context")
-                for msg in additional_context[:3]:  # Limit historical context
-                    role = msg.get('role', 'unknown')
-                    content = msg.get('content', '')
-                    if len(content) > 200:
-                        content = content[:200] + "..."
-                    context_parts.append(f"**{role.title()}** (Historical): {content}")
-                context_parts.append("")
+        # Add relevant semantic context if significantly different from recent
+        unique_semantic = []
+        recent_contents = {msg.get('content', '')[:100] for msg in recent_interactions}
+        for msg in semantic_context:
+            content = msg.get('content', '')
+            if content[:100] not in recent_contents:
+                unique_semantic.append(msg)
 
-        # Add document context
+        if unique_semantic:
+            context_parts.append("## Relevant Past Context")
+            for msg in unique_semantic[:2]:  # Limit to 2 unique historical items
+                role = msg.get('role', 'unknown')
+                content = msg.get('content', '')[:150]
+                context_parts.append(f"**{role.title()}** (earlier): {content}...")
+            context_parts.append("")
+
+        # ============================================
+        # SECTION 5: Document RAG Context
+        # ============================================
         if document_chunks:
-            context_parts.append("## Relevant Document Information")
+            context_parts.append("## Relevant Documents")
 
-            # Group chunks by document
-            docs_content = {}
-            for chunk in document_chunks:
+            # Sort chunks by relevance score
+            sorted_chunks = sorted(
+                document_chunks,
+                key=lambda c: c.get('similarity_score', 0),
+                reverse=True
+            )
+
+            # Group by document but maintain relevance order
+            docs_seen = set()
+            current_length = 0
+
+            for chunk in sorted_chunks:
                 doc_filename = chunk['document_filename']
-                if doc_filename not in docs_content:
-                    docs_content[doc_filename] = []
-                docs_content[doc_filename].append(chunk)
+                similarity = chunk.get('similarity_score', 0)
+                content = chunk.get('text_content', '')
 
-            # Format each document's content
-            for doc_filename, chunks in docs_content.items():
-                context_parts.append(f"### From: {doc_filename}")
-                for chunk in chunks[:5]:  # Limit chunks per document
-                    similarity = chunk['similarity_score']
-                    content = chunk['text_content']
-                    # Truncate very long chunks
-                    if len(content) > 1500:
-                        content = content[:1500] + "..."
-                    context_parts.append(f"- (Relevance: {similarity:.2f}) {content}")
-                context_parts.append("")
+                # Skip low-relevance chunks
+                if similarity < self.similarity_threshold:
+                    continue
 
-        # Add conflict information if detected
-        if conflicts:
-            context_parts.append("## ⚠️ Potential Information Conflicts Detected")
-            for conflict in conflicts:
-                context_parts.append(f"- **Conflict**: {conflict.get('conflict_reason', 'Unknown conflict')}")
-                context_parts.append(f"  - Source 1 ({conflict['source1']}): {conflict['snippet1']}")
-                context_parts.append(f"  - Source 2 ({conflict['source2']}): {conflict['snippet2']}")
-            context_parts.append("*Please address any conflicts in your response.*")
+                # Calculate remaining budget
+                remaining_budget = budgets['documents'] - current_length
+                if remaining_budget < 100:
+                    break
+
+                # Add document header if first chunk from this doc
+                if doc_filename not in docs_seen:
+                    docs_seen.add(doc_filename)
+                    header = f"### {doc_filename}"
+                    context_parts.append(header)
+                    current_length += len(header)
+
+                # Truncate content to fit budget
+                max_chunk_size = min(remaining_budget - 50, 1200)  # Reserve space for formatting
+                if len(content) > max_chunk_size:
+                    content = content[:max_chunk_size] + "..."
+
+                # Format with relevance indicator
+                relevance_label = "High" if similarity > 0.7 else "Medium" if similarity > 0.5 else "Low"
+                chunk_line = f"[{relevance_label} relevance] {content}"
+                context_parts.append(chunk_line)
+                current_length += len(chunk_line)
+
             context_parts.append("")
 
-        # Add instructions
-        context_parts.append("---")
-        context_parts.append("**Instructions**: Use the above context to provide accurate, informed responses. "
-                           "Reference specific sources when appropriate. If conflicts exist, acknowledge them "
-                           "and help the user understand the different perspectives. Focus on addressing the "
-                           "user's specific request while considering all available context.")
+        # ============================================
+        # SECTION 6: Conflict Warnings (if any)
+        # ============================================
+        if conflicts:
+            context_parts.append("## ⚠️ Information Conflicts")
+            for conflict in conflicts[:2]:  # Limit to 2 conflicts
+                context_parts.append(f"- {conflict.get('conflict_reason', 'Conflict detected')}")
+            context_parts.append("")
 
         return "\n".join(context_parts)
+
+    def _truncate_to_budget(self, text: str, budget: int) -> str:
+        """Truncate text to fit within a character budget."""
+        if len(text) <= budget:
+            return text
+        return text[:budget - 3] + "..."
 
     def format_enhanced_prompt(
         self,

@@ -1,540 +1,1598 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if persona.name %}Edit {{ persona.name }}{% else %}Create Persona{% endif %} - MiaChat</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .form-range::-webkit-slider-thumb {
-            background: #007bff;
+{% extends "base.html" %}
+{% block title %}Edit {{ persona.name }} - MinouChat{% endblock %}
+{% set active_page = 'personas' %}
+
+{% block head %}
+<style>
+    .edit-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: var(--space-8) var(--space-4);
+    }
+
+    .page-header {
+        margin-bottom: var(--space-8);
+    }
+
+    .page-header h1 {
+        margin-bottom: var(--space-1);
+    }
+
+    .page-header p {
+        color: var(--text-muted);
+    }
+
+    .form-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        margin-bottom: var(--space-6);
+    }
+
+    .form-section-title {
+        font-size: var(--text-base);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-2);
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-4);
+    }
+
+    @media (max-width: 600px) {
+        .form-row {
+            grid-template-columns: 1fr;
         }
-        .form-range::-moz-range-thumb {
-            background: #007bff;
-        }
-    </style>
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-robot"></i> MiaChat
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/chat">Chat</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/persona">Personas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/settings">Settings</a>
-                    </li>
-                </ul>
+    }
+
+    /* Style controls (3-level segmented buttons) */
+    .style-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: var(--space-4);
+    }
+
+    .style-group {
+        margin-bottom: var(--space-3);
+    }
+
+    .style-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-2);
+    }
+
+    .style-label {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        font-weight: var(--font-medium);
+    }
+
+    .style-changed {
+        font-size: var(--text-xs);
+        color: var(--pop-primary);
+        display: none;
+    }
+
+    .style-changed.show {
+        display: inline;
+    }
+
+    .segmented-control {
+        display: flex;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-md);
+        padding: 2px;
+    }
+
+    .segment-btn {
+        flex: 1;
+        padding: var(--space-2) var(--space-3);
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: var(--text-xs);
+        font-weight: var(--font-medium);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        border-radius: var(--radius-sm);
+        text-align: center;
+    }
+
+    .segment-btn:hover {
+        color: var(--text-secondary);
+    }
+
+    .segment-btn.active {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .changes-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: 2px 8px;
+        background: var(--pop-primary);
+        color: white;
+        border-radius: var(--radius-full);
+        font-size: var(--text-xs);
+        font-weight: var(--font-medium);
+    }
+
+    .changes-badge:empty {
+        display: none;
+    }
+
+    /* Slider styles for model config */
+    .slider-group {
+        margin-bottom: var(--space-4);
+    }
+
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-2);
+    }
+
+    .slider-label {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+    }
+
+    .slider-value {
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        min-width: 24px;
+        text-align: right;
+    }
+
+    input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--bg-tertiary);
+        outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--text-primary);
+        cursor: pointer;
+        transition: transform var(--transition-fast);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.1);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--text-primary);
+        cursor: pointer;
+        border: none;
+    }
+
+    .ai-suggest-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-1) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--pop-primary);
+        color: var(--pop-primary);
+        border-radius: var(--radius-md);
+        font-size: var(--text-xs);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .ai-suggest-btn:hover {
+        background: var(--pop-primary);
+        color: white;
+    }
+
+    .ai-suggest-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: var(--space-6);
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    .success-toast {
+        position: fixed;
+        bottom: var(--space-4);
+        right: var(--space-4);
+        background: var(--pop-success);
+        color: white;
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all var(--transition-normal);
+        z-index: 1000;
+    }
+
+    .success-toast.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Collapsible Section */
+    .collapsible-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        padding: var(--space-2) 0;
+        user-select: none;
+    }
+
+    .collapsible-header:hover .form-section-title {
+        color: var(--text-primary);
+    }
+
+    .collapsible-icon {
+        width: 20px;
+        height: 20px;
+        transition: transform var(--transition-fast);
+        color: var(--text-muted);
+    }
+
+    .collapsible-header.open .collapsible-icon {
+        transform: rotate(180deg);
+    }
+
+    .collapsible-content {
+        display: none;
+        padding-top: var(--space-4);
+    }
+
+    .collapsible-content.open {
+        display: block;
+    }
+
+    /* Tabs */
+    .tabs-container {
+        margin-top: var(--space-2);
+    }
+
+    .tab-nav {
+        display: flex;
+        gap: var(--space-1);
+        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: var(--space-4);
+    }
+
+    .tab-btn {
+        padding: var(--space-2) var(--space-4);
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .tab-btn:hover {
+        color: var(--text-secondary);
+    }
+
+    .tab-btn.active {
+        color: var(--text-primary);
+        border-bottom-color: var(--text-primary);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Provider Badges */
+    .provider-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: 2px 6px;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-sm);
+        font-size: 10px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .provider-badge.ollama {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--pop-success);
+    }
+
+    .provider-badge.all {
+        background: rgba(59, 130, 246, 0.15);
+        color: var(--pop-primary);
+    }
+
+    /* Entry List (for World Info and Memory) */
+    .entry-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+    }
+
+    .entry-item {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: var(--space-3);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        transition: all var(--transition-fast);
+    }
+
+    .entry-item:hover {
+        border-color: var(--border-color);
+    }
+
+    .entry-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .entry-name {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-1);
+    }
+
+    .entry-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+    }
+
+    .entry-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-1);
+        margin-top: var(--space-2);
+    }
+
+    .keyword-tag {
+        padding: 2px 8px;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        color: var(--text-secondary);
+    }
+
+    .entry-actions {
+        display: flex;
+        gap: var(--space-2);
+        flex-shrink: 0;
+    }
+
+    .entry-toggle {
+        width: 36px;
+        height: 20px;
+        background: var(--bg-tertiary);
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        position: relative;
+        transition: background var(--transition-fast);
+    }
+
+    .entry-toggle::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: white;
+        border-radius: 50%;
+        top: 2px;
+        left: 2px;
+        transition: transform var(--transition-fast);
+    }
+
+    .entry-toggle.enabled {
+        background: var(--pop-success);
+    }
+
+    .entry-toggle.enabled::after {
+        transform: translateX(16px);
+    }
+
+    .btn-icon-sm {
+        padding: var(--space-1);
+        background: transparent;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .btn-icon-sm:hover {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .btn-icon-sm.danger:hover {
+        border-color: var(--pop-danger);
+        color: var(--pop-danger);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: var(--space-8);
+        color: var(--text-muted);
+    }
+
+    .empty-state i {
+        margin-bottom: var(--space-2);
+        opacity: 0.5;
+    }
+
+    /* Entry Form Modal */
+    .entry-form {
+        display: none;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        margin-bottom: var(--space-4);
+    }
+
+    .entry-form.show {
+        display: block;
+    }
+
+    .entry-form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-4);
+    }
+
+    .entry-form-title {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+    }
+
+    .position-select {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    .position-option {
+        flex: 1;
+        min-width: 120px;
+        padding: var(--space-2) var(--space-3);
+        background: var(--bg-primary);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        text-align: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .position-option:hover {
+        border-color: var(--border-color);
+    }
+
+    .position-option.selected {
+        border-color: var(--text-primary);
+        background: var(--bg-tertiary);
+    }
+
+    .position-option-label {
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+    }
+
+    .position-option-desc {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        margin-top: var(--space-1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="edit-container">
+    <div class="page-header">
+        <h1>Edit {{ persona.name }}</h1>
+        <p>Modify your AI persona's personality and settings</p>
+    </div>
+
+    <form id="persona-form" novalidate>
+        <!-- Basic Information -->
+        <div class="form-card">
+            <h3 class="form-section-title">Basic Information</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name" class="form-label">Name</label>
+                    <input type="text" class="form-input" id="name" name="name"
+                           value="{{ persona.name or '' }}" placeholder="e.g., Sage, Luna, Max" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="category-select" class="form-label">Category</label>
+                    <select class="form-input" id="category-select" name="category">
+                        <option value="Coach">Coach</option>
+                        <option value="Assistant">Assistant</option>
+                        <option value="Friend">Friend</option>
+                        <option value="Teacher">Teacher</option>
+                        <option value="Advisor">Advisor</option>
+                        <option value="Companion">Companion</option>
+                        <option value="Roleplay">Roleplay</option>
+                        <option value="Creative">Creative</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
             </div>
         </div>
-    </nav>
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="mb-0">
-                            <i class="fas fa-edit"></i> 
-                            {% if persona.name %}Edit Persona: {{ persona.name }}{% else %}Create New Persona{% endif %}
-                        </h3>
+        <!-- System Prompt -->
+        <div class="form-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
+                <h3 class="form-section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Instructions</h3>
+                <button type="button" class="ai-suggest-btn" id="suggest-system-prompt-btn">
+                    <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i>
+                    AI Generate
+                </button>
+            </div>
+
+            <div class="form-group">
+                <textarea class="form-input" id="system_prompt" name="system_prompt" rows="6" required
+                          placeholder="Instructions that guide the AI's behavior...">{{ persona.system_prompt or '' }}</textarea>
+                <span class="form-hint">Direct instructions for how the AI should behave and respond</span>
+            </div>
+        </div>
+
+        <!-- Communication Style (Simplified 3-level controls) -->
+        <div class="form-card">
+            <div class="collapsible-header" id="style-toggle" onclick="toggleStyleSettings()">
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <h3 class="form-section-title" style="margin: 0; border: none; padding: 0;">
+                        Communication Style
+                    </h3>
+                    <span class="changes-badge" id="style-changes-badge"></span>
+                </div>
+                <i data-lucide="chevron-down" class="collapsible-icon"></i>
+            </div>
+
+            <div class="collapsible-content" id="style-content">
+                <p style="color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4);">
+                    Adjust how this persona communicates. Only changes from the category defaults affect the AI.
+                </p>
+
+                <div class="style-controls" id="style-controls">
+                    <!-- Warmth -->
+                    <div class="style-group">
+                        <div class="style-header">
+                            <span class="style-label">Warmth</span>
+                            <span class="style-changed" id="warmth-changed">Changed</span>
+                        </div>
+                        <div class="segmented-control" data-style="warmth">
+                            <button type="button" class="segment-btn" data-value="cold">Cold</button>
+                            <button type="button" class="segment-btn" data-value="neutral">Neutral</button>
+                            <button type="button" class="segment-btn" data-value="warm">Warm</button>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <form id="persona-form" class="needs-validation" novalidate>
-                            <!-- Basic Information -->
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label for="name" class="form-label">Name *</label>
-                                    <input type="text" class="form-control" id="name" name="name" 
-                                           value="{{ persona.name or '' }}" required>
-                                    <div class="invalid-feedback">Please provide a name.</div>
-                                </div>
-                                <!-- Category Dropdown -->
-                                <div class="col-md-6">
-                                    <label for="category" class="form-label fw-bold">Category <span class="text-muted" style="font-weight:normal;">(helps organize and recommend models)</span></label>
-                                    <select class="form-select" id="category-select" name="category">
-                                        <option value="Assistant">Assistant</option>
-                                        <option value="Friend">Friend</option>
-                                        <option value="Coach">Coach</option>
-                                        <option value="Mentor">Mentor</option>
-                                        <option value="Teacher">Teacher</option>
-                                        <option value="Colleague">Colleague</option>
-                                        <option value="Family">Family</option>
-                                        <option value="Partner / Significant Other">Partner / Significant Other</option>
-                                        <option value="Professional">Professional</option>
-                                        <option value="Creative">Creative</option>
-                                        <option value="Therapist">Therapist</option>
-                                        <option value="Expert">Expert</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                    <input type="text" class="form-control mt-2" id="category-other" name="category_other" placeholder="Enter custom category" style="display:none;">
-                                </div>
-                            </div>
 
-                            <!-- Persona -->
-                            <div class="mb-3">
-                                <label for="persona" class="form-label">Persona Description *</label>
-                                <textarea class="form-control" id="persona" name="persona" rows="3" required 
-                                          placeholder="Example: A friendly and knowledgeable librarian who loves helping people find information and learn new things. Patient, thorough, and always curious about different topics.">{{ persona.persona or '' }}</textarea>
-                                <div class="invalid-feedback">Please provide a persona description.</div>
-                                <small class="form-text text-muted">
-                                    <strong>Tip:</strong> Describe the character's personality, role, and approach. Think about how they would interact with users and what makes them unique.
-                                    <br><em>Examples: "A supportive fitness coach who motivates with positivity" or "A wise grandfather who shares life lessons through stories"</em>
-                                </small>
-                            </div>
+                    <!-- Formality -->
+                    <div class="style-group">
+                        <div class="style-header">
+                            <span class="style-label">Formality</span>
+                            <span class="style-changed" id="formality-changed">Changed</span>
+                        </div>
+                        <div class="segmented-control" data-style="formality">
+                            <button type="button" class="segment-btn" data-value="casual">Casual</button>
+                            <button type="button" class="segment-btn" data-value="neutral">Neutral</button>
+                            <button type="button" class="segment-btn" data-value="formal">Formal</button>
+                        </div>
+                    </div>
 
-                            <!-- Backstory -->
-                            <div class="mb-3">
-                                <label for="backstory" class="form-label">Backstory <span class="text-muted" style="font-weight:normal;">(optional)</span></label>
-                                <textarea class="form-control" id="backstory" name="backstory" rows="4" 
-                                          placeholder="Example: Sarah grew up in a small town library where her grandmother was the head librarian. She spent countless hours reading and helping visitors, developing a deep love for books and learning...">{{ persona.backstory or '' }}</textarea>
-                                <small class="form-text text-muted">
-                                    <strong>Purpose:</strong> Backstory helps the AI understand the character's motivations and experiences. It's used to generate better system prompts and personality traits.
-                                    <br><em>Include: Where they're from, key experiences, what drives them, their expertise or interests</em>
-                                </small>
-                            </div>
+                    <!-- Directness -->
+                    <div class="style-group">
+                        <div class="style-header">
+                            <span class="style-label">Directness</span>
+                            <span class="style-changed" id="directness-changed">Changed</span>
+                        </div>
+                        <div class="segmented-control" data-style="directness">
+                            <button type="button" class="segment-btn" data-value="gentle">Gentle</button>
+                            <button type="button" class="segment-btn" data-value="balanced">Balanced</button>
+                            <button type="button" class="segment-btn" data-value="direct">Direct</button>
+                        </div>
+                    </div>
 
-                            <!-- Traits -->
-                            <div class="mb-3">
-                                <div class="d-flex align-items-center mb-1">
-                                    <label class="form-label fw-bold mb-0 me-2" style="font-size:1.1em;">Traits</label>
-                                    <button id="suggest-traits-btn" type="button" class="btn btn-outline-info btn-sm ms-1" title="Let the AI analyze the backstory and suggest values for each trait.">
-                                        <i class="fas fa-magic"></i> Have AI Suggest Traits
-                                    </button>
-                                </div>
-                                <div id="traits-container" class="row"></div>
-                                <span id="suggest-loading" class="ms-2" style="display:none;">
-                                    <i class="fas fa-spinner fa-spin"></i> Suggesting...
-                                </span>
-                                <div id="suggest-summary" class="text-success mt-2" style="display:none;"></div>
-                                <div id="suggest-error" class="text-danger mt-2" style="display:none;"></div>
-                            </div>
-
-                            <!-- Communication Style (Dynamic Sliders) -->
-                            <div class="mb-3">
-                                <label class="form-label fw-bold" style="font-size:1.1em;">Communication Style</label>
-                                <div id="comm-style-container" class="row"></div>
-                            </div>
-
-                            <!-- System Prompt -->
-                            <div class="mb-3">
-                                <div class="d-flex align-items-center mb-1">
-                                    <label for="system_prompt" class="form-label fw-bold mb-0 me-2" style="font-size:1.1em;">System Prompt</label>
-                                    <button id="suggest-system-prompt-btn" type="button" class="btn btn-outline-info btn-sm ms-1" title="Let the AI generate a system prompt based on the backstory and category.">
-                                        <i class="fas fa-magic"></i> Have AI Suggest Prompt
-                                    </button>
-                                </div>
-                                <textarea class="form-control" id="system_prompt" name="system_prompt" rows="3" required>{{ persona.system_prompt or '' }}</textarea>
-                                <div class="invalid-feedback">Please provide a system prompt.</div>
-                                <span id="suggest-system-loading" class="text-muted" style="display:none;">
-                                    <i class="fas fa-spinner fa-spin"></i> Generating system prompt...
-                                </span>
-                                <div id="suggest-system-error" class="text-danger mt-2" style="display:none;"></div>
-                            </div>
-
-                            <!-- Model Configuration -->
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label for="model" class="form-label">Model</label>
-                                    <select class="form-select" id="model" name="model">
-                                        <option value="">Loading models...</option>
-                                    </select>
-                                    <small class="form-text text-muted">All available models from your configured providers</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="temperature" class="form-label">Temperature</label>
-                                    <input type="range" class="form-range" min="0" max="2" step="0.1" 
-                                           name="temperature" id="temperature" 
-                                           value="{{ persona.model_config.temperature if persona.model_config and persona.model_config.temperature else 0.7 }}">
-                                    <div class="d-flex justify-content-between">
-                                        <small class="text-muted">0.0</small>
-                                        <span id="temperature_value" class="text-muted">{{ persona.model_config.temperature if persona.model_config and persona.model_config.temperature else 0.7 }}</span>
-                                        <small class="text-muted">2.0</small>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Submit Buttons -->
-                            <div class="d-flex justify-content-between">
-                                <a href="/persona" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left"></i> Cancel
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> 
-                                    {% if persona.name %}Save Changes{% else %}Create Persona{% endif %}
-                                </button>
-                            </div>
-                        </form>
+                    <!-- Humor -->
+                    <div class="style-group">
+                        <div class="style-header">
+                            <span class="style-label">Humor</span>
+                            <span class="style-changed" id="humor-changed">Changed</span>
+                        </div>
+                        <div class="segmented-control" data-style="humor">
+                            <button type="button" class="segment-btn" data-value="minimal">Minimal</button>
+                            <button type="button" class="segment-btn" data-value="moderate">Moderate</button>
+                            <button type="button" class="segment-btn" data-value="playful">Playful</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Healthcare Warning Modal -->
-    <div class="modal fade" id="healthcareWarningModal" tabindex="-1" aria-labelledby="healthcareWarningLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="healthcareWarningLabel">Important Notice</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            This application is <b>not intended to provide medical, psychiatric, or therapeutic advice</b>. It cannot replace a licensed healthcare provider, therapist, or counselor. If you need professional help, please consult a qualified professional.
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
-          </div>
+        <!-- Model Configuration -->
+        <div class="form-card">
+            <div class="collapsible-header" id="model-toggle" onclick="toggleModelSettings()">
+                <h3 class="form-section-title" style="margin: 0; border: none; padding: 0;">
+                    Model Configuration
+                </h3>
+                <i data-lucide="chevron-down" class="collapsible-icon"></i>
+            </div>
+
+            <div class="collapsible-content" id="model-content">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="model" class="form-label">Model</label>
+                        <select class="form-input" id="model" name="model">
+                            <option value="">Loading models...</option>
+                        </select>
+                        <span class="form-hint">AI model to use for this persona</span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="slider-header">
+                            <label class="slider-label">Temperature</label>
+                            <span class="slider-value" id="temperature_value">{{ persona.model_config.temperature if persona.model_config and persona.model_config.temperature else 0.7 }}</span>
+                        </div>
+                        <input type="range" min="0" max="2" step="0.1"
+                               name="temperature" id="temperature"
+                               value="{{ persona.model_config.temperature if persona.model_config and persona.model_config.temperature else 0.7 }}">
+                        <span class="form-hint">Lower = more focused, Higher = more creative</span>
+                    </div>
+                </div>
+
+                <!-- Advanced Sampler Settings -->
+                <div class="collapsible-header" id="advanced-toggle" onclick="toggleAdvancedSettings()" style="margin-top: var(--space-4);">
+                    <h4 class="form-section-title" style="margin: 0; border: none; padding: 0; font-size: var(--text-sm);">
+                        Advanced Sampler Settings
+                    </h4>
+                    <i data-lucide="chevron-down" class="collapsible-icon"></i>
+                </div>
+
+                <div class="collapsible-content" id="advanced-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div class="slider-header">
+                                <label class="slider-label">
+                                    Top-P (Nucleus Sampling)
+                                    <span class="provider-badge all">All</span>
+                                </label>
+                                <span class="slider-value" id="top_p_value">{{ persona.model_config.top_p if persona.model_config and persona.model_config.top_p else 0.9 }}</span>
+                            </div>
+                            <input type="range" min="0" max="1" step="0.05"
+                                   name="top_p" id="top_p"
+                                   value="{{ persona.model_config.top_p if persona.model_config and persona.model_config.top_p else 0.9 }}">
+                            <span class="form-hint">Probability mass for token sampling</span>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="slider-header">
+                                <label class="slider-label">
+                                    Top-K
+                                    <span class="provider-badge ollama">Ollama</span>
+                                </label>
+                                <span class="slider-value" id="top_k_value">{{ persona.model_config.top_k if persona.model_config and persona.model_config.top_k else 40 }}</span>
+                            </div>
+                            <input type="range" min="1" max="100" step="1"
+                                   name="top_k" id="top_k"
+                                   value="{{ persona.model_config.top_k if persona.model_config and persona.model_config.top_k else 40 }}">
+                            <span class="form-hint">Number of top tokens to consider</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div class="slider-header">
+                                <label class="slider-label">
+                                    Repeat Penalty
+                                    <span class="provider-badge ollama">Ollama</span>
+                                </label>
+                                <span class="slider-value" id="repeat_penalty_value">{{ persona.model_config.repeat_penalty if persona.model_config and persona.model_config.repeat_penalty else 1.1 }}</span>
+                            </div>
+                            <input type="range" min="0.5" max="2" step="0.05"
+                                   name="repeat_penalty" id="repeat_penalty"
+                                   value="{{ persona.model_config.repeat_penalty if persona.model_config and persona.model_config.repeat_penalty else 1.1 }}">
+                            <span class="form-hint">Penalty for repeating tokens (1.0 = no penalty)</span>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="slider-header">
+                                <label class="slider-label">
+                                    Max Tokens
+                                    <span class="provider-badge all">All</span>
+                                </label>
+                                <span class="slider-value" id="max_tokens_value">{{ persona.model_config.max_tokens if persona.model_config and persona.model_config.max_tokens else 2048 }}</span>
+                            </div>
+                            <input type="range" min="256" max="8192" step="256"
+                                   name="max_tokens" id="max_tokens"
+                                   value="{{ persona.model_config.max_tokens if persona.model_config and persona.model_config.max_tokens else 2048 }}">
+                            <span class="form-hint">Maximum response length</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Adult/Entertainment Warning Modal -->
-    <div class="modal fade" id="adultWarningModal" tabindex="-1" aria-labelledby="adultWarningLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="adultWarningLabel">Adult Content Notice</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            This category may involve adult or entertainment content. Please acknowledge that you are over 18 and understand this is not a substitute for real relationships or professional advice.
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="adultWarningAcknowledge" data-bs-dismiss="modal">I Understand</button>
-          </div>
+        {% if persona.id %}
+        <!-- Setting & Memory (Simplified Context System) -->
+        <div class="form-card">
+            <div class="collapsible-header" id="knowledge-toggle" onclick="toggleKnowledgeSettings()">
+                <h3 class="form-section-title" style="margin: 0; border: none; padding: 0;">
+                    Setting & Memory
+                </h3>
+                <i data-lucide="chevron-down" class="collapsible-icon"></i>
+            </div>
+
+            <div class="collapsible-content" id="knowledge-content">
+                <p style="color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4);">
+                    Configure the world setting and backstory. The system automatically retrieves relevant context during conversations.
+                </p>
+
+                <div class="tabs-container">
+                    <div class="tab-nav">
+                        <button type="button" class="tab-btn active" data-tab="setting">
+                            <i data-lucide="globe" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                            Setting
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="memory">
+                            <i data-lucide="brain" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                            Memory
+                        </button>
+                    </div>
+
+                    <!-- Setting Tab -->
+                    <div class="tab-content active" id="tab-setting">
+                        <div class="form-group">
+                            <label class="form-label">World / Universe</label>
+                            <input type="text" class="form-input" id="setting-world" placeholder="e.g., Modern day Earth, Fantasy realm, Star Wars universe">
+                            <span class="form-hint">The fictional or real world this character exists in</span>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Location</label>
+                                <input type="text" class="form-input" id="setting-location" placeholder="e.g., San Francisco, The Kingdom of Aldoria">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Time Period</label>
+                                <input type="text" class="form-input" id="setting-time" placeholder="e.g., Present day, Year 2087, Medieval era">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Key Facts</label>
+                            <span class="form-hint" style="display: block; margin-bottom: var(--space-2);">Important context like "Magic exists" or "User is a detective"</span>
+                            <div id="key-facts-list" class="entry-list" style="margin-bottom: var(--space-2);">
+                                <!-- Facts will be populated by JavaScript -->
+                            </div>
+                            <div style="display: flex; gap: var(--space-2);">
+                                <input type="text" class="form-input" id="new-key-fact" placeholder="Add a key fact..." style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="addKeyFact()">
+                                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; margin-top: var(--space-4);">
+                            <button type="button" class="btn btn-primary" onclick="saveSetting()" id="save-setting-btn">
+                                <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                                Save Setting
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Memory Tab -->
+                    <div class="tab-content" id="tab-memory">
+                        <!-- Backstory Section -->
+                        <div class="memory-section" style="margin-bottom: var(--space-6);">
+                            <h4 style="margin-bottom: var(--space-2); font-size: var(--text-sm); font-weight: var(--font-semibold);">Character Backstory</h4>
+                            <p class="form-hint" style="margin-bottom: var(--space-3);">Enter backstory and lore. The system automatically retrieves relevant parts during conversation.</p>
+                            <textarea class="form-input" id="backstory" rows="8" placeholder="Enter character history, relationships, important events, personality background..."></textarea>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-2);">
+                                <span id="backstory-status" class="form-hint"></span>
+                                <button type="button" class="btn btn-primary" onclick="saveBackstory()" id="save-backstory-btn">
+                                    <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                                    Save Backstory
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Learned Facts Section -->
+                        <div class="memory-section">
+                            <h4 style="margin-bottom: var(--space-2); font-size: var(--text-sm); font-weight: var(--font-semibold);">What I Remember About You</h4>
+                            <p class="form-hint" style="margin-bottom: var(--space-3);">Facts automatically learned from our conversations. You can edit or remove any.</p>
+                            <div id="learned-facts-list" class="entry-list">
+                                <div class="empty-state" id="no-facts">
+                                    <i data-lucide="brain" style="width: 32px; height: 32px;"></i>
+                                    <p>No facts learned yet</p>
+                                    <p style="font-size: var(--text-xs);">Have some conversations and the system will remember important details!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
+        {% endif %}
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <a href="/personas" class="btn btn-secondary">
+                <i data-lucide="arrow-left" style="width: 16px; height: 16px;"></i>
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary" id="save-btn">
+                <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Warning Modals -->
+<div class="modal-backdrop" id="warning-modal-backdrop"></div>
+<div class="modal" id="warning-modal">
+    <div class="modal-header">
+        <h3 class="modal-title" id="warning-modal-title">Notice</h3>
+        <button class="modal-close" onclick="closeWarningModal()">
+            <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
     </div>
+    <div class="modal-body">
+        <p id="warning-modal-text"></p>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeWarningModal()">I Understand</button>
+    </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // --- Fixed Traits and Communication Styles ---
-        const FIXED_TRAITS = [
-            'Empathy',
-            'Assertiveness',
-            'Adaptability',
-            'Creativity',
-            'Resilience',
-            'Self-discipline',
-            'Sociability',
-            'Integrity',
-            'Curiosity'
-        ];
-        const FIXED_COMM_STYLES = [
-            'Directness',
-            'Warmth',
-            'Formality',
-            'Assertiveness',
-            'Empathy',
-            'Humor'
-        ];
+{% block scripts %}
+<script>
+    // Category defaults for style overrides
+    const CATEGORY_DEFAULTS = {
+        "Coach": { warmth: "neutral", formality: "formal", directness: "direct", humor: "minimal" },
+        "Assistant": { warmth: "neutral", formality: "formal", directness: "balanced", humor: "minimal" },
+        "Friend": { warmth: "warm", formality: "casual", directness: "balanced", humor: "moderate" },
+        "Teacher": { warmth: "warm", formality: "neutral", directness: "balanced", humor: "moderate" },
+        "Advisor": { warmth: "neutral", formality: "formal", directness: "direct", humor: "minimal" },
+        "Companion": { warmth: "warm", formality: "casual", directness: "gentle", humor: "playful" },
+        "Roleplay": { warmth: "neutral", formality: "neutral", directness: "balanced", humor: "moderate" },
+        "Creative": { warmth: "warm", formality: "casual", directness: "gentle", humor: "playful" },
+        "Other": { warmth: "neutral", formality: "neutral", directness: "balanced", humor: "moderate" }
+    };
 
-        function renderFixedSliders(containerId, keys, data, prefix) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            keys.forEach(name => {
-                const id = `${prefix}_${name.toLowerCase().replace(/\s+/g, '_')}`;
-                const label = name.charAt(0).toUpperCase() + name.slice(1);
-                const sliderValue = typeof data[name] === 'number' ? Math.round(data[name]) : 5;
-                const col = document.createElement('div');
-                col.className = 'col-md-6 mb-3';
-                col.innerHTML = `
-                    <label for="${id}" class="form-label">${label}</label>
-                    <input type="range" class="form-range" min="0" max="10" step="1" name="${prefix}_${name}" id="${id}" value="${sliderValue}">
-                    <div class="d-flex justify-content-between">
-                        <small class="text-muted">0</small>
-                        <span id="${id}_value" class="text-muted">${sliderValue}</span>
-                        <small class="text-muted">10</small>
+    // Current style values
+    let currentStyles = {
+        warmth: "neutral",
+        formality: "neutral",
+        directness: "balanced",
+        humor: "moderate"
+    };
+
+    // Initialize from persona data
+    const initialCategory = '{{ persona.category or "Other" }}';
+    const initialCommStyle = JSON.parse('{{ (persona.communication_style or {}) | tojson | safe }}');
+
+    // Convert legacy 0-10 slider values to 3-level scale
+    function convertLegacyValue(value, dimension) {
+        if (typeof value === 'string') return value;
+        if (typeof value !== 'number') return null;
+
+        const v = Math.round(value * 10);
+        const mappings = {
+            warmth: { low: 'cold', mid: 'neutral', high: 'warm' },
+            formality: { low: 'casual', mid: 'neutral', high: 'formal' },
+            directness: { low: 'gentle', mid: 'balanced', high: 'direct' },
+            humor: { low: 'minimal', mid: 'moderate', high: 'playful' }
+        };
+
+        const map = mappings[dimension];
+        if (!map) return null;
+
+        if (v <= 3) return map.low;
+        if (v <= 6) return map.mid;
+        return map.high;
+    }
+
+    // Initialize styles from existing data or defaults
+    function initializeStyles() {
+        const defaults = CATEGORY_DEFAULTS[initialCategory] || CATEGORY_DEFAULTS['Other'];
+
+        ['warmth', 'formality', 'directness', 'humor'].forEach(dim => {
+            let value = null;
+
+            // Check for new 3-level value first
+            if (initialCommStyle[dim] && typeof initialCommStyle[dim] === 'string') {
+                value = initialCommStyle[dim];
+            }
+            // Check for legacy mapping (Warmth -> warmth, Directness -> directness, etc.)
+            else if (initialCommStyle[dim.charAt(0).toUpperCase() + dim.slice(1)]) {
+                value = convertLegacyValue(initialCommStyle[dim.charAt(0).toUpperCase() + dim.slice(1)], dim);
+            }
+            // Check for Formality specifically
+            else if (dim === 'formality' && initialCommStyle['Formality']) {
+                value = convertLegacyValue(initialCommStyle['Formality'], dim);
+            }
+            // Check for Humor specifically
+            else if (dim === 'humor' && initialCommStyle['Humor']) {
+                value = convertLegacyValue(initialCommStyle['Humor'], dim);
+            }
+
+            currentStyles[dim] = value || defaults[dim];
+        });
+
+        updateStyleUI();
+    }
+
+    // Update UI to reflect current styles
+    function updateStyleUI() {
+        const category = document.getElementById('category-select').value;
+        const defaults = CATEGORY_DEFAULTS[category] || CATEGORY_DEFAULTS['Other'];
+        let changedCount = 0;
+
+        ['warmth', 'formality', 'directness', 'humor'].forEach(dim => {
+            const control = document.querySelector(`.segmented-control[data-style="${dim}"]`);
+            const changedIndicator = document.getElementById(`${dim}-changed`);
+
+            if (control) {
+                control.querySelectorAll('.segment-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.value === currentStyles[dim]);
+                });
+            }
+
+            const isChanged = currentStyles[dim] !== defaults[dim];
+            if (changedIndicator) {
+                changedIndicator.classList.toggle('show', isChanged);
+            }
+            if (isChanged) changedCount++;
+        });
+
+        // Update badge
+        const badge = document.getElementById('style-changes-badge');
+        if (badge) {
+            badge.textContent = changedCount > 0 ? `${changedCount} changed` : '';
+        }
+    }
+
+    // Set initial category
+    const categorySelect = document.getElementById('category-select');
+    categorySelect.value = initialCategory in CATEGORY_DEFAULTS ? initialCategory : 'Other';
+
+    // Category change handler - reset to defaults
+    categorySelect.addEventListener('change', function() {
+        const defaults = CATEGORY_DEFAULTS[this.value] || CATEGORY_DEFAULTS['Other'];
+        currentStyles = { ...defaults };
+        updateStyleUI();
+    });
+
+    // Style button click handlers
+    document.querySelectorAll('.segmented-control').forEach(control => {
+        control.querySelectorAll('.segment-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const style = control.dataset.style;
+                const value = this.dataset.value;
+                currentStyles[style] = value;
+                updateStyleUI();
+            });
+        });
+    });
+
+    // Initialize styles
+    initializeStyles();
+
+    // Collapsible toggles
+    function toggleStyleSettings() {
+        const header = document.getElementById('style-toggle');
+        const content = document.getElementById('style-content');
+        header.classList.toggle('open');
+        content.classList.toggle('open');
+    }
+
+    function toggleModelSettings() {
+        const header = document.getElementById('model-toggle');
+        const content = document.getElementById('model-content');
+        header.classList.toggle('open');
+        content.classList.toggle('open');
+    }
+
+    function toggleAdvancedSettings() {
+        const header = document.getElementById('advanced-toggle');
+        const content = document.getElementById('advanced-content');
+        header.classList.toggle('open');
+        content.classList.toggle('open');
+    }
+
+    function toggleKnowledgeSettings() {
+        const header = document.getElementById('knowledge-toggle');
+        const content = document.getElementById('knowledge-content');
+        header.classList.toggle('open');
+        content.classList.toggle('open');
+    }
+
+    // Warning modal functions
+    function showWarning(title, text) {
+        document.getElementById('warning-modal-title').textContent = title;
+        document.getElementById('warning-modal-text').textContent = text;
+        document.getElementById('warning-modal-backdrop').classList.add('show');
+        document.getElementById('warning-modal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeWarningModal() {
+        document.getElementById('warning-modal-backdrop').classList.remove('show');
+        document.getElementById('warning-modal').classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    document.getElementById('warning-modal-backdrop').onclick = closeWarningModal;
+
+    // Temperature slider
+    document.getElementById('temperature').addEventListener('input', function() {
+        document.getElementById('temperature_value').textContent = this.value;
+    });
+
+    // Advanced sampler sliders
+    ['top_p', 'top_k', 'repeat_penalty', 'max_tokens'].forEach(param => {
+        const slider = document.getElementById(param);
+        const display = document.getElementById(`${param}_value`);
+        if (slider && display) {
+            slider.addEventListener('input', function() {
+                display.textContent = this.value;
+            });
+        }
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        });
+    });
+
+    // Position option selection
+    document.querySelectorAll('.position-option').forEach(opt => {
+        opt.addEventListener('click', function() {
+            this.parentElement.querySelectorAll('.position-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+
+    // Simplified Context System functions
+    const PERSONA_ID = '{{ persona.id or "" }}';
+
+    // Current setting data
+    let currentSetting = {
+        world: '',
+        location: '',
+        time_period: '',
+        key_facts: []
+    };
+
+    // Load setting data
+    async function loadSetting() {
+        if (!PERSONA_ID) return;
+
+        try {
+            const resp = await fetch(`/api/characters/${PERSONA_ID}/setting`);
+            if (!resp.ok) throw new Error('Failed to load setting');
+
+            const data = await resp.json();
+            currentSetting = data.setting || { world: '', location: '', time_period: '', key_facts: [] };
+
+            // Populate form fields
+            document.getElementById('setting-world').value = currentSetting.world || '';
+            document.getElementById('setting-location').value = currentSetting.location || '';
+            document.getElementById('setting-time').value = currentSetting.time_period || '';
+
+            renderKeyFacts();
+        } catch (e) {
+            console.error('Error loading setting:', e);
+        }
+    }
+
+    // Render key facts list
+    function renderKeyFacts() {
+        const list = document.getElementById('key-facts-list');
+        if (!list) return;
+
+        const facts = currentSetting.key_facts || [];
+
+        if (facts.length === 0) {
+            list.innerHTML = '<p class="form-hint" style="padding: var(--space-2);">No key facts yet. Add important context above.</p>';
+        } else {
+            list.innerHTML = facts.map((fact, index) => `
+                <div class="entry-item" style="padding: var(--space-2);">
+                    <span style="flex: 1;">${escapeHtml(fact)}</span>
+                    <button type="button" class="btn-icon-sm danger" onclick="removeKeyFact(${index})" title="Remove">
+                        <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        lucide.createIcons();
+    }
+
+    // Add key fact
+    function addKeyFact() {
+        const input = document.getElementById('new-key-fact');
+        const fact = input.value.trim();
+
+        if (!fact) {
+            showToast('Please enter a fact', 'error');
+            return;
+        }
+
+        currentSetting.key_facts = currentSetting.key_facts || [];
+        currentSetting.key_facts.push(fact);
+        input.value = '';
+
+        renderKeyFacts();
+    }
+
+    // Remove key fact
+    function removeKeyFact(index) {
+        currentSetting.key_facts.splice(index, 1);
+        renderKeyFacts();
+    }
+
+    // Save setting
+    async function saveSetting() {
+        const btn = document.getElementById('save-setting-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner spinner-sm"></span> Saving...';
+
+        const data = {
+            world: document.getElementById('setting-world').value.trim(),
+            location: document.getElementById('setting-location').value.trim(),
+            time_period: document.getElementById('setting-time').value.trim(),
+            key_facts: currentSetting.key_facts || []
+        };
+
+        try {
+            const resp = await fetch(`/api/characters/${PERSONA_ID}/setting`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to save setting');
+            }
+
+            showToast('Setting saved successfully', 'success');
+            currentSetting = data;
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="save" style="width: 16px; height: 16px;"></i> Save Setting';
+            lucide.createIcons();
+        }
+    }
+
+    // Load backstory
+    async function loadBackstory() {
+        if (!PERSONA_ID) return;
+
+        try {
+            const resp = await fetch(`/api/characters/${PERSONA_ID}/backstory`);
+            if (!resp.ok) throw new Error('Failed to load backstory');
+
+            const data = await resp.json();
+            document.getElementById('backstory').value = data.backstory || '';
+
+            const status = document.getElementById('backstory-status');
+            if (data.stats && data.stats.chunk_count > 0) {
+                status.textContent = `${data.stats.chunk_count} chunks indexed, ${data.stats.total_words} words`;
+            } else {
+                status.textContent = '';
+            }
+        } catch (e) {
+            console.error('Error loading backstory:', e);
+        }
+    }
+
+    // Save backstory
+    async function saveBackstory() {
+        const btn = document.getElementById('save-backstory-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner spinner-sm"></span> Saving...';
+
+        const backstory = document.getElementById('backstory').value;
+
+        try {
+            const resp = await fetch(`/api/characters/${PERSONA_ID}/backstory`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backstory: backstory })
+            });
+
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to save backstory');
+            }
+
+            const data = await resp.json();
+            showToast(data.message || 'Backstory saved', 'success');
+
+            const status = document.getElementById('backstory-status');
+            if (data.stats && data.stats.chunk_count > 0) {
+                status.textContent = `${data.stats.chunk_count} chunks indexed, ${data.stats.total_words} words`;
+            } else {
+                status.textContent = 'Backstory cleared';
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="save" style="width: 16px; height: 16px;"></i> Save Backstory';
+            lucide.createIcons();
+        }
+    }
+
+    // Load learned facts
+    async function loadLearnedFacts() {
+        if (!PERSONA_ID) return;
+
+        const list = document.getElementById('learned-facts-list');
+        if (!list) return;
+
+        try {
+            const resp = await fetch(`/api/facts?character_id=${PERSONA_ID}`);
+            if (!resp.ok) throw new Error('Failed to load facts');
+
+            const data = await resp.json();
+            const facts = data.facts || [];
+
+            if (facts.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state" id="no-facts">
+                        <i data-lucide="brain" style="width: 32px; height: 32px;"></i>
+                        <p>No facts learned yet</p>
+                        <p style="font-size: var(--text-xs);">Have some conversations and the system will remember important details!</p>
                     </div>
                 `;
-                container.appendChild(col);
-                // Update value on input
-                const slider = col.querySelector('input');
-                const valueSpan = col.querySelector(`#${id}_value`);
-                slider.addEventListener('input', function() {
-                    valueSpan.textContent = slider.value;
-                    // Hide AI suggestion summary if visible
-                    const summary = document.getElementById('suggest-summary');
-                    if (summary) summary.style.display = 'none';
-                });
-            });
-        }
-
-        // Load initial data from template context
-        const initialTraits = JSON.parse('{{ (persona.traits or {}) | tojson | safe }}');
-        const initialCommStyle = JSON.parse('{{ (persona.communication_style or {}) | tojson | safe }}');
-        renderFixedSliders('traits-container', FIXED_TRAITS, initialTraits, 'trait');
-        renderFixedSliders('comm-style-container', FIXED_COMM_STYLES, initialCommStyle, 'comm');
-
-        // Load available models dynamically
-        async function loadAvailableModels() {
-            try {
-                // Use cloud_allowed mode to show all available models for full customization
-                const response = await fetch('/api/models?privacy_mode=cloud_allowed');
-                if (!response.ok) throw new Error('Failed to load models');
-                
-                const availableModels = await response.json();
-                const modelSelect = document.getElementById('model');
-                const currentModel = '{{ persona.model_config.model if persona.model_config and persona.model_config.model else "" }}';
-                
-                // Clear loading option
-                modelSelect.innerHTML = '';
-                
-                // Populate models from all providers
-                let hasCurrentModel = false;
-                Object.entries(availableModels).forEach(([provider, models]) => {
-                    if (models && models.length > 0) {
-                        const optgroup = document.createElement('optgroup');
-                        optgroup.label = provider.charAt(0).toUpperCase() + provider.slice(1);
-                        
-                        models.forEach(model => {
-                            const option = document.createElement('option');
-                            option.value = model;
-                            option.textContent = `${model} (${provider})`;
-                            if (model === currentModel) {
-                                option.selected = true;
-                                hasCurrentModel = true;
-                            }
-                            optgroup.appendChild(option);
-                        });
-                        
-                        modelSelect.appendChild(optgroup);
-                    }
-                });
-                
-                // If no current model or current model not found, select first available
-                if (!hasCurrentModel && modelSelect.options.length > 0) {
-                    modelSelect.selectedIndex = 0;
-                }
-                
-            } catch (error) {
-                console.error('Error loading available models:', error);
-                // Fallback to basic options
-                const modelSelect = document.getElementById('model');
-                modelSelect.innerHTML = `
-                    <option value="llama3.1:latest">llama3.1:latest (ollama)</option>
-                    <option value="mistral:latest">mistral:latest (ollama)</option>
-                    <option value="gpt-4o-mini">gpt-4o-mini (openai)</option>
-                `;
-            }
-        }
-        
-        // Load models when page loads
-        loadAvailableModels();
-
-        // Suggest Traits functionality
-        document.getElementById('suggest-traits-btn').addEventListener('click', async function() {
-            const backstory = document.getElementById('backstory').value;
-            const name = document.getElementById('name').value;
-            const category = document.getElementById('category-select').value;
-            const loading = document.getElementById('suggest-loading');
-            const summary = document.getElementById('suggest-summary');
-            const error = document.getElementById('suggest-error');
-            loading.style.display = 'inline-block';
-            summary.style.display = 'none';
-            error.style.display = 'none';
-            try {
-                const resp = await fetch('/api/suggest_traits', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, category, backstory })
-                });
-                if (!resp.ok) throw new Error('Failed to get suggestions');
-                const data = await resp.json();
-                // Directly update trait sliders and labels
-                Object.entries(data.traits).forEach(([trait, value]) => {
-                    const id = `trait_${trait.toLowerCase().replace(/\s+/g, '_')}`;
-                    const slider = document.getElementById(id);
-                    const label = document.getElementById(`${id}_value`);
-                    if (slider) {
-                        slider.value = Math.round(value * 10);
-                        if (label) label.textContent = Math.round(value * 10);
-                    }
-                });
-                // Directly update communication style sliders and labels
-                Object.entries(data.communication_style).forEach(([style, value]) => {
-                    const id = `comm_${style.toLowerCase().replace(/\s+/g, '_')}`;
-                    const slider = document.getElementById(id);
-                    const label = document.getElementById(`${id}_value`);
-                    if (slider) {
-                        slider.value = Math.round(value * 10);
-                        if (label) label.textContent = Math.round(value * 10);
-                    }
-                });
-                // Show summary briefly
-                summary.innerHTML = '<b>AI suggestions applied.</b>';
-                summary.style.display = 'block';
-                setTimeout(() => { summary.style.display = 'none'; }, 2000);
-            } catch (e) {
-                error.textContent = 'Error suggesting traits: ' + e.message;
-                error.style.display = 'block';
-            } finally {
-                loading.style.display = 'none';
-            }
-        });
-
-        // Suggest System Prompt functionality
-        document.getElementById('suggest-system-prompt-btn').addEventListener('click', async function() {
-            const backstory = document.getElementById('backstory').value;
-            const category = document.getElementById('category-select').value;
-            const systemPrompt = document.getElementById('system_prompt').value;
-            const loading = document.getElementById('suggest-system-loading');
-            const error = document.getElementById('suggest-system-error');
-            loading.style.display = 'inline-block';
-            error.style.display = 'none';
-
-            try {
-                const resp = await fetch('/api/suggest_system_prompt', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ backstory, category, system_prompt: systemPrompt })
-                });
-                if (!resp.ok) throw new Error('Failed to get system prompt suggestion');
-                const data = await resp.json();
-                document.getElementById('system_prompt').value = data.system_prompt;
-            } catch (e) {
-                error.textContent = 'Error suggesting system prompt: ' + e.message;
-                error.style.display = 'block';
-            } finally {
-                loading.style.display = 'none';
-            }
-        });
-
-        // JS for category dropdown and healthcare/adult warning
-        const categorySelect = document.getElementById('category-select');
-        const categoryOther = document.getElementById('category-other');
-        const healthcareTerms = [
-            'therapist', 'doctor', 'nurse', 'psychiatrist', 'counselor', 'psychologist', 'physician', 'clinician', 'medical', 'healthcare', 'shrink', 'psycho', 'medic', 'surgeon'
-        ];
-        let adultWarningAcknowledged = false;
-        function checkHealthcareWarning(val) {
-            if (!val) return false;
-            const lower = val.toLowerCase();
-            return healthcareTerms.some(term => lower.includes(term));
-        }
-        categorySelect.addEventListener('change', function() {
-            if (this.value === 'Other') {
-                categoryOther.style.display = '';
-                categoryOther.required = true;
             } else {
-                categoryOther.style.display = 'none';
-                categoryOther.required = false;
+                list.innerHTML = facts.map(fact => `
+                    <div class="entry-item" id="fact-${fact.id}">
+                        <div class="entry-info" style="flex: 1;">
+                            <div class="entry-name">${escapeHtml(fact.fact_key)}</div>
+                            <div class="entry-meta">
+                                <span>${fact.fact_type}</span>
+                                ${fact.is_global ? '<span class="keyword-tag">Global</span>' : ''}
+                            </div>
+                            <div class="fact-value-display" data-fact-id="${fact.id}" style="margin-top: var(--space-1); color: var(--text-primary);">
+                                ${escapeHtml(fact.fact_value)}
+                            </div>
+                            <div class="fact-value-edit" data-fact-id="${fact.id}" style="display: none; margin-top: var(--space-1);">
+                                <input type="text" class="form-input form-input-sm" value="${escapeHtml(fact.fact_value)}" style="margin-bottom: var(--space-2);">
+                                <div style="display: flex; gap: var(--space-2);">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="saveFact(${fact.id})">Save</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="cancelEditFact(${fact.id})">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="entry-actions">
+                            <button type="button" class="btn-icon-sm" onclick="editFact(${fact.id})" title="Edit" data-edit-btn="${fact.id}">
+                                <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button type="button" class="btn-icon-sm danger" onclick="deleteFact(${fact.id})" title="Remove">
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
             }
-            // Adult/entertainment warning for Partner / Significant Other
-            if (this.value === 'Partner / Significant Other') {
-                if (!adultWarningAcknowledged) {
-                    const modal = new bootstrap.Modal(document.getElementById('adultWarningModal'));
-                    modal.show();
-                }
+
+            lucide.createIcons();
+        } catch (e) {
+            console.error('Error loading learned facts:', e);
+        }
+    }
+
+    // Edit fact - show inline editor
+    function editFact(factId) {
+        const display = document.querySelector(`.fact-value-display[data-fact-id="${factId}"]`);
+        const edit = document.querySelector(`.fact-value-edit[data-fact-id="${factId}"]`);
+        const editBtn = document.querySelector(`[data-edit-btn="${factId}"]`);
+
+        if (display && edit) {
+            display.style.display = 'none';
+            edit.style.display = 'block';
+            editBtn.style.display = 'none';
+            // Focus the input
+            edit.querySelector('input').focus();
+        }
+    }
+
+    // Cancel edit fact
+    function cancelEditFact(factId) {
+        const display = document.querySelector(`.fact-value-display[data-fact-id="${factId}"]`);
+        const edit = document.querySelector(`.fact-value-edit[data-fact-id="${factId}"]`);
+        const editBtn = document.querySelector(`[data-edit-btn="${factId}"]`);
+
+        if (display && edit) {
+            display.style.display = 'block';
+            edit.style.display = 'none';
+            editBtn.style.display = '';
+            // Reset the input value
+            edit.querySelector('input').value = display.textContent.trim();
+        }
+    }
+
+    // Save fact
+    async function saveFact(factId) {
+        const edit = document.querySelector(`.fact-value-edit[data-fact-id="${factId}"]`);
+        const input = edit.querySelector('input');
+        const newValue = input.value.trim();
+
+        if (!newValue) {
+            showToast('Value cannot be empty', 'error');
+            return;
+        }
+
+        const saveBtn = edit.querySelector('.btn-primary');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            const resp = await fetch(`/api/facts/${factId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fact_value: newValue })
+            });
+
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to save');
             }
-        });
-        document.getElementById('adultWarningAcknowledge').addEventListener('click', function() {
-            adultWarningAcknowledged = true;
-        });
-        categoryOther.addEventListener('input', function() {
-            if (checkHealthcareWarning(this.value)) {
-                const modal = new bootstrap.Modal(document.getElementById('healthcareWarningModal'));
-                modal.show();
-            }
-        });
-        // Form submission
-        document.getElementById('persona-form').addEventListener('submit', async function(e) {
+
+            showToast('Fact updated', 'success');
+            loadLearnedFacts();
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    }
+
+    // Delete fact
+    async function deleteFact(factId) {
+        if (!confirm('Remove this learned fact?')) return;
+
+        try {
+            const resp = await fetch(`/api/facts/${factId}`, { method: 'DELETE' });
+            if (!resp.ok) throw new Error('Failed to delete');
+            showToast('Fact removed', 'success');
+            loadLearnedFacts();
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    // Escape HTML helper
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Load data on page load
+    if (PERSONA_ID) {
+        loadSetting();
+        loadBackstory();
+        loadLearnedFacts();
+    }
+
+    // Allow Enter key to add key fact
+    document.getElementById('new-key-fact')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            
-            if (!this.checkValidity()) {
-                e.stopPropagation();
-                this.classList.add('was-validated');
-                return;
-            }
-            
-            const formData = new FormData(this);
-            
-            // Collect fixed traits
-            const traits = {};
-            FIXED_TRAITS.forEach(name => {
-                const slider = document.querySelector(`#trait_${name.toLowerCase().replace(/\s+/g, '_')}`);
-                traits[name] = slider ? parseInt(slider.value) / 10 : 0.5;
-            });
-            
-            // Collect fixed comm styles
-            const communication_style = {};
-            FIXED_COMM_STYLES.forEach(name => {
-                const slider = document.querySelector(`#comm_${name.toLowerCase().replace(/\s+/g, '_')}`);
-                communication_style[name] = slider ? parseInt(slider.value) / 10 : 0.5;
-            });
-            
-            // Get the correct category value
-            let categoryValue = categorySelect.value;
-            if (categorySelect.value === 'Other') {
-                categoryValue = categoryOther.value;
-            }
-            
-            // Determine provider based on selected model
-            const selectedModel = formData.get('model');
-            let provider = 'ollama'; // Default
-            
-            // Determine provider from model selection
+            addKeyFact();
+        }
+    });
+
+    // Load available models
+    async function loadAvailableModels() {
+        try {
+            const response = await fetch('/api/models?privacy_mode=cloud_allowed');
+            if (!response.ok) throw new Error('Failed to load models');
+
+            const availableModels = await response.json();
             const modelSelect = document.getElementById('model');
-            const selectedOption = modelSelect.options[modelSelect.selectedIndex];
-            if (selectedOption && selectedOption.textContent.includes('(')) {
-                const providerMatch = selectedOption.textContent.match(/\(([^)]+)\)$/);
-                if (providerMatch) {
-                    provider = providerMatch[1];
+            const currentModel = '{{ persona.model_config.model if persona.model_config and persona.model_config.model else "" }}';
+
+            modelSelect.innerHTML = '';
+            let hasCurrentModel = false;
+
+            Object.entries(availableModels).forEach(([provider, models]) => {
+                if (models && models.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = `${model}`;
+                        option.dataset.provider = provider;
+                        if (model === currentModel) {
+                            option.selected = true;
+                            hasCurrentModel = true;
+                        }
+                        optgroup.appendChild(option);
+                    });
+
+                    modelSelect.appendChild(optgroup);
                 }
+            });
+
+            if (!hasCurrentModel && modelSelect.options.length > 0) {
+                modelSelect.selectedIndex = 0;
             }
-            
-            const personaData = {
-                name: formData.get('name'),
-                persona: formData.get('persona'),
-                category: categoryValue,
-                backstory: formData.get('backstory'),
-                system_prompt: formData.get('system_prompt'),
-                traits: traits,
-                communication_style: communication_style,
-                llm_config: {
-                    provider: provider,
-                    model: selectedModel,
-                    temperature: parseFloat(formData.get('temperature'))
-                }
-            };
-            
-            try {
-                const personaId = '{{ persona.id or "" }}';
-                const url = personaId ? `/api/characters/${personaId}` : '/api/characters';
-                const method = personaId ? 'PUT' : 'POST';
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(personaData)
-                });
-                
-                if (response.ok) {
-                    window.location.href = '/persona';
-                } else {
-                    const error = await response.json();
-                    alert('Error: ' + (error.error || 'Failed to save persona'));
-                }
-            } catch (err) {
-                alert('Error: ' + err.message);
+        } catch (error) {
+            console.error('Error loading models:', error);
+            const modelSelect = document.getElementById('model');
+            modelSelect.innerHTML = `
+                <option value="llama3.1:latest">llama3.1:latest</option>
+                <option value="mistral:latest">mistral:latest</option>
+            `;
+        }
+    }
+
+    loadAvailableModels();
+
+    // AI Suggest System Prompt
+    document.getElementById('suggest-system-prompt-btn').addEventListener('click', async function() {
+        const name = document.getElementById('name').value;
+        const category = document.getElementById('category-select').value;
+        const systemPrompt = document.getElementById('system_prompt').value;
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner spinner-sm"></span> Generating...';
+
+        try {
+            const resp = await fetch('/api/suggest_system_prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backstory: '', category, system_prompt: systemPrompt, name })
+            });
+
+            if (!resp.ok) throw new Error('Failed to generate prompt');
+            const data = await resp.json();
+            document.getElementById('system_prompt').value = data.system_prompt;
+            showToast('System prompt generated', 'success');
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            this.disabled = false;
+            this.innerHTML = '<i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> AI Generate';
+            lucide.createIcons();
+        }
+    });
+
+    // Form submission
+    document.getElementById('persona-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const saveBtn = document.getElementById('save-btn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner spinner-sm"></span> Saving...';
+
+        const formData = new FormData(this);
+
+        // Get provider from model selection
+        const modelSelect = document.getElementById('model');
+        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+        const provider = selectedOption?.dataset?.provider || 'ollama';
+
+        const personaData = {
+            name: formData.get('name'),
+            category: formData.get('category'),
+            system_prompt: formData.get('system_prompt'),
+            communication_style: currentStyles,
+            llm_config: {
+                provider: provider,
+                model: formData.get('model'),
+                temperature: parseFloat(formData.get('temperature')),
+                top_p: parseFloat(formData.get('top_p')) || 0.9,
+                top_k: parseInt(formData.get('top_k')) || 40,
+                repeat_penalty: parseFloat(formData.get('repeat_penalty')) || 1.1,
+                max_tokens: parseInt(formData.get('max_tokens')) || 2048
             }
-        });
-    </script>
-</body>
-</html> 
+        };
+
+        try {
+            const personaId = '{{ persona.id or "" }}';
+            const url = personaId ? `/api/characters/${personaId}` : '/api/characters';
+            const method = personaId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(personaData)
+            });
+
+            if (response.ok) {
+                showToast('Persona saved successfully', 'success');
+                setTimeout(() => {
+                    window.location.href = '/personas';
+                }, 1000);
+            } else {
+                const error = await response.json();
+                showToast('Error: ' + (error.error || 'Failed to save'), 'error');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i data-lucide="save" style="width: 16px; height: 16px;"></i> Save Changes';
+                lucide.createIcons();
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i data-lucide="save" style="width: 16px; height: 16px;"></i> Save Changes';
+            lucide.createIcons();
+        }
+    });
+
+    // Re-initialize icons
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    });
+</script>
+{% endblock %}

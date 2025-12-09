@@ -257,20 +257,97 @@ class ConversationService:
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         if not conversation:
             return False
-        
+
         # Remove from active conversations if present
         character_id = conversation.conversation_data.get("character_id")
         if character_id and character_id in self.active_conversations:
             del self.active_conversations[character_id]
-        
+
         # Delete all messages first
         db.query(Message).filter(Message.conversation_id == conversation_id).delete()
-        
+
         # Delete the conversation
         db.delete(conversation)
         db.commit()
-        
+
         return True
+
+    def get_recent_conversations(self, user_id: int, limit: int = 5, db: Session = None) -> List[Dict[str, Any]]:
+        """Get recent conversations for a user, ordered by most recent activity.
+
+        Args:
+            user_id: The user's ID
+            limit: Maximum number of conversations to return
+            db: Database session
+
+        Returns:
+            List of conversation dicts with id, character_id, last_message, updated_at
+        """
+        if db is None:
+            db = next(get_db())
+
+        # Query conversations for this user with their most recent message
+        result = db.execute(
+            text("""
+                SELECT
+                    c.id,
+                    c.started_at,
+                    json_extract(c.conversation_data, '$.character_id') as character_id,
+                    json_extract(c.conversation_data, '$.session_id') as session_id,
+                    m.content as last_message,
+                    m.timestamp as last_message_time,
+                    (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+                FROM conversations c
+                LEFT JOIN (
+                    SELECT conversation_id, content, timestamp,
+                           ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY timestamp DESC) as rn
+                    FROM messages
+                ) m ON c.id = m.conversation_id AND m.rn = 1
+                WHERE json_extract(c.conversation_data, '$.user_id') = :user_id
+                ORDER BY COALESCE(m.timestamp, c.started_at) DESC
+                LIMIT :limit
+            """),
+            {"user_id": str(user_id), "limit": limit}
+        )
+
+        conversations = []
+        for row in result:
+            conv_id = row[0]
+            started_at = row[1]
+            character_id = row[2]
+            session_id = row[3]
+            last_message = row[4]
+            last_message_time = row[5]
+            message_count = row[6] or 0
+
+            # Format timestamps
+            if last_message_time:
+                if hasattr(last_message_time, 'isoformat'):
+                    updated_at = last_message_time.isoformat()
+                else:
+                    updated_at = last_message_time
+            elif started_at:
+                if hasattr(started_at, 'isoformat'):
+                    updated_at = started_at.isoformat()
+                else:
+                    updated_at = started_at
+            else:
+                updated_at = None
+
+            # Truncate last message for preview
+            if last_message and len(last_message) > 100:
+                last_message = last_message[:97] + "..."
+
+            conversations.append({
+                "id": session_id or str(conv_id),
+                "conversation_id": conv_id,
+                "character_id": character_id,
+                "last_message": last_message or "No messages yet",
+                "updated_at": updated_at,
+                "message_count": message_count
+            })
+
+        return conversations
 
 # Global conversation service instance
 conversation_service = ConversationService() 
