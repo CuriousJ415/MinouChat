@@ -1,119 +1,165 @@
-# MiaChat - AI Personality Chat Application
+# MinouChat - Privacy-First AI Companion Platform
 
-MiaChat is a FastAPI-based web application that allows you to chat with AI personalities, each with unique traits and communication styles.
+MinouChat is a FastAPI-based web application for creating and chatting with AI companions. Features persistent memory, document analysis (RAG), and supports multiple LLM providers with Ollama (local) as the default for complete privacy.
 
 ## Features
 
-- **Multiple AI Personalities**: Choose from Gordon (Business Coach), Sage (Life Coach), and Mia (Friend)
-- **Personality Management**: View, create, and edit AI personalities with full CRUD operations
-- **Interactive Chat Interface**: Clean, modern chat interface with personality switching
-- **AI-Powered Trait Suggestions**: Automatic personality trait suggestions using local Ollama LLM
-- **Communication Style Customization**: Sliders for directness, warmth, formality, empathy, and humor
-- **Privacy-First Design**: Local LLM processing with Ollama (no external data transmission)
-- **Modern UI**: Bootstrap-based responsive design with real-time form validation
-- **File-based Storage**: Simple JSON-based personality storage (no database required)
+### Core
+- **Multiple AI Personas**: Create customizable AI companions with unique personalities
+- **Multi-Provider LLM Support**: Ollama (local/default), OpenAI, Anthropic, OpenRouter
+- **Privacy-First Design**: Local LLM processing with Ollama - no external data transmission
+- **User Authentication**: Secure login/registration with session management
+
+### Intelligent Context System
+- **Automatic Fact Extraction**: AI learns facts about you from conversations (name, preferences, etc.)
+- **Semantic Backstory Retrieval**: Character backstories are chunked and embedded for contextual retrieval
+- **Structured Settings**: Define world, location, and time period for each character
+- **Prompt Injection Protection**: Security layer sanitizes inputs to prevent injection attacks
+- **Memory Management**: View, edit, and delete learned facts from the Memory page
+
+### Document Intelligence (RAG)
+- **Document Upload**: Support for PDF and Markdown files
+- **Semantic Search**: FAISS-powered vector search across documents
+- **Document-Aware Chat**: Ask questions about your uploaded documents
+
+### Conversation Features
+- **Persistent History**: Database-backed conversation storage
+- **Context Windowing**: Intelligent message selection for context limits
+- **Export/Artifacts**: Generate and export conversation summaries
 
 ## Quick Start
 
-1. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Local Development
 
-2. **Start the Application**:
-   ```bash
-   python run.py
-   ```
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 
-3. **Access the Application**:
-   - Open your browser and go to: http://127.0.0.1:8080
-   - The application will automatically create default personalities on first run
+# Install dependencies
+pip install -r requirements.txt
 
-## Available Pages
+# Start the application
+python run.py
+# or
+uvicorn src.miachat.api.main:app --host 0.0.0.0 --port 8080 --reload
+```
 
-- **Home** (`/`): Landing page with feature overview
-- **Chat** (`/chat`): Interactive chat interface with personality selector
-- **Personalities** (`/personality`): View all available personalities and their traits
-- **Settings** (`/settings`): Application settings (coming soon)
-- **Config** (`/config`): System configuration (coming soon)
+### Docker (Recommended)
 
-## Default Personalities
+```bash
+# Start services
+./start.sh
+# or
+docker compose up -d
 
-### Gordon - Business Coach
-- **Category**: Business
-- **Traits**: High conscientiousness, moderate extraversion
-- **Style**: Formal, direct, practical advice
-- **Best for**: Business discussions, goal setting, strategic planning
+# With Ollama for local models
+docker compose --profile with-ollama up -d
 
-### Sage - Life Coach
-- **Category**: Life Coaching
-- **Traits**: High openness, high agreeableness
-- **Style**: Compassionate, thoughtful, wisdom-based guidance
-- **Best for**: Personal growth, life decisions, emotional support
+# Stop services
+./stop.sh
+```
 
-### Mia - Friend
-- **Category**: Friend
-- **Traits**: High extraversion, high agreeableness
-- **Style**: Casual, supportive, conversational
-- **Best for**: Casual chat, emotional support, friendly conversation
+Access the application at http://localhost:8080
 
-## Personality Storage
+## LLM Provider Configuration
 
-Personalities are stored as JSON files in the `personalities/` directory. Each personality includes:
+| Provider | Environment Variable | Notes |
+|----------|---------------------|-------|
+| Ollama (default) | `OLLAMA_HOST`, `OLLAMA_PORT` | Local, private, free |
+| OpenAI | `OPENAI_API_KEY` | GPT-4, GPT-4o |
+| Anthropic | `ANTHROPIC_API_KEY` | Claude 3.5 |
+| OpenRouter | `OPENROUTER_API_KEY` | 100+ models |
 
-- Basic information (name, description, category, tags)
-- Personality traits (Big Five model)
-- Communication style preferences
-- System prompt for AI behavior
+## Architecture
+
+```
+src/miachat/
+├── api/
+│   ├── main.py                    # FastAPI entry point
+│   ├── core/
+│   │   ├── backstory_service.py   # Semantic backstory retrieval
+│   │   ├── fact_extraction_service.py  # Auto-learn facts from chat
+│   │   ├── setting_service.py     # World/location/time settings
+│   │   ├── enhanced_context_service.py  # RAG & memory integration
+│   │   ├── llm_client.py          # Multi-provider LLM client
+│   │   ├── conversation_service.py
+│   │   ├── document_service.py
+│   │   ├── embedding_service.py
+│   │   └── security/
+│   │       └── prompt_sanitizer.py  # Injection protection
+│   ├── routes/                    # API endpoints
+│   └── templates/                 # Jinja2 templates
+├── database/
+│   ├── config.py                  # SQLAlchemy setup
+│   └── models.py                  # ORM models
+└── personality/                   # Character framework
+```
+
+## Key Pages
+
+| Page | Path | Description |
+|------|------|-------------|
+| Dashboard | `/dashboard` | Overview with stats and quick actions |
+| Chat | `/chat` | Main conversation interface |
+| Personas | `/persona` | Manage AI companions |
+| Memory | `/memory` | View and manage learned facts |
+| Documents | `/documents` | Upload and search documents |
+| Settings | `/settings` | API keys and preferences |
+
+## Context System
+
+MinouChat uses a simplified, intuitive context system:
+
+### Setting (per character)
+Define the world, location, and time period. This context is always available to the AI.
+
+### Backstory (per character)
+Free-form character backstory that is chunked into semantic embeddings. Relevant portions are retrieved based on conversation context.
+
+### Learned Facts (per user)
+Facts automatically extracted from conversations:
+- **Name**: User's name
+- **Preferences**: Likes, dislikes, preferences
+- **Occupation**: Job, profession
+- **Location**: Where the user lives
+- **Hobbies**: Activities, interests
+- **Relationships**: People mentioned
+
+Facts can be viewed and managed in the Memory page.
 
 ## Development
 
-The application is built with:
-- **FastAPI**: Modern Python web framework
-- **Jinja2**: Template engine
-- **Bootstrap 5**: Frontend styling
-- **File-based storage**: Simple JSON files for data persistence
+```bash
+# Run tests
+pytest tests/unit/
 
-## Project Structure
+# Format code
+black .
 
-```
-src/miachat/api/
-├── main.py                 # FastAPI application entry point
-├── core/
-│   ├── personality_manager.py  # Personality management logic
-│   ├── templates.py            # Template rendering
-│   ├── static.py               # Static file serving
-│   └── flash.py                # Flash message system
-├── templates/              # HTML templates
-│   ├── index.html
-│   ├── chat/
-│   │   └── index.html
-│   └── personality/
-│       └── list.html
-└── static/                 # Static assets (CSS, JS, images)
-personalities/              # Personality JSON files
+# Type checking
+mypy src/miachat
+
+# Linting
+flake8 .
 ```
 
-## Future Enhancements
+## Data Storage
 
-- [x] **Real AI integration** with Ollama (completed)
-- [x] **Personality creation and editing interface** (completed)
-- [x] **Chat history persistence** (completed)
-- [x] **User authentication** (completed)
-- [x] **Advanced personality customization** (completed)
-- [ ] **Multi-provider LLM support** (OpenAI, Anthropic, etc.)
-- [ ] **Export/import personality configurations**
-- [ ] **Enhanced trait suggestions** with multiple LLM providers
-- [ ] **Personality templates and presets**
+- **SQLite**: Users, conversations, messages, documents, facts
+- **FAISS**: Vector embeddings for semantic search
+- **File System**:
+  - `character_cards/` - Character JSON files
+  - `documents/` - Uploaded documents
+  - `output_documents/` - Generated artifacts
 
-## Troubleshooting
+## Security
 
-If you encounter issues:
-
-1. **Port already in use**: The application uses port 8080 by default. Kill any existing processes or change the port in `run.py`
-2. **Missing dependencies**: Ensure all requirements are installed with `pip install -r requirements.txt`
-3. **Template errors**: Check that all template files exist in the correct locations
+- Session-based authentication with secure cookies
+- Prompt sanitizer protects against injection attacks
+- API keys stored securely (masked in UI responses)
+- User ownership verified on all operations
 
 ## License
 
-This project is for educational and personal use. 
+This project is for educational and personal use.
