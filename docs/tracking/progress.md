@@ -1,174 +1,202 @@
-# Project Progress Tracking
+# MiaChat Project Progress Tracking
 
-> **See also:** [Project Documentation README](../README.md) and [Implementation Roadmap](../implementation/roadmap.md)
+## Completed Features ✅
 
-## Current Status
-- Phase: 1
-- Status: In Progress
-- Last Updated: 2024-06-11
+### Phase 1: Core Infrastructure
+- [x] FastAPI migration from Flask
+- [x] Database setup with SQLAlchemy
+- [x] Authentication system with session management
+- [x] Basic routing and template system
+- [x] Character management system
+- [x] LLM integration with Ollama
 
-## Milestones
+### Phase 2: Chat System
+- [x] Real-time chat interface
+- [x] Character selection and chat history
+- [x] Message persistence
+- [x] Character-specific responses
+- [x] Privacy-focused local LLM usage
 
-### Phase 1: Foundation
-- [x] Project Structure Setup
-  - Status: Completed
-  - Priority: High
-  - Dependencies: None
-  - Notes: Basic project structure established with web app, configuration files, and Docker support
+### Phase 3: Personality Framework
+- [x] Personality data structure
+- [x] Character cards with traits and communication styles
+- [x] XML-based personality definitions
+- [x] Personality parsing and validation
 
-- [x] XML Personality Framework
-  - Status: Completed
-  - Priority: High
-  - Dependencies: Project Structure
-  - Notes: Initial personality configuration in mia_personality.json
-  - Completed:
-    - XML schema definition and validation
-    - Personality loader with schema validation
-    - Unit tests for XML validation
-    - Web interface for personality customization
-      - Sliders for personality traits
-      - Character analysis feature
-      - Communication style settings
-      - Knowledge and interests management
-      - Backstory editor
-    - Comprehensive testing
-      - Unit tests for personality framework
-      - API endpoint tests
-      - Edge case testing
-      - Error handling tests
-    - Documentation
-      - XML schema documentation
-      - API endpoint documentation
-      - Example personality definitions
-      - Usage examples and best practices
-      - Error handling guide
+### Phase 4: Advanced Features
+- [x] Memory system with SQLite backend
+- [x] Conversation history tracking
+- [x] Character usage statistics
+- [x] Privacy controls and local processing
 
-- [x] Basic Memory Management
-  - Status: Completed
-  - Priority: High
-  - Dependencies: Project Structure
-  - Notes: Database initialization and management scripts implemented
+### Phase 5: Personality Editing System ✅ (COMPLETED)
+- [x] **Personality creation interface** with comprehensive form
+- [x] **Personality editing interface** for existing characters
+- [x] **AI-powered trait suggestions** using Ollama
+- [x] **Communication style sliders** (Directness, Warmth, Formality, Empathy, Humor)
+- [x] **Backstory integration** for personality development
+- [x] **Real-time form validation** and user feedback
+- [x] **Modern Bootstrap UI** with responsive design
+- [x] **FastAPI routes** for /personality/create and /personality/edit/{id}
+- [x] **Form submission** with POST/PUT to API endpoints
+- [x] **Template system** properly integrated with FastAPI
 
-- [x] Enhanced LLM Integration
-  - Status: Completed
-  - Priority: High
-  - Dependencies: Project Structure
-  - Notes: Support for multiple LLM providers (OpenAI, Anthropic, Ollama) implemented
+## Current Status: Phase 6 - LLM Provider Integration
 
-- [ ] Character Evolution System
-  - Status: In Progress
-  - Priority: High
-  - Dependencies: XML Personality Framework
-  - Notes: Implementation of personality evolution based on user interactions
-  - Completed:
-    - Basic evolution framework
-    - Trait evolution rules
-    - Interaction history tracking
-    - Trust level system
-  - Pending:
-    - Emotional tone analysis
-    - Advanced trust calculation
-    - Personality state persistence
-    - Evolution visualization
+### Recently Completed ✅ (July 9, 2025)
+- [x] **User Settings & Provider Selection System** ✅ (COMPLETED)
+  - Comprehensive settings page with LLM provider selection
+  - Database model for user settings with privacy controls
+  - API endpoints for settings management (/api/settings/llm, /api/settings/user)
+  - Support for multiple providers (Ollama, OpenAI, Anthropic, OpenRouter, LiteLLM)
+  - API key management with secure storage
+  - Privacy mode selection (local_only, cloud_allowed, hybrid)
+  - Connection testing functionality
+  - User preferences (theme, language)
+  - Modern Bootstrap UI with real-time validation
+- [x] **Character Creation API Fix** ✅ (COMPLETED)
+  - Fixed 422 validation error in character creation endpoint
+  - Updated CharacterCreateRequest model to handle flexible LLM configuration
+  - Fixed frontend form submission to use correct field names
+  - Improved error handling and user feedback
+- [x] **Dynamic Personality Editor** ✅ (COMPLETED)
+  - Fixed AI trait suggestions to update sliders in place (no re-rendering)
+  - Robust category handling with proper form submission logic
+  - Added "Partner / Significant Other" category with adult content warning modal
+  - Healthcare warning modal for sensitive categories
+  - System prompt suggestion button with real-time updates
+  - Bugfixes for event listeners and form validation
+- [x] **Personality Deletion System** ✅ (COMPLETED)
+  - Delete button on each personality card with confirmation modal
+  - Complete deletion of character and all associated memories/conversations
+  - Preservation of audit logs for warning acknowledgements
+  - Real-time UI updates after deletion
+  - Proper error handling and user feedback
+- [x] **Character Creation API Fix** ✅ (COMPLETED)
+  - Fixed 422 validation error in character creation endpoint
+  - Updated CharacterCreateRequest model to handle flexible LLM configuration
+  - Support for both individual fields and llm_config object
+  - Proper model_config building with default values
+  - Backward compatibility with existing frontend code
+- [x] **Dynamic trait suggestion UI fix**: Sliders now update in place when AI suggestions are applied
+- [x] **Category dropdown improvements**: "Other" option with healthcare warning modal and proper value handling
+- [x] **System prompt suggestion**: Button and real-time update
+- [x] **Bugfixes**: Category handling, duplicate event listeners, and 422 error on character creation
 
-- [ ] User-Character Conflict Resolution
-  - Status: In Progress
-  - Priority: High
-  - Dependencies: Character Evolution System
-  - Notes: Implementation of conflict resolution between user and character
-  - Completed:
-    - Basic conflict resolution framework
-    - Resolution strategies based on personality traits
-    - Conflict history tracking
-    - Trust impact system
-  - Pending:
-    - Advanced conflict detection
-    - More sophisticated resolution strategies
-    - Conflict state persistence
-    - Resolution visualization
+### Previously Completed ✅ (July 7, 2025)
+- [x] **Chat page personality display fix**
+  - Fixed template variable naming (personalities vs characters)
+  - Updated route to pass correct data structure
+  - Mia and other JSON-based personalities now appear in chat sidebar
+  - Chat functionality working with local Ollama LLM
+  - Template uses personality.personality for description field
 
-- [ ] NPC System
-  - Status: In Progress
-  - Priority: Medium
-  - Dependencies: Character Evolution System
-  - Notes: Implementation of limited-role characters
-  - Completed:
-    - Basic NPC framework
-    - Key moments tracking
-    - Relationship management
-    - Influence system
-  - Pending:
-    - NPC state persistence
-    - Advanced relationship dynamics
-    - NPC interaction generation
-    - NPC visualization
+### In Progress 🔄
+- [x] **LLM provider selection system** ✅ (COMPLETED)
+  - User settings for default LLM provider
+  - Per-personality LLM selection
+  - Support for multiple providers (Ollama, OpenAI, Anthropic, LiteLM, OpenRouter)
+- [ ] **Enhanced trait suggestion system**
+  - Provider-specific trait suggestion prompts
+  - Quality improvements for trait generation
+  - Better JSON parsing and error handling
 
-## Issues and Blockers
-- None currently identified
+### Next Steps 📋
 
-## Recent Updates
-- Project structure established with web application and configuration files
-- Docker support implemented with docker-compose.yml and Dockerfile
-- Multiple LLM provider support added (OpenAI, Anthropic, Ollama)
-- Database initialization and management scripts created
-- Basic web interface implemented with chat functionality
-- Documentation structure established
-- XML schema validation added to personality framework
-- Unit tests for XML validation implemented
-- Comprehensive testing added for personality framework and API endpoints
-- Complete documentation added for personality framework
-- Character evolution system implementation started
-- User-character conflict resolution system implementation started
-- NPC system implementation started
-- Restored/scaffolded core conversation logic (core/conversation.py)
-- Added and styled dashboard template
-- Proactively checked and fixed all template links for valid endpoints
+#### Immediate (Phase 6A) ✅ (COMPLETED)
+1. **User Settings Page** ✅
+   - LLM provider selection dropdown ✅
+   - API key management (for cloud providers) ✅
+   - Default model selection per provider ✅
+   - Privacy preferences ✅
 
-## Next Actions
-1. Complete Character Evolution System
-   - Implement emotional tone analysis
-   - Enhance trust calculation
-   - Add personality state persistence
-   - Create evolution visualization
+#### Next (Phase 6B)
+2. **LLM Provider Abstraction**
+   - Abstract LLM client interface
+   - Provider-specific implementations
+   - Fallback mechanisms
+   - Error handling for different providers
 
-2. Complete User-Character Conflict Resolution
-   - Implement advanced conflict detection
-   - Enhance resolution strategies
-   - Add conflict state persistence
-   - Create resolution visualization
+#### Short Term (Phase 6B)
+3. **Enhanced Personality Creation**
+   - LLM selection during personality creation
+   - Provider-specific trait suggestions
+   - Quality improvements for AI suggestions
+   - Better validation and error handling
 
-3. Complete NPC System
-   - Implement NPC state persistence
-   - Enhance relationship dynamics
-   - Add NPC interaction generation
-   - Create NPC visualization
+4. **User Experience Improvements**
+   - Loading states and progress indicators
+   - Better error messages and user feedback
+   - Form auto-save functionality
+   - Personality preview before saving
 
-4. Add automated tests for routes and models
-5. Initialize the database (`python -m src.miachat.cli init_database`)
-6. Add/restore any missing templates (dashboard)
-7. Add Dockerfile and .dockerignore for containerization
-8. Update documentation as features are added
+#### Medium Term (Phase 7)
+5. **Advanced Personality Features**
+   - Personality templates and presets
+   - Bulk personality import/export
+   - Personality sharing and community features
+   - Advanced trait customization
 
-## Completed Features
-- Basic character creation and management
-- Memory system with enhanced capabilities
-- Document processing and summarization
-- Chat interface with context awareness
-- Personality framework with XML support
-- Web interface for personality customization
-- Comprehensive testing suite
-- Complete documentation
+6. **Memory and Context Enhancements**
+   - Improved memory retrieval
+   - Context-aware responses
+   - Long-term memory management
+   - Memory visualization tools
 
-## Pending Features
-- Advanced emotional analysis
-- Sophisticated trust calculation
-- Personality state persistence
-- Evolution visualization
-- Advanced conflict detection
-- Enhanced resolution strategies
-- Conflict state persistence
-- Resolution visualization
-- NPC state persistence
-- Advanced relationship dynamics
-- NPC interaction generation
-- NPC visualization
+## Technical Debt & Improvements Needed
+
+### High Priority
+- [ ] **Template organization** - Consolidate duplicate templates between Flask and FastAPI
+- [ ] **Error handling** - Improve error messages and user feedback
+- [ ] **Testing** - Add comprehensive tests for new personality editing features
+- [ ] **Documentation** - Update API documentation and user guides
+- [ ] **Audit logging for sensitive warning modals** (shown/acknowledged) (TODO: migrate to DB before production)
+
+### Medium Priority
+- [ ] **Code organization** - Refactor character manager and personality systems
+- [ ] **Performance** - Optimize database queries and template rendering
+- [ ] **Security** - Add input validation and sanitization
+- [ ] **Accessibility** - Improve UI accessibility features
+
+## Recent Achievements 🎉
+
+### Personality Editing System (Completed)
+- **Full CRUD operations** for personalities
+- **AI-powered trait suggestions** using local Ollama
+- **Modern, responsive UI** with Bootstrap
+- **Real-time form validation** and feedback
+- **Communication style customization** with sliders
+- **Backstory integration** for personality development
+- **FastAPI integration** with proper routing and templates
+
+### Chat System Integration (Completed)
+- **Fixed personality display** in chat sidebar
+- **Template variable alignment** between route and template
+- **JSON-based character system** working with chat interface
+- **Local Ollama integration** confirmed working
+- **User authentication** and session management functional
+
+### Key Metrics
+- **35+ files changed** across personality editing system
+- **2,739 insertions, 878 deletions** in major feature commits
+- **New features**: 12 major components added
+- **User experience**: Significant improvement in personality management
+- **Chat functionality**: Fully operational with personality selection
+
+## Next Milestone: LLM Provider Integration
+
+**Target Date**: Next development session
+**Priority**: High
+**Dependencies**: Personality editing system (completed)
+
+**Goals**:
+1. Allow users to choose their preferred LLM provider
+2. Support multiple providers with consistent interface
+3. Improve trait suggestion quality with provider-specific prompts
+4. Maintain privacy-first approach with local options
+
+---
+
+*Last Updated: July 7, 2025*
+*Current Phase: 6 - LLM Provider Integration*
+*Status: Chat system fully operational, ready for multi-provider LLM integration*

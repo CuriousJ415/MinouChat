@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinouChat - Artifacts</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .artifact-card {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .artifact-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .artifact-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-size {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot"></i> MinouChat
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a class="nav-link" href="/chat">
+                    <i class="fas fa-comments"></i> Chat
+                </a>
+                <a class="nav-link" href="/documents">
+                    <i class="fas fa-file-alt"></i> Documents
+                </a>
+                <a class="nav-link active" href="/artifacts">
+                    <i class="fas fa-file-export"></i> Artifacts
+                </a>
+                <a class="nav-link" href="/personas">
+                    <i class="fas fa-users"></i> Personas
+                </a>
+                <a class="nav-link" href="/settings">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="fas fa-file-export"></i> Generated Artifacts</h2>
+                    <div>
+                        <button class="btn btn-outline-primary" onclick="refreshArtifacts()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button class="btn btn-primary" onclick="window.location.href='/chat'">
+                            <i class="fas fa-plus"></i> Generate New
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading state -->
+                <div id="loading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading artifacts...</p>
+                </div>
+
+                <!-- Artifacts grid -->
+                <div id="artifactsContainer" class="row" style="display: none;">
+                    <!-- Artifacts will be loaded here -->
+                </div>
+
+                <!-- Empty state -->
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <i class="fas fa-file-export"></i>
+                    <h4>No Artifacts Yet</h4>
+                    <p>Generate your first artifact by starting a conversation and using the "Generate" button.</p>
+                    <a href="/chat" class="btn btn-primary">
+                        <i class="fas fa-comments"></i> Start Chatting
+                    </a>
+                </div>
+
+                <!-- Error state -->
+                <div id="errorState" class="text-center" style="display: none;">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error loading artifacts</strong>
+                        <p class="mb-0" id="errorMessage"></p>
+                        <button class="btn btn-outline-danger btn-sm mt-2" onclick="refreshArtifacts()">
+                            <i class="fas fa-retry"></i> Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load artifacts on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadArtifacts();
+        });
+
+        function loadArtifacts() {
+            showLoading();
+
+            fetch('/api/artifacts/list')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    hideLoading();
+                    displayArtifacts(data.artifacts || []);
+                })
+                .catch(error => {
+                    console.error('Error loading artifacts:', error);
+                    hideLoading();
+                    showError(error.message);
+                });
+        }
+
+        function displayArtifacts(artifacts) {
+            const container = document.getElementById('artifactsContainer');
+            const emptyState = document.getElementById('emptyState');
+
+            if (artifacts.length === 0) {
+                container.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            container.style.display = 'flex';
+            container.innerHTML = '';
+
+            artifacts.forEach(artifact => {
+                const card = createArtifactCard(artifact);
+                container.appendChild(card);
+            });
+        }
+
+        function createArtifactCard(artifact) {
+            const col = document.createElement('div');
+            col.className = 'col-md-4 col-lg-3 mb-4';
+
+            const fileExtension = artifact.filename.split('.').pop().toLowerCase();
+            const icon = getFileIcon(fileExtension);
+            const fileSize = formatFileSize(artifact.size);
+            const createdDate = new Date(artifact.created_at * 1000).toLocaleDateString();
+
+            col.innerHTML = `
+                <div class="card artifact-card h-100">
+                    <div class="card-body text-center">
+                        <div class="artifact-icon text-primary">
+                            <i class="${icon}"></i>
+                        </div>
+                        <h6 class="card-title">${truncateFilename(artifact.filename)}</h6>
+                        <p class="file-size">${fileSize} • ${createdDate}</p>
+                        <div class="btn-group-vertical w-100">
+                            <a href="${artifact.download_url}" class="btn btn-primary btn-sm" target="_blank">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                            <button class="btn btn-outline-danger btn-sm" onclick="deleteArtifact('${artifact.id}', '${artifact.filename}')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return col;
+        }
+
+        function getFileIcon(extension) {
+            const icons = {
+                'pdf': 'fas fa-file-pdf',
+                'md': 'fas fa-file-code',
+                'txt': 'fas fa-file-alt',
+                'csv': 'fas fa-file-csv'
+            };
+            return icons[extension] || 'fas fa-file';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function truncateFilename(filename) {
+            const maxLength = 30;
+            if (filename.length <= maxLength) return filename;
+
+            const extension = filename.split('.').pop();
+            const name = filename.substring(0, filename.lastIndexOf('.'));
+            const truncatedName = name.substring(0, maxLength - extension.length - 4) + '...';
+            return truncatedName + '.' + extension;
+        }
+
+        function deleteArtifact(artifactId, filename) {
+            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+                return;
+            }
+
+            fetch(`/api/artifacts/${artifactId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                showNotification('Artifact deleted successfully', 'success');
+                refreshArtifacts();
+            })
+            .catch(error => {
+                console.error('Error deleting artifact:', error);
+                showNotification(`Error deleting artifact: ${error.message}`, 'error');
+            });
+        }
+
+        function refreshArtifacts() {
+            loadArtifacts();
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('artifactsContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorState').style.display = 'block';
+            document.getElementById('artifactsContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.minWidth = '300px';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                if (notification && notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

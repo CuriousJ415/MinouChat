@@ -1,145 +1,165 @@
-# MiaChat
+# MinouChat - Privacy-First AI Companion Platform
 
-A sophisticated AI personality application capable of sustained, meaningful dialogue.
+MinouChat is a FastAPI-based web application for creating and chatting with AI companions. Features persistent memory, document analysis (RAG), and supports multiple LLM providers with Ollama (local) as the default for complete privacy.
 
-## Project Overview
+## Features
 
-MiaChat is an AI personality system that enables natural, context-aware conversations with customizable personalities. The system features:
+### Core
+- **Multiple AI Personas**: Create customizable AI companions with unique personalities
+- **Multi-Provider LLM Support**: Ollama (local/default), OpenAI, Anthropic, OpenRouter
+- **Privacy-First Design**: Local LLM processing with Ollama - no external data transmission
+- **User Authentication**: Secure login/registration with session management
 
-- XML/JSON-based personality definitions
-- Memory management for context retention
-- Conversation management with personality integration
-- Extensible architecture for future enhancements
+### Intelligent Context System
+- **Automatic Fact Extraction**: AI learns facts about you from conversations (name, preferences, etc.)
+- **Semantic Backstory Retrieval**: Character backstories are chunked and embedded for contextual retrieval
+- **Structured Settings**: Define world, location, and time period for each character
+- **Prompt Injection Protection**: Security layer sanitizes inputs to prevent injection attacks
+- **Memory Management**: View, edit, and delete learned facts from the Memory page
+
+### Document Intelligence (RAG)
+- **Document Upload**: Support for PDF and Markdown files
+- **Semantic Search**: FAISS-powered vector search across documents
+- **Document-Aware Chat**: Ask questions about your uploaded documents
+
+### Conversation Features
+- **Persistent History**: Database-backed conversation storage
+- **Context Windowing**: Intelligent message selection for context limits
+- **Export/Artifacts**: Generate and export conversation summaries
 
 ## Quick Start
 
-### 1. Clone the repository
+### Local Development
 
 ```bash
-git clone https://github.com/CuriousJ415/MiaAI.git
-cd MiaAI
-```
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 
-### 2. Create and activate a Python 3.11 virtual environment
-
-```bash
-python3.11 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Start the application
+python run.py
+# or
+uvicorn src.miachat.api.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-### 4. Initialize the database
+### Docker (Recommended)
 
 ```bash
-python -m src.miachat.cli init_database
+# Start services
+./start.sh
+# or
+docker compose up -d
+
+# With Ollama for local models
+docker compose --profile with-ollama up -d
+
+# Stop services
+./stop.sh
 ```
 
-### 5. Run the application
+Access the application at http://localhost:8080
+
+## LLM Provider Configuration
+
+| Provider | Environment Variable | Notes |
+|----------|---------------------|-------|
+| Ollama (default) | `OLLAMA_HOST`, `OLLAMA_PORT` | Local, private, free |
+| OpenAI | `OPENAI_API_KEY` | GPT-4, GPT-4o |
+| Anthropic | `ANTHROPIC_API_KEY` | Claude 3.5 |
+| OpenRouter | `OPENROUTER_API_KEY` | 100+ models |
+
+## Architecture
+
+```
+src/miachat/
+├── api/
+│   ├── main.py                    # FastAPI entry point
+│   ├── core/
+│   │   ├── backstory_service.py   # Semantic backstory retrieval
+│   │   ├── fact_extraction_service.py  # Auto-learn facts from chat
+│   │   ├── setting_service.py     # World/location/time settings
+│   │   ├── enhanced_context_service.py  # RAG & memory integration
+│   │   ├── llm_client.py          # Multi-provider LLM client
+│   │   ├── conversation_service.py
+│   │   ├── document_service.py
+│   │   ├── embedding_service.py
+│   │   └── security/
+│   │       └── prompt_sanitizer.py  # Injection protection
+│   ├── routes/                    # API endpoints
+│   └── templates/                 # Jinja2 templates
+├── database/
+│   ├── config.py                  # SQLAlchemy setup
+│   └── models.py                  # ORM models
+└── personality/                   # Character framework
+```
+
+## Key Pages
+
+| Page | Path | Description |
+|------|------|-------------|
+| Dashboard | `/dashboard` | Overview with stats and quick actions |
+| Chat | `/chat` | Main conversation interface |
+| Personas | `/persona` | Manage AI companions |
+| Memory | `/memory` | View and manage learned facts |
+| Documents | `/documents` | Upload and search documents |
+| Settings | `/settings` | API keys and preferences |
+
+## Context System
+
+MinouChat uses a simplified, intuitive context system:
+
+### Setting (per character)
+Define the world, location, and time period. This context is always available to the AI.
+
+### Backstory (per character)
+Free-form character backstory that is chunked into semantic embeddings. Relevant portions are retrieved based on conversation context.
+
+### Learned Facts (per user)
+Facts automatically extracted from conversations:
+- **Name**: User's name
+- **Preferences**: Likes, dislikes, preferences
+- **Occupation**: Job, profession
+- **Location**: Where the user lives
+- **Hobbies**: Activities, interests
+- **Relationships**: People mentioned
+
+Facts can be viewed and managed in the Memory page.
+
+## Development
 
 ```bash
-python -m src.miachat.web.run
+# Run tests
+pytest tests/unit/
+
+# Format code
+black .
+
+# Type checking
+mypy src/miachat
+
+# Linting
+flake8 .
 ```
 
-Visit [http://localhost:5001](http://localhost:5001) in your browser.
+## Data Storage
 
----
+- **SQLite**: Users, conversations, messages, documents, facts
+- **FAISS**: Vector embeddings for semantic search
+- **File System**:
+  - `character_cards/` - Character JSON files
+  - `documents/` - Uploaded documents
+  - `output_documents/` - Generated artifacts
 
-### 6. Static Files
+## Security
 
-- Place images and other static assets in `src/miachat/web/static/`.
-- Example: `src/miachat/web/static/images/ai_face_glow.jpg`
-
----
-
-### 7. Troubleshooting
-
-- If you see `ModuleNotFoundError`, ensure all dependencies are installed and you are using Python 3.11.
-- For database issues, re-run the `init_database` command.
-
-## Project Structure
-
-```
-miachat/
-├── src/
-│   └── miachat/
-│       ├── core/           # Core functionality
-│       ├── personality/    # Personality management
-│       ├── memory/         # Memory management
-│       ├── api/           # API endpoints
-│       └── utils/         # Utility functions
-├── tests/
-│   ├── unit/             # Unit tests
-│   └── integration/      # Integration tests
-├── config/
-│   └── personalities/    # Personality definitions
-└── docs/                # Documentation
-```
-
-## Development Setup
-
-1. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -e ".[dev]"
-   ```
-
-3. Run tests:
-   ```bash
-   pytest
-   ```
-
-## Core Components
-
-### Personality Management
-- Define personalities using XML or JSON
-- Customize traits, style, knowledge, and backstory
-- Serialize/deserialize personality definitions
-
-### Memory Management
-- Store and retrieve conversation history
-- Maintain context across interactions
-- Categorize and prioritize memories
-
-### Conversation Management
-- Handle message flow and context
-- Integrate personality traits into responses
-- Manage conversation state
-
-## Development Guidelines
-
-1. Code Style
-   - Follow PEP 8 guidelines
-   - Use type hints
-   - Write docstrings for all public functions/classes
-
-2. Testing
-   - Write unit tests for all new functionality
-   - Maintain test coverage above 80%
-   - Run tests before committing changes
-
-3. Documentation
-   - Update README.md for significant changes
-   - Document new features in docs/
-   - Keep docstrings up to date
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and ensure they pass
-5. Submit a pull request
+- Session-based authentication with secure cookies
+- Prompt sanitizer protects against injection attacks
+- API keys stored securely (masked in UI responses)
+- User ownership verified on all operations
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is for educational and personal use.

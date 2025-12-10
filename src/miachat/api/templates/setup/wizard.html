@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Wizard - MinouChat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .setup-wizard {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem 0;
+        }
+        .wizard-card {
+            max-width: 800px;
+            margin: 0 auto;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .wizard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 1rem;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .step.active {
+            background: #007bff;
+            color: white;
+        }
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+        .step::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            width: 2rem;
+            height: 2px;
+            background: #e9ecef;
+            transform: translateY(-50%);
+        }
+        .step:last-child::after {
+            display: none;
+        }
+        .step.completed::after {
+            background: #28a745;
+        }
+        .provider-card {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .provider-card:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .provider-card.selected {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+        .provider-card.available {
+            border-color: #28a745;
+        }
+        .provider-card.unavailable {
+            border-color: #dc3545;
+            opacity: 0.7;
+        }
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+        }
+        .privacy-score {
+            background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+            height: 10px;
+            border-radius: 5px;
+            position: relative;
+            margin: 1rem 0;
+        }
+        .privacy-indicator {
+            position: absolute;
+            top: -5px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            transform: translateX(-50%);
+        }
+        .model-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+        .recommendation-card {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-wizard">
+        <div class="container">
+            <div class="wizard-card bg-white">
+                <!-- Header -->
+                <div class="wizard-header">
+                    <h1><i class="fas fa-magic me-2"></i>MinouChat Setup Wizard</h1>
+                    <p class="mb-0">Let's get your AI personas configured and ready to chat!</p>
+                </div>
+
+                <!-- Step Indicator -->
+                <div class="step-indicator">
+                    <div class="step active" id="step-1">1</div>
+                    <div class="step" id="step-2">2</div>
+                    <div class="step" id="step-3">3</div>
+                    <div class="step" id="step-4">4</div>
+                </div>
+
+                <!-- Content Area -->
+                <div class="p-4">
+                    <!-- Step 1: Welcome & Assessment -->
+                    <div class="wizard-step" id="content-step-1">
+                        <h3><i class="fas fa-search me-2"></i>System Assessment</h3>
+                        <p>We're checking what AI models and providers are available on your system...</p>
+                        
+                        <div class="text-center my-4">
+                            <div class="spinner-border text-primary" role="status" id="assessment-spinner">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2" id="assessment-status">Scanning system...</p>
+                        </div>
+
+                        <!-- Assessment Results -->
+                        <div id="assessment-results" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-server me-2"></i>Providers Found</h5>
+                                    <div id="providers-list"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-shield-alt me-2"></i>Privacy Score</h5>
+                                    <div class="privacy-score">
+                                        <div class="privacy-indicator" id="privacy-indicator"></div>
+                                    </div>
+                                    <p class="text-center" id="privacy-text">Calculating...</p>
+                                </div>
+                            </div>
+
+                            <div class="recommendation-card">
+                                <h5><i class="fas fa-lightbulb me-2"></i>Recommendations</h5>
+                                <ul id="recommendations-list" class="mb-0"></ul>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <button class="btn btn-primary btn-lg" onclick="nextStep()">
+                                    Continue Setup <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Privacy Preference -->
+                    <div class="wizard-step" id="content-step-2" style="display: none;">
+                        <h3><i class="fas fa-user-shield me-2"></i>Privacy Preference</h3>
+                        <p>How would you like to balance privacy, performance, and convenience?</p>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="provider-card text-center" data-preference="privacy">
+                                    <i class="fas fa-lock fa-3x text-success mb-3"></i>
+                                    <h5>Maximum Privacy</h5>
+                                    <p>Use only local models (Ollama)<br>
+                                    <small class="text-muted">Complete privacy, requires setup</small></p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="provider-card text-center" data-preference="balanced">
+                                    <i class="fas fa-balance-scale fa-3x text-warning mb-3"></i>
+                                    <h5>Balanced</h5>
+                                    <p>Mix of local and cloud models<br>
+                                    <small class="text-muted">Good privacy + performance</small></p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="provider-card text-center" data-preference="performance">
+                                    <i class="fas fa-rocket fa-3x text-primary mb-3"></i>
+                                    <h5>Best Performance</h5>
+                                    <p>Use cloud AI providers<br>
+                                    <small class="text-muted">Immediate access, requires API keys</small></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <button class="btn btn-outline-secondary me-2" onclick="previousStep()">
+                                <i class="fas fa-arrow-left me-2"></i>Back
+                            </button>
+                            <button class="btn btn-primary btn-lg" onclick="nextStep()" disabled id="preference-next">
+                                Continue <i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Model Assignment -->
+                    <div class="wizard-step" id="content-step-3" style="display: none;">
+                        <h3><i class="fas fa-users me-2"></i>Persona Configuration</h3>
+                        <p>We'll assign the best available models to your AI personas:</p>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> These are starting recommendations. You can fully customize each persona's model, 
+                            temperature, and other settings in the Persona Management page after setup.
+                        </div>
+
+                        <div id="persona-assignments"></div>
+
+                        <div class="text-center mt-4">
+                            <button class="btn btn-outline-secondary me-2" onclick="previousStep()">
+                                <i class="fas fa-arrow-left me-2"></i>Back
+                            </button>
+                            <button class="btn btn-success btn-lg" onclick="applyConfiguration()" disabled>
+                                <i class="fas fa-exclamation-triangle me-2"></i>Select models for all personas
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Completion -->
+                    <div class="wizard-step" id="content-step-4" style="display: none;">
+                        <div class="text-center">
+                            <i class="fas fa-check-circle fa-5x text-success mb-4"></i>
+                            <h3>Setup Complete!</h3>
+                            <p class="lead">Your MinouChat system is now configured and ready to use.</p>
+
+                            <div id="completion-summary" class="my-4"></div>
+
+                            <div class="d-grid gap-2 d-md-block">
+                                <a href="/chat" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-comments me-2"></i>Start Chatting
+                                </a>
+                                <a href="/persona" class="btn btn-outline-primary btn-lg">
+                                    <i class="fas fa-users me-2"></i>Manage Personas
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentStep = 1;
+        let assessmentData = null;
+        let selectedPreference = null;
+        let assignmentPlan = [];
+
+        // Start assessment on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            performAssessment();
+        });
+
+        async function performAssessment() {
+            try {
+                const response = await fetch('/api/setup/assessment');
+                assessmentData = await response.json();
+                
+                displayAssessmentResults();
+            } catch (error) {
+                console.error('Assessment failed:', error);
+                document.getElementById('assessment-status').textContent = 'Assessment failed. Please refresh to try again.';
+            }
+        }
+
+        function displayAssessmentResults() {
+            // Hide spinner
+            document.getElementById('assessment-spinner').style.display = 'none';
+            document.getElementById('assessment-status').style.display = 'none';
+            
+            // Show results
+            document.getElementById('assessment-results').style.display = 'block';
+            
+            // Display providers
+            const providersList = document.getElementById('providers-list');
+            providersList.innerHTML = '';
+            
+            assessmentData.providers.forEach(provider => {
+                const statusClass = provider.available ? 'success' : 'danger';
+                const statusIcon = provider.available ? 'check-circle' : 'times-circle';
+                const setupUrl = provider.setup_url;
+                
+                let setupSection = '';
+                if (!provider.available && setupUrl && provider.provider !== 'ollama') {
+                    setupSection = `
+                        <div class="mt-2">
+                            <form onsubmit="testApiKey('${provider.provider}'); return false;">
+                                <!-- Hidden username field for accessibility -->
+                                <input type="text" name="username" value="${provider.provider}" style="display:none;" autocomplete="username">
+                                <div class="input-group input-group-sm">
+                                    <input type="password" class="form-control" placeholder="Enter ${provider.provider.toUpperCase()} API key" 
+                                           id="api-key-${provider.provider}" name="password" autocomplete="current-password">
+                                    <button class="btn btn-outline-primary btn-sm" type="button" onclick="testApiKey('${provider.provider}')">
+                                        Test
+                                    </button>
+                                </div>
+                            </form>
+                            <small class="text-muted">
+                                <a href="${setupUrl}" target="_blank" class="text-decoration-none">
+                                    <i class="fas fa-external-link-alt me-1"></i>Get ${provider.provider.toUpperCase()} API key
+                                </a>
+                            </small>
+                        </div>
+                    `;
+                } else if (!provider.available && setupUrl && provider.provider === 'ollama') {
+                    setupSection = `
+                        <br><small><a href="${setupUrl}" target="_blank" class="text-decoration-none">
+                            <i class="fas fa-download me-1"></i>Download ${provider.provider.toUpperCase()}
+                        </a></small>
+                    `;
+                }
+                
+                providersList.innerHTML += `
+                    <div class="provider-item mb-3 p-3 border rounded" id="provider-${provider.provider}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <span><i class="fas fa-${provider.provider === 'ollama' ? 'server' : 'cloud'} me-2"></i>${provider.provider.toUpperCase()}</span>
+                                ${setupSection}
+                            </div>
+                            <span class="badge bg-${statusClass}">
+                                <i class="fas fa-${statusIcon} me-1"></i>
+                                ${provider.available ? `${provider.models.length} models` : 'Unavailable'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Display privacy score
+            const privacyScore = assessmentData.privacy_score;
+            const privacyPercentage = (privacyScore / 10) * 100;
+            document.getElementById('privacy-indicator').style.left = `${privacyPercentage}%`;
+            document.getElementById('privacy-text').textContent = `Privacy Score: ${privacyScore}/10`;
+            
+            // Display recommendations
+            const recList = document.getElementById('recommendations-list');
+            recList.innerHTML = '';
+            assessmentData.recommendations.forEach(rec => {
+                recList.innerHTML += `<li>${rec}</li>`;
+            });
+            
+            // Show setup guidance if no providers are available
+            const availableProviders = assessmentData.providers.filter(p => p.available);
+            if (availableProviders.length === 0) {
+                recList.innerHTML += `
+                    <li class="mt-3 p-3 bg-light rounded">
+                        <strong>🚀 Getting Started:</strong><br>
+                        <small class="text-muted">
+                            Choose <strong>Ollama</strong> for complete privacy (local processing) or 
+                            <strong>cloud providers</strong> for immediate access. You can always add more options later!
+                        </small>
+                    </li>
+                `;
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < 4) {
+                // Hide current step
+                document.getElementById(`content-step-${currentStep}`).style.display = 'none';
+                document.getElementById(`step-${currentStep}`).classList.remove('active');
+                document.getElementById(`step-${currentStep}`).classList.add('completed');
+                
+                // Show next step
+                currentStep++;
+                document.getElementById(`content-step-${currentStep}`).style.display = 'block';
+                document.getElementById(`step-${currentStep}`).classList.add('active');
+                
+                // Handle step-specific logic
+                if (currentStep === 3) {
+                    generateAssignmentPlan();
+                }
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1) {
+                // Hide current step
+                document.getElementById(`content-step-${currentStep}`).style.display = 'none';
+                document.getElementById(`step-${currentStep}`).classList.remove('active');
+                
+                // Show previous step
+                currentStep--;
+                document.getElementById(`content-step-${currentStep}`).style.display = 'block';
+                document.getElementById(`step-${currentStep}`).classList.remove('completed');
+                document.getElementById(`step-${currentStep}`).classList.add('active');
+            }
+        }
+
+        // Privacy preference selection
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.provider-card[data-preference]')) {
+                const card = e.target.closest('.provider-card[data-preference]');
+                const preference = card.dataset.preference;
+                
+                // Remove selection from other cards
+                document.querySelectorAll('.provider-card[data-preference]').forEach(c => 
+                    c.classList.remove('selected'));
+                
+                // Select this card
+                card.classList.add('selected');
+                selectedPreference = preference;
+                
+                // Enable next button
+                document.getElementById('preference-next').disabled = false;
+            }
+        });
+
+        function generateAssignmentPlan() {
+            const assignmentsDiv = document.getElementById('persona-assignments');
+            assignmentsDiv.innerHTML = '';
+            
+            // Get all available models for dropdowns
+            const availableModels = [];
+            assessmentData.providers.forEach(provider => {
+                if (provider.available) {
+                    provider.models.forEach(model => {
+                        if (model.status === 'available') {
+                            availableModels.push({
+                                provider: provider.provider,
+                                model: model.model_name,
+                                label: `${provider.provider.toUpperCase()}: ${model.model_name}`
+                            });
+                        }
+                    });
+                }
+            });
+            
+            assessmentData.personas.forEach((persona, index) => {
+                const statusClass = persona.status === 'available' ? 'success' : 'warning';
+                const currentModel = persona.current_model || 'None configured';
+                const recommendedModel = persona.recommended_model || 'No recommendation';
+                const recommendedOption = `${persona.recommended_provider}:${persona.recommended_model}`;
+                
+                // Create model options
+                let modelOptions = '<option value="">Select a model...</option>';
+                availableModels.forEach(model => {
+                    const optionValue = `${model.provider}:${model.model}`;
+                    const isRecommended = optionValue === recommendedOption;
+                    const selected = isRecommended ? 'selected' : '';
+                    const recommendedText = isRecommended ? ' (Recommended)' : '';
+                    modelOptions += `<option value="${optionValue}" ${selected}>${model.label}${recommendedText}</option>`;
+                });
+                
+                assignmentsDiv.innerHTML += `
+                    <div class="persona-assignment mb-4 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h6><i class="fas fa-user-circle me-2"></i>${persona.persona_name}</h6>
+                                <small class="text-muted">Current: ${currentModel}</small>
+                            </div>
+                            <span class="badge bg-${statusClass}">${persona.status}</span>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label"><strong>Select Model:</strong></label>
+                            <select class="form-select" id="model-select-${index}" onchange="updateAssignmentPlan()">
+                                ${modelOptions}
+                            </select>
+                            <small class="text-muted mt-1">
+                                Recommended: ${persona.recommended_provider ? `${persona.recommended_provider.toUpperCase()}:${recommendedModel}` : 'None available'}
+                            </small>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Initialize assignment plan with current selections
+            updateAssignmentPlan();
+        }
+
+        function updateAssignmentPlan() {
+            assignmentPlan = [];
+            
+            assessmentData.personas.forEach((persona, index) => {
+                const selectElement = document.getElementById(`model-select-${index}`);
+                if (selectElement && selectElement.value) {
+                    const [provider, model] = selectElement.value.split(':');
+                    assignmentPlan.push({
+                        persona_id: persona.persona_id,
+                        provider: provider,
+                        model: model
+                    });
+                }
+            });
+            
+            // Enable/disable apply button based on whether all personas have selections
+            const applyButton = document.querySelector('#content-step-3 .btn-success');
+            if (applyButton) {
+                const allSelected = assignmentPlan.length === assessmentData.personas.length;
+                applyButton.disabled = !allSelected;
+                
+                if (allSelected) {
+                    applyButton.innerHTML = '<i class="fas fa-magic me-2"></i>Apply Configuration';
+                } else {
+                    applyButton.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Select models for all personas';
+                }
+            }
+        }
+
+        async function applyConfiguration() {
+            if (assignmentPlan.length === 0 || assignmentPlan.length !== assessmentData.personas.length) {
+                alert('Please select models for all personas before applying configuration.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/setup/assign-models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assignments: assignmentPlan,
+                        preference: selectedPreference || 'balanced'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show completion summary
+                    const summaryDiv = document.getElementById('completion-summary');
+                    summaryDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check me-2"></i>Configuration Applied Successfully</h6>
+                            <p class="mb-0">Updated ${result.updated_personas.length} personas with working AI models.</p>
+                        </div>
+                    `;
+                    
+                    nextStep();
+                } else {
+                    throw new Error(result.message || 'Configuration failed');
+                }
+                
+            } catch (error) {
+                console.error('Configuration failed:', error);
+                alert('Configuration failed: ' + error.message);
+            }
+        }
+
+        async function testApiKey(provider) {
+            const input = document.getElementById(`api-key-${provider}`);
+            const button = input.nextElementSibling;
+            const apiKey = input.value.trim();
+            
+            if (!apiKey) {
+                alert('Please enter an API key first');
+                return;
+            }
+            
+            // Update button to show testing state
+            const originalText = button.textContent;
+            button.textContent = 'Testing...';
+            button.disabled = true;
+            
+            try {
+                // Test the API key by making a request with it
+                const response = await fetch(`/api/setup/test-api-key`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider: provider,
+                        api_key: apiKey
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update provider status
+                    input.classList.add('is-valid');
+                    input.classList.remove('is-invalid');
+                    button.textContent = '✓ Valid';
+                    button.className = 'btn btn-success btn-sm';
+                    
+                    // Update the provider badge
+                    const providerElement = document.getElementById(`provider-${provider}`);
+                    const badge = providerElement.querySelector('.badge');
+                    badge.className = 'badge bg-success';
+                    badge.innerHTML = '<i class="fas fa-check-circle me-1"></i>Connected';
+                    
+                    // Refresh assessment after successful API key test
+                    setTimeout(() => {
+                        performAssessment();
+                    }, 1000);
+                } else {
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                    button.textContent = '✗ Invalid';
+                    button.className = 'btn btn-danger btn-sm';
+                    alert(`API key test failed: ${result.message || 'Invalid key'}`);
+                }
+            } catch (error) {
+                console.error('API key test failed:', error);
+                input.classList.add('is-invalid');
+                input.classList.remove('is-valid');
+                button.textContent = '✗ Error';
+                button.className = 'btn btn-danger btn-sm';
+                alert('Failed to test API key. Please check your connection.');
+            }
+            
+            // Re-enable button
+            button.disabled = false;
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                if (button.textContent !== '✓ Valid') {
+                    button.textContent = originalText;
+                    button.className = 'btn btn-outline-primary btn-sm';
+                    button.disabled = false;
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

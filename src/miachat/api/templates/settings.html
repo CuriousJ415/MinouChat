@@ -1,0 +1,1153 @@
+{% extends "base.html" %}
+{% set active_page = 'settings' %}
+
+{% block title %}Settings - MinouChat{% endblock %}
+
+{% block head %}
+<style>
+    .settings-header {
+        padding: var(--space-8) 0;
+        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: var(--space-6);
+    }
+
+    .settings-title {
+        font-size: var(--text-2xl);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
+    }
+
+    .settings-subtitle {
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+    }
+
+    /* Settings Sections */
+    .settings-section {
+        margin-bottom: var(--space-8);
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-4);
+    }
+
+    .section-title svg {
+        width: 20px;
+        height: 20px;
+        color: var(--text-muted);
+    }
+
+    .settings-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+    }
+
+    /* Subsection Styles */
+    .subsection-title {
+        font-size: var(--text-base);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
+    }
+
+    /* Credential Card Styles */
+    .credential-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        margin-bottom: var(--space-3);
+        transition: all var(--transition-fast);
+    }
+
+    .credential-card:hover {
+        border-color: var(--text-muted);
+    }
+
+    .credential-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-3);
+    }
+
+    .credential-info {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .credential-name {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+    }
+
+    .credential-fields {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--space-3);
+    }
+
+    .credential-fields .form-group {
+        margin-bottom: 0;
+    }
+
+    .credential-fields .btn-sm {
+        flex-shrink: 0;
+        height: 38px;
+    }
+
+    /* Status Dots */
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--text-muted);
+    }
+
+    .status-dot-muted {
+        background: var(--text-muted);
+        opacity: 0.5;
+    }
+
+    .status-dot-success {
+        background: var(--pop-success);
+    }
+
+    .status-dot-error {
+        background: var(--pop-danger);
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+
+    .privacy-badge {
+        display: inline-block;
+        font-size: var(--text-xs);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        margin-top: var(--space-2);
+    }
+
+    .privacy-badge.local {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--pop-success);
+    }
+
+    .privacy-badge.cloud {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--pop-primary);
+    }
+
+    /* Provider Config */
+    .provider-config {
+        display: none;
+        padding-top: var(--space-4);
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    .provider-config.active {
+        display: block;
+    }
+
+    .config-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: var(--space-4);
+    }
+
+    /* API Key Field */
+    .api-key-field {
+        position: relative;
+    }
+
+    .api-key-field .form-input {
+        padding-right: var(--space-10);
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: var(--space-3);
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        padding: var(--space-1);
+        cursor: pointer;
+        color: var(--text-muted);
+        transition: color var(--transition-fast);
+    }
+
+    .toggle-password:hover {
+        color: var(--text-primary);
+    }
+
+    .toggle-password svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Connection Status */
+    .connection-status {
+        margin-top: var(--space-4);
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        display: none;
+    }
+
+    .connection-status.show {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .connection-status.success {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--pop-success);
+    }
+
+    .connection-status.error {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--pop-danger);
+    }
+
+    .connection-status.loading {
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+    }
+
+    /* Preference Row */
+    .preference-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-4) 0;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .preference-row:last-child {
+        border-bottom: none;
+    }
+
+    .preference-info {
+        flex: 1;
+    }
+
+    .preference-label {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-1);
+    }
+
+    .preference-desc {
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+    }
+
+    .preference-control {
+        min-width: 150px;
+    }
+
+    /* Actions Row */
+    .actions-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--space-4);
+        margin-top: var(--space-6);
+        padding-top: var(--space-6);
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    /* Danger Zone */
+    .danger-zone {
+        border-color: var(--pop-danger);
+    }
+
+    .danger-zone .section-title {
+        color: var(--pop-danger);
+    }
+
+    /* Spinner */
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .spinner-sm {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--text-primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .preference-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--space-3);
+        }
+
+        .preference-control {
+            width: 100%;
+        }
+
+        .actions-row {
+            flex-direction: column;
+        }
+
+        .actions-row .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 0 auto; padding: 0 var(--space-4);">
+    <!-- Header -->
+    <div class="settings-header">
+        <h1 class="settings-title">Settings</h1>
+        <p class="settings-subtitle">Configure your MinouChat experience and preferences</p>
+    </div>
+
+    <!-- LLM Configuration -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73v1.54a7 7 0 0 1 5.27 5.27h1.54c.34-.6.99-1 1.73-1a2 2 0 1 1 0 4c-.74 0-1.39-.4-1.73-1h-1.54a7 7 0 0 1-5.27 5.27v1.54c.6.34 1 .99 1 1.73a2 2 0 1 1-4 0c0-.74.4-1.39 1-1.73v-1.54A7 7 0 0 1 4.73 14.5H3.19c-.34.6-.99 1-1.73 1a2 2 0 1 1 0-4c.74 0 1.39.4 1.73 1h1.54A7 7 0 0 1 10 7.27V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+            </svg>
+            LLM Configuration
+        </h2>
+
+        <div class="settings-card">
+            <form id="llm-settings-form">
+                <!-- API Keys & Connections Subsection -->
+                <div class="subsection">
+                    <h3 class="subsection-title">API Keys & Connections</h3>
+                    <p class="text-sm text-muted mb-4">Store your API credentials here to enable LLM providers. These credentials give you access to models—select your active model below.</p>
+
+                    <!-- Ollama -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">Ollama</span>
+                                <span class="privacy-badge local">Local</span>
+                            </div>
+                            <div class="credential-status" id="ollama-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API URL</label>
+                                <input type="url" class="form-input" id="ollama-url"
+                                       value="http://localhost:11434" placeholder="http://localhost:11434">
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('ollama')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- OpenAI -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">OpenAI</span>
+                                <span class="privacy-badge cloud">Cloud</span>
+                            </div>
+                            <div class="credential-status" id="openai-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API Key</label>
+                                <div class="api-key-field">
+                                    <input type="password" class="form-input" id="openai-api-key" placeholder="sk-...">
+                                    <button type="button" class="toggle-password" onclick="togglePassword('openai-api-key')">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('openai')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Anthropic -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">Anthropic</span>
+                                <span class="privacy-badge cloud">Cloud</span>
+                            </div>
+                            <div class="credential-status" id="anthropic-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API Key</label>
+                                <div class="api-key-field">
+                                    <input type="password" class="form-input" id="anthropic-api-key" placeholder="sk-ant-...">
+                                    <button type="button" class="toggle-password" onclick="togglePassword('anthropic-api-key')">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('anthropic')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- OpenRouter -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">OpenRouter</span>
+                                <span class="privacy-badge cloud">Cloud</span>
+                            </div>
+                            <div class="credential-status" id="openrouter-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API Key</label>
+                                <div class="api-key-field">
+                                    <input type="password" class="form-input" id="openrouter-api-key" placeholder="sk-or-...">
+                                    <button type="button" class="toggle-password" onclick="togglePassword('openrouter-api-key')">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('openrouter')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Model Subsection -->
+                <div class="subsection" style="margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                    <h3 class="subsection-title">Active Model</h3>
+                    <p class="text-sm text-muted mb-4">Select which LLM to use for chat and utility tasks across the application.</p>
+
+                    <div class="config-row">
+                        <div class="form-group">
+                            <label class="form-label">Provider</label>
+                            <select class="form-select" id="active-provider" onchange="updateActiveModels()">
+                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="openrouter">OpenRouter</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Model</label>
+                            <select class="form-select" id="active-model">
+                                <option value="">Loading models...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connection Status -->
+                <div class="connection-status" id="connection-status">
+                    <span class="status-icon"></span>
+                    <span class="status-text"></span>
+                </div>
+
+                <!-- Actions -->
+                <div class="actions-row">
+                    <span></span>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Preferences -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Preferences
+        </h2>
+
+        <div class="settings-card">
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Theme</div>
+                    <div class="preference-desc">Choose your preferred color scheme</div>
+                </div>
+                <div class="preference-control">
+                    <select class="form-select" id="theme-select">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="system">System</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Privacy Mode</div>
+                    <div class="preference-desc">Control how your data is processed</div>
+                </div>
+                <div class="preference-control">
+                    <select class="form-select" id="privacy-mode">
+                        <option value="local_only">Local Only</option>
+                        <option value="cloud_allowed">Allow Cloud</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Restart Onboarding</div>
+                    <div class="preference-desc">Show the welcome wizard again on next visit</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn btn-secondary" onclick="resetOnboarding()">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Section -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Account
+        </h2>
+
+        <div class="settings-card">
+            {% if current_user %}
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Username</div>
+                    <div class="preference-desc">{{ current_user.username }}</div>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Email</div>
+                    <div class="preference-desc">{{ current_user.email or 'Not set' }}</div>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Change Password</div>
+                    <div class="preference-desc">Update your account password</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn btn-secondary" onclick="showPasswordModal()">Change</button>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Sign Out</div>
+                    <div class="preference-desc">End your current session</div>
+                </div>
+                <div class="preference-control">
+                    <a href="/auth/logout" class="btn btn-secondary">Logout</a>
+                </div>
+            </div>
+            {% else %}
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Not logged in</div>
+                    <div class="preference-desc">Sign in to sync your settings</div>
+                </div>
+                <div class="preference-control">
+                    <a href="/auth/login" class="btn btn-primary">Login</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="settings-section">
+        <h2 class="section-title" style="color: var(--pop-danger);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Danger Zone
+        </h2>
+
+        <div class="settings-card danger-zone">
+            <!-- Option 1: Full Reset -->
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Restore to Default</div>
+                    <div class="preference-desc">Full factory reset. Clears all conversations, documents, learned facts, and user-created characters. Restores default characters.</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn" style="background: var(--pop-danger); color: white;" onclick="confirmResetFull()">
+                        Reset All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Option 2: Clear User Data -->
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Clear User Data</div>
+                    <div class="preference-desc">Clears conversations, learned facts, and documents. Keeps all characters (default and custom).</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn" style="background: var(--pop-danger); color: white;" onclick="confirmResetUserData()">
+                        Clear Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Option 3: Clear Conversations Only -->
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Clear Conversations Only</div>
+                    <div class="preference-desc">Clears chat history only. Keeps characters, learned facts, and documents.</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn" style="background: var(--pop-danger); color: white;" onclick="confirmClearConversations()">
+                        Clear Chats
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Password Change Modal -->
+<div id="password-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Change Password</h3>
+            <button class="btn btn-ghost" onclick="hidePasswordModal()" style="padding: var(--space-1);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <form id="password-form" onsubmit="changePassword(event)">
+            <div class="modal-body">
+                <p class="text-sm text-muted mb-4">Enter your new password below. Since you're logged in, you don't need to provide your current password.</p>
+
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <div class="api-key-field">
+                        <input type="password" class="form-input" id="new-password" placeholder="Enter new password" required minlength="6">
+                        <button type="button" class="toggle-password" onclick="togglePassword('new-password')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <div class="api-key-field">
+                        <input type="password" class="form-input" id="confirm-password" placeholder="Confirm new password" required minlength="6">
+                        <button type="button" class="toggle-password" onclick="togglePassword('confirm-password')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="password-error" class="text-sm" style="color: var(--pop-danger); margin-top: var(--space-2); display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="hidePasswordModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="password-submit-btn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-content {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        width: 90%;
+        max-width: 500px;
+        border: 1px solid var(--border-color);
+    }
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-4) var(--space-6);
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    .modal-title {
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+    }
+    .modal-body {
+        padding: var(--space-6);
+    }
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-3);
+        padding: var(--space-4) var(--space-6);
+        border-top: 1px solid var(--border-subtle);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Model lists for providers
+    const PROVIDER_MODELS = {
+        'ollama': [], // Populated dynamically
+        'openai': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+        'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+        'openrouter': ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5']
+    };
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadSettings();
+        loadThemeSetting();
+        lucide.createIcons();
+    });
+
+    // Load all settings from server
+    async function loadSettings() {
+        try {
+            const response = await fetch('/api/settings/llm');
+            if (!response.ok) return;
+
+            const config = await response.json();
+
+            // Set Ollama URL
+            if (config.api_url) {
+                document.getElementById('ollama-url').value = config.api_url;
+            }
+
+            // Set privacy mode
+            if (config.privacy_mode) {
+                document.getElementById('privacy-mode').value = config.privacy_mode;
+            }
+
+            // Set active provider and model
+            const provider = config.provider || 'ollama';
+            const model = config.model || '';
+
+            document.getElementById('active-provider').value = provider;
+            await updateActiveModels(model);
+
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            // Default to Ollama
+            await updateActiveModels();
+        }
+    }
+
+    // Update active model dropdown based on selected provider
+    async function updateActiveModels(savedModel = null) {
+        const provider = document.getElementById('active-provider').value;
+        const select = document.getElementById('active-model');
+
+        if (provider === 'ollama') {
+            // Load Ollama models dynamically
+            try {
+                const response = await fetch('/api/models');
+                if (!response.ok) {
+                    select.innerHTML = '<option value="">Failed to load models</option>';
+                    return;
+                }
+
+                const models = await response.json();
+                const ollamaModels = models.ollama || [];
+
+                if (ollamaModels.length === 0) {
+                    select.innerHTML = '<option value="">No Ollama models found</option>';
+                    return;
+                }
+
+                select.innerHTML = ollamaModels.map(model =>
+                    `<option value="${model}">${model}</option>`
+                ).join('');
+
+                // Set saved model if provided
+                if (savedModel) {
+                    if (![...select.options].some(opt => opt.value === savedModel)) {
+                        const option = new Option(savedModel, savedModel);
+                        select.add(option);
+                    }
+                    select.value = savedModel;
+                }
+            } catch (error) {
+                console.error('Error loading Ollama models:', error);
+                select.innerHTML = '<option value="">Error loading models</option>';
+            }
+        } else {
+            // Use hardcoded model list for cloud providers
+            const models = PROVIDER_MODELS[provider] || [];
+            select.innerHTML = models.map(model =>
+                `<option value="${model}">${model}</option>`
+            ).join('');
+
+            // Set saved model if provided
+            if (savedModel && ![...select.options].some(opt => opt.value === savedModel)) {
+                const option = new Option(savedModel, savedModel);
+                select.add(option);
+            }
+            if (savedModel) {
+                select.value = savedModel;
+            }
+        }
+    }
+
+    // Test individual provider connection
+    async function testProvider(providerName) {
+        const statusIndicator = document.getElementById(`${providerName}-status-indicator`);
+        const statusDot = statusIndicator.querySelector('.status-dot');
+
+        let config = {};
+
+        if (providerName === 'ollama') {
+            config.api_url = document.getElementById('ollama-url').value;
+        } else if (providerName === 'openai') {
+            config.api_key = document.getElementById('openai-api-key').value;
+        } else if (providerName === 'anthropic') {
+            config.api_key = document.getElementById('anthropic-api-key').value;
+        } else if (providerName === 'openrouter') {
+            config.api_key = document.getElementById('openrouter-api-key').value;
+        }
+
+        // Show loading state
+        statusDot.className = 'status-dot';
+        statusDot.style.animation = 'pulse 1s infinite';
+
+        try {
+            const response = await fetch('/api/settings/llm/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerName, config })
+            });
+
+            const result = await response.json();
+            statusDot.style.animation = '';
+
+            if (result.success) {
+                statusDot.className = 'status-dot status-dot-success';
+                showToast(`${providerName} connection successful`, 'success');
+            } else {
+                statusDot.className = 'status-dot status-dot-error';
+                showToast(`${providerName} connection failed: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            statusDot.style.animation = '';
+            statusDot.className = 'status-dot status-dot-error';
+            showToast(`${providerName} connection failed: ${error.message}`, 'error');
+        }
+    }
+
+    // Load theme setting
+    function loadThemeSetting() {
+        const saved = localStorage.getItem('minouchat-theme');
+        const select = document.getElementById('theme-select');
+
+        if (saved === 'dark') {
+            select.value = 'dark';
+        } else if (saved === 'light') {
+            select.value = 'light';
+        } else {
+            select.value = 'system';
+        }
+
+        // Theme change handler
+        select.addEventListener('change', function() {
+            const value = this.value;
+            if (value === 'system') {
+                localStorage.removeItem('minouchat-theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.classList.remove('theme-light', 'theme-dark');
+                document.documentElement.classList.add(prefersDark ? 'theme-dark' : 'theme-light');
+            } else {
+                localStorage.setItem('minouchat-theme', value);
+                document.documentElement.classList.remove('theme-light', 'theme-dark');
+                document.documentElement.classList.add('theme-' + value);
+            }
+        });
+    }
+
+    // Save all LLM settings
+    document.getElementById('llm-settings-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const activeProvider = document.getElementById('active-provider').value;
+        const activeModel = document.getElementById('active-model').value;
+        const privacyMode = document.getElementById('privacy-mode').value;
+
+        // Collect all credentials
+        const config = {
+            provider: activeProvider,
+            model: activeModel,
+            privacy_mode: privacyMode,
+            api_url: document.getElementById('ollama-url').value,
+            credentials: {
+                openai: document.getElementById('openai-api-key').value,
+                anthropic: document.getElementById('anthropic-api-key').value,
+                openrouter: document.getElementById('openrouter-api-key').value
+            }
+        };
+
+        // Also send the appropriate api_key for the active provider
+        if (activeProvider === 'openai') {
+            config.api_key = config.credentials.openai;
+        } else if (activeProvider === 'anthropic') {
+            config.api_key = config.credentials.anthropic;
+        } else if (activeProvider === 'openrouter') {
+            config.api_key = config.credentials.openrouter;
+        }
+
+        try {
+            const response = await fetch('/api/settings/llm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showToast('Settings saved successfully', 'success');
+            } else {
+                showToast('Failed to save settings: ' + (result.error || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            showToast('Error saving settings: ' + error.message, 'error');
+        }
+    });
+
+    // Toggle password visibility
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field.type === 'password') {
+            field.type = 'text';
+        } else {
+            field.type = 'password';
+        }
+    }
+
+    // Reset onboarding
+    function resetOnboarding() {
+        localStorage.removeItem('minouchat-onboarding-complete');
+        localStorage.removeItem('minouchat-hints-dismissed');
+        showToast('Onboarding will show on your next visit', 'success');
+    }
+
+    // === Danger Zone Functions ===
+
+    // Option 1: Full Reset (Restore to Default)
+    function confirmResetFull() {
+        if (confirm('WARNING: This will perform a full factory reset!\n\nThis will delete:\n- All conversations\n- All documents\n- All learned facts\n- All user-created characters\n\nDefault characters will be restored.\n\nThis cannot be undone. Are you sure?')) {
+            resetFull();
+        }
+    }
+
+    async function resetFull() {
+        try {
+            const response = await fetch('/api/reset/full', {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('Application reset to defaults', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const result = await response.json();
+                showToast('Failed to reset: ' + (result.detail || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    // Option 2: Clear User Data (keep characters)
+    function confirmResetUserData() {
+        if (confirm('This will delete:\n- All conversations\n- All learned facts\n- All documents\n\nYour characters will be kept.\n\nThis cannot be undone. Are you sure?')) {
+            resetUserData();
+        }
+    }
+
+    async function resetUserData() {
+        try {
+            const response = await fetch('/api/reset/user-data', {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('User data cleared successfully', 'success');
+            } else {
+                const result = await response.json();
+                showToast('Failed to clear data: ' + (result.detail || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    // Option 3: Clear Conversations Only
+    function confirmClearConversations() {
+        if (confirm('This will delete all chat history.\n\nYour characters, learned facts, and documents will be kept.\n\nThis cannot be undone. Are you sure?')) {
+            clearAllConversations();
+        }
+    }
+
+    async function clearAllConversations() {
+        try {
+            const response = await fetch('/api/conversations', {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('All conversations cleared', 'success');
+            } else {
+                showToast('Failed to clear conversations', 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    // Password change modal functions
+    function showPasswordModal() {
+        document.getElementById('password-modal').style.display = 'flex';
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+        document.getElementById('password-error').style.display = 'none';
+        document.getElementById('new-password').focus();
+    }
+
+    function hidePasswordModal() {
+        document.getElementById('password-modal').style.display = 'none';
+    }
+
+    async function changePassword(event) {
+        event.preventDefault();
+
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        const errorEl = document.getElementById('password-error');
+        const submitBtn = document.getElementById('password-submit-btn');
+
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            errorEl.textContent = 'Passwords do not match';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // Validate minimum length
+        if (newPassword.length < 6) {
+            errorEl.textContent = 'Password must be at least 6 characters';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // Disable button during request
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Updating...';
+
+        try {
+            const response = await fetch('/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_password: newPassword })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                hidePasswordModal();
+                showToast('Password updated successfully', 'success');
+            } else {
+                errorEl.textContent = result.detail || 'Failed to update password';
+                errorEl.style.display = 'block';
+            }
+        } catch (error) {
+            errorEl.textContent = 'Error: ' + error.message;
+            errorEl.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Update Password';
+        }
+    }
+
+    // Close modal on backdrop click
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('password-modal');
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                hidePasswordModal();
+            }
+        });
+    });
+</script>
+{% endblock %}

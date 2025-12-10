@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 
 from .memory import MemoryManager
-from .personality import PersonalityManager
+from .persona import PersonaManager
 from ..llm.base import LLMProvider
 from ..database.models import Conversation, Message
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class ConversationContext:
     """Represents the current state and context of a conversation."""
     conversation_id: str
-    personality_id: str
+    persona_id: str
     messages: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=datetime.utcnow)
@@ -35,28 +35,28 @@ class ConversationManager:
     def __init__(
         self,
         memory_manager: MemoryManager,
-        personality_manager: PersonalityManager,
+        persona_manager: PersonaManager,
         llm_provider: LLMProvider
     ):
         self.memory = memory_manager
-        self.personality = personality_manager
+        self.persona = persona_manager
         self.llm = llm_provider
         self._active_conversations: Dict[str, ConversationContext] = {}
 
     async def start_conversation(
         self,
-        personality_id: str,
+        persona_id: str,
         initial_context: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Start a new conversation with the specified personality."""
+        """Start a new conversation with the specified persona."""
         conversation = Conversation.create(
-            personality_id=personality_id,
+            persona_id=persona_id,
             metadata=initial_context or {}
         )
         
         context = ConversationContext(
             conversation_id=conversation.id,
-            personality_id=personality_id,
+            persona_id=persona_id,
             metadata=initial_context or {}
         )
         
@@ -89,9 +89,9 @@ class ConversationManager:
             current_message=message
         )
         
-        # Get personality context
-        personality_context = await self.personality.get_context(
-            personality_id=context.personality_id
+        # Get persona context
+        persona_context = await self.persona.get_context(
+            persona_id=context.persona_id
         )
         
         # Generate response using LLM
@@ -99,7 +99,7 @@ class ConversationManager:
             message=message,
             conversation_history=context.messages,
             memory_context=memory_context,
-            personality_context=personality_context
+            persona_context=persona_context
         )
         
         # Store the assistant's response

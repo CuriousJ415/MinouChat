@@ -7,11 +7,14 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./app:/app/app
+      - ./src:/app/src        # Live development code mounting
       - ./data:/app/data      # Persistent data directory
       - ./documents:/app/documents
       - ./output_documents:/app/output_documents
       - ./config:/app/config  # Configuration files
+      - ./character_cards:/app/character_cards  # User character definitions
+      - ./character_examples:/app/character_examples  # Example character templates
+      - ./conversations:/app/conversations  # Conversation history and versions
     environment:
       - FLASK_APP=app
       - FLASK_ENV=development
