@@ -36,12 +36,23 @@ TEMPLATE_MAPPING = {
     "register": "auth/register.html",
 }
 
+def url_for_static(endpoint: str, **kwargs) -> str:
+    """Generate URLs for static files and routes."""
+    if endpoint == "static":
+        path = kwargs.get("path", "")
+        return f"/static/{path}"
+    return f"/{endpoint}"
+
 def get_template_context(request: Request, **kwargs) -> Dict[str, Any]:
     """Get the base template context with utility functions."""
+    # Map 'user' to 'current_user' for template compatibility
+    if 'user' in kwargs and 'current_user' not in kwargs:
+        kwargs['current_user'] = kwargs['user']
+
     context = {
         "request": request,
         "get_flashed_messages": get_flashed_messages,
-        "url_for": lambda endpoint, **url_kwargs: f"/{endpoint}",  # Simple URL generator
+        "url_for": url_for_static,
     }
     context.update(kwargs)
     return context

@@ -772,12 +772,16 @@
 
             <div class="collapsible-content" id="knowledge-content">
                 <p style="color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4);">
-                    Configure the world setting and backstory. The system automatically retrieves relevant context during conversations.
+                    Tell {{ persona.name or 'this persona' }} about yourself, configure the world setting, and manage memory. Context is automatically retrieved during conversations.
                 </p>
 
                 <div class="tabs-container">
                     <div class="tab-nav">
-                        <button type="button" class="tab-btn active" data-tab="setting">
+                        <button type="button" class="tab-btn active" data-tab="about-you">
+                            <i data-lucide="user" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                            About You
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="setting">
                             <i data-lucide="globe" style="width: 14px; height: 14px; margin-right: 4px;"></i>
                             Setting
                         </button>
@@ -787,8 +791,60 @@
                         </button>
                     </div>
 
+                    <!-- About You Tab (User Profile) -->
+                    <div class="tab-content active" id="tab-about-you">
+                        <p class="form-hint" style="margin-bottom: var(--space-4);">
+                            Help {{ persona.name or 'this persona' }} know who they're talking to. This makes conversations more personal from the start.
+                        </p>
+
+                        <div class="form-group">
+                            <label for="user-preferred-name" class="form-label">What should I call you?</label>
+                            <input type="text" class="form-input" id="user-preferred-name"
+                                   placeholder="Enter your preferred name" style="max-width: 300px;">
+                            <span class="form-hint">A single name or nickname (e.g., "Jason" or "Dr. Smith")</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="user-intro" class="form-label">A bit about yourself <span style="color: var(--text-muted); font-weight: normal;">(optional)</span></label>
+                            <textarea class="form-input" id="user-intro" rows="3"
+                                      placeholder="e.g., I'm a software engineer interested in AI, or I'm a teacher looking for creative lesson ideas..."></textarea>
+                            <span class="form-hint">Brief context helps the AI give more relevant responses</span>
+                        </div>
+
+                        <div class="collapsible-header" id="user-profile-toggle" onclick="toggleUserProfileAdvanced()">
+                            <span style="font-size: var(--text-sm); color: var(--text-muted);">More options</span>
+                            <i data-lucide="chevron-down" class="collapsible-icon"></i>
+                        </div>
+
+                        <div class="collapsible-content" id="user-profile-advanced">
+                            <div class="form-group" style="margin-top: var(--space-4);">
+                                <label class="form-label">How do you prefer feedback?</label>
+                                <div class="segmented-control" data-style="user-feedback-style" style="max-width: 400px;">
+                                    <button type="button" class="segment-btn" data-value="supportive">Supportive</button>
+                                    <button type="button" class="segment-btn active" data-value="balanced">Balanced</button>
+                                    <button type="button" class="segment-btn" data-value="direct">Direct</button>
+                                </div>
+                                <span class="form-hint">Supportive = gentler suggestions, Direct = straight to the point</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="user-avoid-topics" class="form-label">Topics to avoid <span style="color: var(--text-muted); font-weight: normal;">(optional)</span></label>
+                                <input type="text" class="form-input" id="user-avoid-topics"
+                                       placeholder="e.g., politics, specific health topics, etc.">
+                                <span class="form-hint">Subjects you'd prefer the AI not bring up</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+                            <button type="button" class="btn btn-primary" onclick="saveUserProfile()" id="save-user-profile-btn">
+                                <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                                Save Profile
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Setting Tab -->
-                    <div class="tab-content active" id="tab-setting">
+                    <div class="tab-content" id="tab-setting">
                         <div class="form-group">
                             <label class="form-label">World / Universe</label>
                             <input type="text" class="form-input" id="setting-world" placeholder="e.g., Modern day Earth, Fantasy realm, Star Wars universe">
@@ -848,13 +904,21 @@
 
                         <!-- Learned Facts Section -->
                         <div class="memory-section">
-                            <h4 style="margin-bottom: var(--space-2); font-size: var(--text-sm); font-weight: var(--font-semibold);">What I Remember About You</h4>
-                            <p class="form-hint" style="margin-bottom: var(--space-3);">Facts automatically learned from our conversations. You can edit or remove any.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-3);">
+                                <div>
+                                    <h4 style="margin-bottom: var(--space-1); font-size: var(--text-sm); font-weight: var(--font-semibold);">What I Remember About You</h4>
+                                    <p class="form-hint">Facts learned from conversations or added manually. Edit or remove any.</p>
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="showAddFactModal()">
+                                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                                    Add Memory
+                                </button>
+                            </div>
                             <div id="learned-facts-list" class="entry-list">
                                 <div class="empty-state" id="no-facts">
                                     <i data-lucide="brain" style="width: 32px; height: 32px;"></i>
-                                    <p>No facts learned yet</p>
-                                    <p style="font-size: var(--text-xs);">Have some conversations and the system will remember important details!</p>
+                                    <p>No memories yet</p>
+                                    <p style="font-size: var(--text-xs);">Facts are learned from conversations automatically.<br>You can also add them manually using the button above.</p>
                                 </div>
                             </div>
                         </div>
@@ -892,6 +956,51 @@
     </div>
     <div class="modal-footer">
         <button class="btn btn-primary" onclick="closeWarningModal()">I Understand</button>
+    </div>
+</div>
+
+<!-- Add Memory Modal -->
+<div class="modal-backdrop" id="add-fact-modal-backdrop" onclick="hideAddFactModal()"></div>
+<div class="modal" id="add-fact-modal">
+    <div class="modal-header">
+        <h3 class="modal-title">Add Memory</h3>
+        <button class="modal-close" onclick="hideAddFactModal()">
+            <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="form-group">
+            <label class="form-label">What to remember</label>
+            <input type="text" class="form-input" id="new-fact-value" placeholder="e.g., I have a golden retriever named Max">
+            <p class="form-hint">Enter the fact or detail you want remembered.</p>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Label</label>
+            <input type="text" class="form-input" id="new-fact-key" placeholder="e.g., pet_name">
+            <p class="form-hint">A short identifier for this memory (snake_case recommended).</p>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="new-fact-type">
+                <option value="preference">Preference</option>
+                <option value="name">Name</option>
+                <option value="relationship">Relationship</option>
+                <option value="location">Location</option>
+                <option value="occupation">Occupation</option>
+                <option value="hobby">Hobby</option>
+                <option value="goal">Goal</option>
+                <option value="trait">Trait</option>
+                <option value="event">Event</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="hideAddFactModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createFact()" id="create-fact-btn">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+            Add Memory
+        </button>
     </div>
 </div>
 {% endblock %}
@@ -1057,6 +1166,103 @@
         const content = document.getElementById('knowledge-content');
         header.classList.toggle('open');
         content.classList.toggle('open');
+    }
+
+    function toggleUserProfileAdvanced() {
+        const header = document.getElementById('user-profile-toggle');
+        const content = document.getElementById('user-profile-advanced');
+        header.classList.toggle('open');
+        content.classList.toggle('open');
+    }
+
+    // User Profile (About You) Management
+    let currentUserProfile = {
+        preferred_name: '',
+        brief_intro: '',
+        feedback_style: 'balanced',
+        topics_to_avoid: ''
+    };
+
+    // Initialize feedback style segmented control
+    function initUserProfileControls() {
+        const feedbackControl = document.querySelector('.segmented-control[data-style="user-feedback-style"]');
+        if (feedbackControl) {
+            feedbackControl.querySelectorAll('.segment-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    feedbackControl.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentUserProfile.feedback_style = this.dataset.value;
+                });
+            });
+        }
+    }
+
+    // Load user profile
+    async function loadUserProfile() {
+        if (!PERSONA_ID) return;
+
+        try {
+            const resp = await fetch(`/api/characters/${PERSONA_ID}/user-profile`);
+            if (!resp.ok) {
+                // Profile doesn't exist yet, that's OK
+                if (resp.status === 404) return;
+                throw new Error('Failed to load user profile');
+            }
+
+            const data = await resp.json();
+            currentUserProfile = data.user_profile || currentUserProfile;
+
+            // Populate form fields
+            document.getElementById('user-preferred-name').value = currentUserProfile.preferred_name || '';
+            document.getElementById('user-intro').value = currentUserProfile.brief_intro || '';
+            document.getElementById('user-avoid-topics').value = currentUserProfile.topics_to_avoid || '';
+
+            // Set feedback style
+            const feedbackControl = document.querySelector('.segmented-control[data-style="user-feedback-style"]');
+            if (feedbackControl) {
+                feedbackControl.querySelectorAll('.segment-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.value === (currentUserProfile.feedback_style || 'balanced'));
+                });
+            }
+        } catch (e) {
+            console.error('Error loading user profile:', e);
+        }
+    }
+
+    // Save user profile
+    async function saveUserProfile() {
+        const btn = document.getElementById('save-user-profile-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner spinner-sm"></span> Saving...';
+
+        const data = {
+            preferred_name: document.getElementById('user-preferred-name').value.trim(),
+            brief_intro: document.getElementById('user-intro').value.trim(),
+            feedback_style: currentUserProfile.feedback_style || 'balanced',
+            topics_to_avoid: document.getElementById('user-avoid-topics').value.trim()
+        };
+
+        try {
+            const resp = await fetch(`/api/characters/${PERSONA_ID}/user-profile`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to save profile');
+            }
+
+            showToast('Profile saved! ' + (data.preferred_name ? `${data.preferred_name}, nice to meet you!` : ''), 'success');
+            currentUserProfile = data;
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="save" style="width: 16px; height: 16px;"></i> Save Profile';
+            lucide.createIcons();
+        }
     }
 
     // Warning modal functions
@@ -1312,15 +1518,16 @@
                 list.innerHTML = facts.map(fact => `
                     <div class="entry-item" id="fact-${fact.id}">
                         <div class="entry-info" style="flex: 1;">
-                            <div class="entry-name">${escapeHtml(fact.fact_key)}</div>
-                            <div class="entry-meta">
-                                <span>${fact.fact_type}</span>
-                                ${fact.is_global ? '<span class="keyword-tag">Global</span>' : ''}
-                            </div>
-                            <div class="fact-value-display" data-fact-id="${fact.id}" style="margin-top: var(--space-1); color: var(--text-primary);">
+                            <div class="fact-value-display" data-fact-id="${fact.id}" style="font-size: var(--text-base); font-weight: var(--font-medium); color: var(--text-primary); margin-bottom: var(--space-1);">
                                 ${escapeHtml(fact.fact_value)}
                             </div>
-                            <div class="fact-value-edit" data-fact-id="${fact.id}" style="display: none; margin-top: var(--space-1);">
+                            <div class="entry-meta" style="display: flex; align-items: center; gap: var(--space-2);">
+                                <span style="color: var(--text-muted);">${formatFactKey(fact.fact_key)}</span>
+                                <span style="color: var(--text-muted); opacity: 0.5;">•</span>
+                                <span style="color: var(--text-muted); font-size: var(--text-xs);">${fact.fact_type}</span>
+                                ${fact.is_global ? '<span class="keyword-tag">Global</span>' : ''}
+                            </div>
+                            <div class="fact-value-edit" data-fact-id="${fact.id}" style="display: none; margin-top: var(--space-2);">
                                 <input type="text" class="form-input form-input-sm" value="${escapeHtml(fact.fact_value)}" style="margin-bottom: var(--space-2);">
                                 <div style="display: flex; gap: var(--space-2);">
                                     <button type="button" class="btn btn-primary btn-sm" onclick="saveFact(${fact.id})">Save</button>
@@ -1433,12 +1640,89 @@
         return div.innerHTML;
     }
 
+    // Format fact key from snake_case to readable format
+    function formatFactKey(key) {
+        if (!key) return '';
+        return key
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    // === Add Memory Modal Functions ===
+
+    function showAddFactModal() {
+        document.getElementById('add-fact-modal-backdrop').classList.add('show');
+        document.getElementById('add-fact-modal').classList.add('show');
+        document.getElementById('new-fact-value').value = '';
+        document.getElementById('new-fact-key').value = '';
+        document.getElementById('new-fact-type').value = 'preference';
+        document.getElementById('new-fact-value').focus();
+        lucide.createIcons();
+    }
+
+    function hideAddFactModal() {
+        document.getElementById('add-fact-modal-backdrop').classList.remove('show');
+        document.getElementById('add-fact-modal').classList.remove('show');
+    }
+
+    async function createFact() {
+        const factValue = document.getElementById('new-fact-value').value.trim();
+        const factKey = document.getElementById('new-fact-key').value.trim();
+        const factType = document.getElementById('new-fact-type').value;
+
+        if (!factValue) {
+            showToast('Please enter what to remember', 'error');
+            return;
+        }
+
+        if (!factKey) {
+            showToast('Please enter a label', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('create-fact-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner spinner-sm"></span> Adding...';
+
+        try {
+            const resp = await fetch('/api/facts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fact_type: factType,
+                    fact_key: factKey,
+                    fact_value: factValue,
+                    character_id: PERSONA_ID
+                })
+            });
+
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to create memory');
+            }
+
+            showToast('Memory added successfully', 'success');
+            hideAddFactModal();
+            loadLearnedFacts();
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="plus" style="width: 16px; height: 16px;"></i> Add Memory';
+            lucide.createIcons();
+        }
+    }
+
     // Load data on page load
     if (PERSONA_ID) {
         loadSetting();
         loadBackstory();
         loadLearnedFacts();
+        loadUserProfile();
     }
+
+    // Initialize user profile controls
+    initUserProfileControls();
 
     // Allow Enter key to add key fact
     document.getElementById('new-key-fact')?.addEventListener('keypress', function(e) {

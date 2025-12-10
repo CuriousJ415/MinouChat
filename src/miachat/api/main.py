@@ -15,7 +15,7 @@ from .core.conversation_service import conversation_service
 from .core.enhanced_context_service import enhanced_context_service
 from .routes.auth import router as auth_router
 from .routes.documents import router as documents_router
-from .routes.setup import router as setup_router
+from .routes.setup import router as setup_router, reset_router
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -57,6 +57,46 @@ def _should_use_comprehensive_analysis(message: str) -> bool:
         return True
 
     return False
+
+
+def _resolve_model_config(character_model_config: Optional[Dict[str, Any]], user_id: Any, db: Session) -> Dict[str, str]:
+    """Resolve model configuration with fallback to application LLM settings.
+
+    If the character has no model config or has null provider/model,
+    fall back to the user's application LLM settings.
+
+    Args:
+        character_model_config: The character's model_config dict (may be None or have null values)
+        user_id: Current user ID for looking up application settings
+        db: Database session
+
+    Returns:
+        Resolved model configuration dict with guaranteed 'provider' and 'model' keys
+    """
+    # Start with character config or empty dict
+    config: Dict[str, Any] = dict(character_model_config) if character_model_config else {}
+
+    # Check if provider or model is missing/null
+    provider = config.get('provider')
+    model = config.get('model')
+
+    if not provider or not model:
+        # Get application LLM config as fallback
+        app_config = settings_service.get_llm_config(user_id, db)
+
+        if not provider:
+            config['provider'] = app_config.get('provider', 'ollama')
+        if not model:
+            config['model'] = app_config.get('model', 'llama3:8b')
+
+        # Also inherit api_url and api_key if needed
+        if 'api_url' not in config and 'api_url' in app_config:
+            config['api_url'] = app_config['api_url']
+        if 'api_key' not in config and 'api_key' in app_config:
+            config['api_key'] = app_config['api_key']
+
+    return config
+
 
 # --- Fixed trait and comm style keys ---
 FIXED_TRAITS = [
@@ -112,6 +152,7 @@ mount_static_files(app)
 app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(setup_router)
+app.include_router(reset_router)
 
 # Artifact routes
 from .routes.artifacts import router as artifacts_router
@@ -144,6 +185,7 @@ from .core.token_service import token_service
 from .core.world_info_service import world_info_service
 from .core.persistent_memory_service import persistent_memory_service
 from .core.fact_extraction_service import fact_extraction_service
+from .core.user_profile_service import user_profile_service
 
 # conversation_service is imported from .core.conversation_service
 
@@ -199,7 +241,7 @@ class CharacterUpdateRequest(BaseModel):
     persona: Optional[str] = None
     system_prompt: Optional[str] = None
     traits: Optional[Dict[str, float]] = None
-    communication_style: Optional[Dict[str, float]] = None
+    communication_style: Optional[Dict[str, Any]] = None  # Can be float or string values
     llm_config: Optional[Dict[str, Any]] = None
     role: Optional[str] = None
     category: Optional[str] = None
@@ -908,10 +950,10 @@ You should be proactive about offering to create documents when it would be help
 
         # --- Enhanced RAG: Add Persistent Memory and World Info ---
         try:
-            # Get model configuration for token budgeting
-            model_config = character.get('model_config', {})
-            model = model_config.get('model', 'llama3.1:8b')
-            provider = model_config.get('provider', 'ollama')
+            # Get model configuration for token budgeting (with app LLM fallback)
+            model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
+            model = model_config['model']  # Guaranteed by _resolve_model_config
+            provider = model_config['provider']  # Guaranteed by _resolve_model_config
 
             # Calculate token budgets
             budgets = token_service.calculate_budget(model, provider)
@@ -959,10 +1001,11 @@ You should be proactive about offering to create documents when it would be help
         # Use Enhanced Context Service for intelligent message construction
         if enhanced_context:
             # Create enhanced prompt using the Enhanced Context Service
+            # NOTE: character_instructions not passed - they're already in the system message
             enhanced_prompt = enhanced_context_service.format_enhanced_prompt(
                 user_message=request.message,
                 context=enhanced_context,
-                character_instructions=system_prompt_text,
+                character_instructions=None,  # Already in system message, don't duplicate
                 show_reasoning=False  # Don't show reasoning in chat (save for artifacts)
             )
 
@@ -990,16 +1033,16 @@ You should be proactive about offering to create documents when it would be help
             # Add current user message
             messages.append({"role": "user", "content": request.message})
 
-        # Generate response using the character's model configuration
-        model_config = character['model_config']
-        provider = model_config.get('provider', 'ollama')
-        
+        # Generate response using the character's model configuration (with app LLM fallback)
+        model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
+        provider = model_config['provider']  # Guaranteed by _resolve_model_config
+
         # Log privacy information
         if provider == 'ollama':
             logger.info(f"Using LOCAL Ollama for {character['name']} - FULLY PRIVATE")
         else:
             logger.info(f"Using CLOUD provider {provider} for {character['name']} - data may be processed externally")
-        
+
         response = llm_client.generate_response_with_config(
             messages=messages,
             system_prompt=None,  # System prompt already included in messages
@@ -1070,6 +1113,80 @@ You should be proactive about offering to create documents when it would be help
     except Exception as e:
         logger.error(f"Error in chat: {e}")
         return {"error": str(e)}, 500
+
+@app.get("/api/characters/{character_id}/greeting")
+async def get_personalized_greeting(character_id: str, request: Request, db = Depends(get_db)):
+    """Generate a personalized greeting from a character based on user profile and facts.
+
+    This creates an in-character greeting that uses the user's name and other
+    known information to make the first interaction feel personal.
+
+    Priority for user's name:
+    1. User Profile (explicitly set by user in "About You" section)
+    2. Extracted Facts (learned from previous conversations)
+    """
+    try:
+        # Get current user
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return {"error": "Authentication required"}, 401
+
+        # Get character
+        character = character_manager.get_character(character_id)
+        if not character:
+            return {"error": "Character not found"}, 404
+
+        character_name = character.get('name', 'Assistant')
+
+        # First, check user profile (explicitly set by user - highest priority)
+        user_profile = user_profile_service.get_user_profile(character_id)
+        user_name = user_profile.get('preferred_name') if user_profile else None
+        name_source = 'profile' if user_name else None
+
+        # Fall back to extracted facts if no profile name
+        user_facts = []
+        if not user_name:
+            user_facts = fact_extraction_service.get_user_facts(
+                user_id=current_user.id,
+                character_id=character_id,
+                db=db
+            )
+            for fact in user_facts:
+                if fact.get('fact_type') == 'name' or fact.get('fact_key') in ['user_name', 'name', 'first_name']:
+                    user_name = fact.get('fact_value')
+                    name_source = 'facts'
+                    break
+
+        # Generate greeting based on whether we know the user
+        if user_name:
+            # Personalized greeting - we know their name
+            greeting = f"Hey {user_name}! Great to see you. What's on your mind today?"
+        else:
+            # First-time greeting - invite them to introduce themselves
+            greeting = f"Hi there! I'm {character_name}. What's on your mind?"
+
+        return {
+            "greeting": greeting,
+            "character_name": character_name,
+            "user_name": user_name,
+            "name_source": name_source,  # 'profile', 'facts', or None
+            "facts_count": len(user_facts),
+            "has_profile": bool(user_profile.get('preferred_name') or user_profile.get('brief_intro')),
+            "is_returning_user": user_name is not None
+        }
+
+    except Exception as e:
+        logger.error(f"Error generating greeting: {e}")
+        # Return a safe fallback greeting
+        return {
+            "greeting": f"Hi! How can I help you today?",
+            "character_name": character.get('name', 'Assistant') if character else 'Assistant',
+            "user_name": None,
+            "name_source": None,
+            "facts_count": 0,
+            "has_profile": False,
+            "is_returning_user": False
+        }
 
 @app.post("/api/chat/with-document")
 async def chat_with_document(
@@ -1325,9 +1442,9 @@ You should be proactive about offering to create documents when it would be help
 
         messages.append({"role": "user", "content": final_message})
 
-        # Generate response using the character's model configuration
-        model_config = character['model_config']
-        provider = model_config.get('provider', 'ollama')
+        # Generate response using the character's model configuration (with app LLM fallback)
+        model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
+        provider = model_config['provider']  # Guaranteed by _resolve_model_config
 
         # Log privacy information
         if provider == 'ollama':

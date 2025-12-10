@@ -342,6 +342,97 @@ async def reset_character_models(request: Request, db = Depends(get_db)):
         logger.error(f"Error resetting models: {e}")
         raise HTTPException(status_code=500, detail=f"Model reset failed: {str(e)}")
 
+# ==================== RESET API ENDPOINTS ====================
+
+# Use a separate router for reset endpoints under /api/reset
+reset_router = APIRouter(prefix="/api/reset", tags=["reset"])
+
+@reset_router.delete("/full")
+async def reset_full(request: Request, db = Depends(get_db)):
+    """Full factory reset - clears everything and restores defaults"""
+
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    try:
+        from ...database.models import Conversation, Message, Document, ConversationFact
+
+        # Clear all conversations and messages
+        db.query(Message).delete()
+        db.query(Conversation).delete()
+
+        # Clear all documents
+        db.query(Document).delete()
+
+        # Clear all learned facts
+        db.query(ConversationFact).delete()
+
+        db.commit()
+
+        # Delete all character cards (user-created ones)
+        import os
+        import glob
+        character_cards_dir = os.path.join(os.getcwd(), "character_cards")
+        if os.path.exists(character_cards_dir):
+            for file in glob.glob(os.path.join(character_cards_dir, "*.json")):
+                try:
+                    os.remove(file)
+                except:
+                    pass
+
+        # Re-initialize default characters
+        created_characters = character_initializer.initialize_default_characters()
+
+        logger.info(f"Full reset completed. Restored {len(created_characters)} default characters.")
+
+        return {
+            "success": True,
+            "message": "Application reset to defaults",
+            "restored_characters": len(created_characters)
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error during full reset: {e}")
+        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+
+@reset_router.delete("/user-data")
+async def reset_user_data(request: Request, db = Depends(get_db)):
+    """Clear user data (conversations, facts, documents) but keep characters"""
+
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    try:
+        from ...database.models import Conversation, Message, Document, ConversationFact
+
+        # Clear all conversations and messages
+        db.query(Message).delete()
+        db.query(Conversation).delete()
+
+        # Clear all documents
+        db.query(Document).delete()
+
+        # Clear all learned facts
+        db.query(ConversationFact).delete()
+
+        db.commit()
+
+        logger.info("User data reset completed. Characters preserved.")
+
+        return {
+            "success": True,
+            "message": "User data cleared successfully"
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error during user data reset: {e}")
+        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+
+
 class ApiKeyTestRequest(BaseModel):
     provider: str
     api_key: str

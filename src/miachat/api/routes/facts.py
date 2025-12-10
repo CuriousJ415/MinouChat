@@ -19,6 +19,13 @@ class FactUpdateRequest(BaseModel):
     fact_value: str = Field(..., min_length=1, max_length=1000)
 
 
+class FactCreateRequest(BaseModel):
+    fact_type: str = Field(..., description="Type of fact: name, preference, relationship, event, trait, location, occupation, hobby, goal, other")
+    fact_key: str = Field(..., min_length=1, max_length=100, description="Label for the fact (e.g., 'favorite_color')")
+    fact_value: str = Field(..., min_length=1, max_length=1000, description="The fact value (e.g., 'blue')")
+    character_id: Optional[str] = Field(None, description="Character ID, or null for global facts")
+
+
 class FactExtractRequest(BaseModel):
     user_message: str = Field(..., min_length=1, max_length=2000)
     assistant_response: str = Field(..., min_length=1, max_length=2000)
@@ -54,6 +61,49 @@ async def list_facts(
         "success": True,
         "facts": facts,
         "count": len(facts)
+    }
+
+
+@router.post("")
+async def create_fact(
+    fact_data: FactCreateRequest,
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually create a new fact about the user.
+
+    Use this to add facts that weren't automatically extracted from conversations.
+    """
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Validate fact_type
+    valid_types = ['name', 'preference', 'relationship', 'event', 'trait',
+                   'location', 'occupation', 'hobby', 'goal', 'other']
+    if fact_data.fact_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid fact_type. Must be one of: {', '.join(valid_types)}"
+        )
+
+    created = fact_extraction_service.create_fact(
+        user_id=current_user.id,
+        fact_type=fact_data.fact_type,
+        fact_key=fact_data.fact_key,
+        fact_value=fact_data.fact_value,
+        character_id=fact_data.character_id,
+        db=db
+    )
+
+    if not created:
+        raise HTTPException(status_code=400, detail="Failed to create fact. Check input values.")
+
+    return {
+        "success": True,
+        "fact": created,
+        "message": "Fact created successfully"
     }
 
 

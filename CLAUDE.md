@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MiaChat is a privacy-first AI assistant platform that enables users to create and interact with customizable AI characters. The system features persistent memory, document analysis (RAG), and support for multiple LLM providers with Ollama (local) as the default.
+MinouChat is a privacy-first AI assistant platform that enables users to create and interact with customizable AI characters. The system features persistent memory, document analysis (RAG), and support for multiple LLM providers with Ollama (local) as the default.
 
 ## Development Commands
 

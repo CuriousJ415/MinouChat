@@ -80,6 +80,8 @@ class LLMClient:
             "options": {
                 "temperature": model_config.get('temperature', 0.7),
                 "top_p": model_config.get('top_p', 0.9),
+                "top_k": model_config.get('top_k', 40),
+                "repeat_penalty": model_config.get('repeat_penalty', 1.1),
                 "num_predict": model_config.get('max_tokens', 2048)
             }
         }

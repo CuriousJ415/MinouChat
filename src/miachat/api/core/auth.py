@@ -51,6 +51,9 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
+class PasswordChange(BaseModel):
+    new_password: str
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
     # Truncate to 72 bytes (bcrypt limitation)

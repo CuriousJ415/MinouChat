@@ -21,6 +21,7 @@ from .memory_service import memory_service
 from .setting_service import setting_service
 from .backstory_service import backstory_service
 from .fact_extraction_service import fact_extraction_service
+from .user_profile_service import user_profile_service
 from .security.prompt_sanitizer import prompt_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -50,11 +51,12 @@ class EnhancedContextService:
 
         # Context budget allocation (percentages)
         self.context_budget = {
+            'user_profile': 0.10, # 10% for user's "About You" profile (highest priority)
             'setting': 0.10,      # 10% for world/location/time
-            'user_facts': 0.15,   # 15% for known user facts
-            'backstory': 0.15,   # 15% for character backstory
+            'user_facts': 0.10,   # 10% for learned user facts
+            'backstory': 0.15,    # 15% for character backstory
             'conversation': 0.25, # 25% for recent conversation
-            'documents': 0.35    # 35% for document RAG
+            'documents': 0.30     # 30% for document RAG
         }
 
         # Document reference patterns for natural language parsing
@@ -107,6 +109,7 @@ class EnhancedContextService:
                 'relevant_documents': [],
                 'document_chunks': [],
                 'document_references': [],
+                'user_profile_context': '',  # User's "About You" info (highest priority)
                 'setting_context': '',
                 'backstory_context': [],
                 'user_facts': [],
@@ -177,8 +180,18 @@ class EnhancedContextService:
                 )
                 context.update(document_context)
 
-            # Get simplified context system data (setting, backstory, facts)
+            # Get simplified context system data (user profile, setting, backstory, facts)
             if character_id:
+                # Get user profile context (highest priority - explicitly set by user)
+                user_profile_ctx = user_profile_service.format_user_profile_context(character_id)
+                if user_profile_ctx:
+                    context['user_profile_context'] = user_profile_ctx
+                    if enable_reasoning:
+                        context['reasoning_chain'].append({
+                            'step': 'user_profile_context',
+                            'thought': "Retrieved user's 'About You' profile"
+                        })
+
                 # Get setting context
                 setting_ctx = setting_service.format_setting_context(character_id)
                 if setting_ctx:
@@ -242,6 +255,7 @@ class EnhancedContextService:
                 document_references=context['document_references'],
                 conflicts=context['conflicts_detected'],
                 user_message=user_message,
+                user_profile_context=context.get('user_profile_context', ''),
                 setting_context=context.get('setting_context', ''),
                 backstory_context=context.get('backstory_context', []),
                 user_facts=context.get('user_facts', [])
@@ -784,6 +798,7 @@ class EnhancedContextService:
         document_references: List[Dict[str, Any]],
         conflicts: List[Dict[str, Any]],
         user_message: str,
+        user_profile_context: str = '',
         setting_context: str = '',
         backstory_context: Optional[List[str]] = None,
         user_facts: Optional[List[Dict[str, Any]]] = None
@@ -797,6 +812,7 @@ class EnhancedContextService:
             document_references: Parsed document references
             conflicts: Detected conflicts
             user_message: Current user message
+            user_profile_context: User's "About You" profile (highest priority)
             setting_context: Formatted setting/world context
             backstory_context: Relevant backstory chunks
             user_facts: Known facts about the user
@@ -813,7 +829,15 @@ class EnhancedContextService:
         budgets = {k: int(v * self.max_context_length) for k, v in self.context_budget.items()}
 
         # ============================================
-        # SECTION 1: Setting Context (highest priority - defines the world)
+        # SECTION 1: User Profile (highest priority - explicitly set by user)
+        # ============================================
+        if user_profile_context:
+            truncated_profile = self._truncate_to_budget(user_profile_context, budgets['user_profile'])
+            context_parts.append(truncated_profile)
+            context_parts.append("")
+
+        # ============================================
+        # SECTION 2: Setting Context (defines the world)
         # ============================================
         if setting_context:
             truncated_setting = self._truncate_to_budget(setting_context, budgets['setting'])
@@ -821,7 +845,7 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 2: User Facts (high priority - personalizes interaction)
+        # SECTION 3: User Facts (learned facts - personalizes interaction)
         # ============================================
         if user_facts:
             facts_content = []
@@ -849,7 +873,7 @@ class EnhancedContextService:
                 context_parts.append("")
 
         # ============================================
-        # SECTION 3: Relevant Backstory (character context)
+        # SECTION 4: Relevant Backstory (character context)
         # ============================================
         if backstory_context:
             context_parts.append("[Relevant Background - use naturally, don't explicitly reference]")
@@ -868,10 +892,10 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 4: Recent Conversation Context
+        # SECTION 5: Recent Conversation Context
         # ============================================
         if recent_interactions:
-            context_parts.append("## Recent Conversation")
+            context_parts.append("Recent conversation:")
             current_length = 0
             max_per_message = budgets['conversation'] // max(len(recent_interactions[-4:]), 1)
 
@@ -883,7 +907,7 @@ class EnhancedContextService:
                 if len(content) > max_per_message:
                     content = content[:max_per_message - 3] + "..."
 
-                line = f"**{role.title()}**: {content}"
+                line = f"{role.title()}: {content}"
                 if current_length + len(line) < budgets['conversation']:
                     context_parts.append(line)
                     current_length += len(line)
@@ -899,18 +923,18 @@ class EnhancedContextService:
                 unique_semantic.append(msg)
 
         if unique_semantic:
-            context_parts.append("## Relevant Past Context")
+            context_parts.append("Relevant past context:")
             for msg in unique_semantic[:2]:  # Limit to 2 unique historical items
                 role = msg.get('role', 'unknown')
                 content = msg.get('content', '')[:150]
-                context_parts.append(f"**{role.title()}** (earlier): {content}...")
+                context_parts.append(f"{role.title()} (earlier): {content}...")
             context_parts.append("")
 
         # ============================================
-        # SECTION 5: Document RAG Context
+        # SECTION 6: Document RAG Context
         # ============================================
         if document_chunks:
-            context_parts.append("## Relevant Documents")
+            context_parts.append("Relevant documents:")
 
             # Sort chunks by relevance score
             sorted_chunks = sorted(
@@ -940,7 +964,7 @@ class EnhancedContextService:
                 # Add document header if first chunk from this doc
                 if doc_filename not in docs_seen:
                     docs_seen.add(doc_filename)
-                    header = f"### {doc_filename}"
+                    header = f"From {doc_filename}:"
                     context_parts.append(header)
                     current_length += len(header)
 
@@ -958,10 +982,10 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 6: Conflict Warnings (if any)
+        # SECTION 7: Conflict Warnings (if any)
         # ============================================
         if conflicts:
-            context_parts.append("## ⚠️ Information Conflicts")
+            context_parts.append("Note: Potential information conflicts detected:")
             for conflict in conflicts[:2]:  # Limit to 2 conflicts
                 context_parts.append(f"- {conflict.get('conflict_reason', 'Conflict detected')}")
             context_parts.append("")
@@ -981,39 +1005,46 @@ class EnhancedContextService:
         character_instructions: Optional[str] = None,
         show_reasoning: bool = False
     ) -> str:
-        """Format a complete prompt with enhanced context for the LLM.
+        """Format the user message with context for the LLM.
+
+        NOTE: This method now ONLY formats the user message with context.
+        Character instructions should be added to the system message separately,
+        not duplicated here.
 
         Args:
             user_message: Original user message
             context: Enhanced context from get_enhanced_context
-            character_instructions: Optional character-specific instructions
+            character_instructions: DEPRECATED - not used (kept for backward compat)
             show_reasoning: Whether to include reasoning chain in prompt
 
         Returns:
-            Formatted prompt string
+            Formatted user message with context (NOT including system instructions)
         """
         prompt_parts = []
 
-        # Add character instructions if provided
-        if character_instructions:
-            prompt_parts.append(character_instructions)
+        # NOTE: character_instructions are intentionally NOT added here
+        # They should be in the system message, not duplicated in user message
+        # This prevents double-injection of system prompts
+
+        # Add context summary if available (uses subtle formatting to avoid LLM mimicry)
+        context_summary = context.get('context_summary', '')
+        if context_summary:
+            # Use subtle markers that won't be mimicked by the LLM
+            prompt_parts.append("[Background context for this conversation]")
+            prompt_parts.append(context_summary)
+            prompt_parts.append("[End background context]")
             prompt_parts.append("")
 
-        # Add reasoning chain if requested
+        # Add reasoning chain if requested (internal use, not shown to user)
         if show_reasoning and context.get('reasoning_chain'):
-            prompt_parts.append("## Reasoning Process")
+            prompt_parts.append("[Internal reasoning]")
             for step in context['reasoning_chain']:
-                prompt_parts.append(f"**{step['step'].title()}**: {step['thought']}")
+                prompt_parts.append(f"- {step['step']}: {step['thought']}")
+            prompt_parts.append("[End reasoning]")
             prompt_parts.append("")
 
-        # Add context if available
-        if context.get('context_summary'):
-            prompt_parts.append("## Context Information")
-            prompt_parts.append(context['context_summary'])
-            prompt_parts.append("")
-
-        # Add the user message
-        prompt_parts.append("## User Message")
+        # Add the user message without markdown headers
+        # The LLM should respond naturally to this message
         prompt_parts.append(user_message)
 
         return "\n".join(prompt_parts)

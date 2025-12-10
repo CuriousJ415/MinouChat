@@ -13,6 +13,8 @@ from ...database.models import User, Document
 from ..core.document_service import document_service
 from ..core.enhanced_context_service import enhanced_context_service
 from ..core.embedding_service import embedding_service
+from ..core.auth import get_current_user_from_session
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 
@@ -71,15 +73,15 @@ class DocumentStats(BaseModel):
     format_distribution: Dict[str, int]
     supported_formats: List[str]
 
-# Dependency to get current user (placeholder - implement based on your auth system)
-async def get_current_user() -> User:
-    """Get current authenticated user. Replace with your auth implementation."""
-    # This is a placeholder - implement based on your authentication system
-    # For now, return a mock user with ID 1
-    user = User()
-    user.id = 1
-    user.username = "test_user"
-    user.email = "test@example.com"
+# Dependency to get current user from session
+async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """Get current authenticated user from session."""
+    user = await get_current_user_from_session(request, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
     return user
 
 @router.post("/upload", response_model=Dict[str, Any])

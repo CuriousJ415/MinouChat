@@ -8,11 +8,11 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from ..core.auth import (
-    UserCreate, UserLogin, UserResponse, Token,
-    register_user, authenticate_user, login_user, 
+    UserCreate, UserLogin, UserResponse, Token, PasswordChange,
+    register_user, authenticate_user, login_user,
     get_current_user, get_current_user_optional,
     refresh_access_token, login_user_session, logout_user_session,
-    get_current_user_from_session
+    get_current_user_from_session, get_password_hash
 )
 from ..core.templates import render_template
 from ...database.config import get_db
@@ -91,6 +91,34 @@ async def logout(request: Request):
         "success": True,
         "message": "Logout successful",
         "redirect": "/auth/login"
+    }
+
+@router.post("/change-password")
+async def change_password(password_data: PasswordChange, request: Request, db: Session = Depends(get_db)):
+    """Change password for logged-in user (session-based, no old password required)"""
+    # Get current user from session
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+
+    # Validate new password
+    if len(password_data.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters"
+        )
+
+    # Hash and update password
+    new_hash = get_password_hash(password_data.new_password)
+    current_user.password_hash = new_hash
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Password updated successfully"
     }
 
 # API endpoints for JWT tokens (for API clients)

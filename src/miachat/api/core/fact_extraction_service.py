@@ -354,6 +354,66 @@ class FactExtractionService:
 
         return True
 
+    def create_fact(
+        self,
+        user_id: int,
+        fact_type: str,
+        fact_key: str,
+        fact_value: str,
+        character_id: Optional[str],
+        db: Session
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Manually create a new fact.
+
+        Args:
+            user_id: User ID
+            fact_type: Type of fact (name, preference, hobby, etc.)
+            fact_key: Key/label for the fact (e.g., 'favorite_color')
+            fact_value: The fact value (e.g., 'blue')
+            character_id: Optional character ID (None for global facts)
+            db: Database session
+
+        Returns:
+            Created fact dict or None if validation failed
+        """
+        # Validate fact type
+        if fact_type not in FACT_TYPES:
+            logger.warning(f"Invalid fact_type: {fact_type}")
+            return None
+
+        # Build fact dict and validate
+        fact = {
+            'fact_type': fact_type,
+            'fact_key': fact_key.strip().lower().replace(' ', '_'),
+            'fact_value': fact_value.strip()
+        }
+
+        if not self._is_valid_fact(fact):
+            return None
+
+        # Save the fact
+        saved = self._save_fact(
+            user_id=user_id,
+            character_id=character_id,
+            fact=fact,
+            conversation_id=None,
+            message_id=None,
+            db=db
+        )
+
+        if saved:
+            # Set confidence to 1.0 for manually created facts
+            db_fact = db.query(ConversationFact).filter(
+                ConversationFact.id == saved['id']
+            ).first()
+            if db_fact:
+                db_fact.confidence = 1.0
+                db.commit()
+                saved['confidence'] = 1.0
+
+        return saved
+
     def format_facts_context(
         self,
         user_id: int,

@@ -129,43 +129,6 @@
         transform: rotate(-30deg) translateY(2px);
     }
 
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: var(--space-6);
-        margin-bottom: var(--space-8);
-    }
-
-    .stat-card {
-        position: relative;
-        background: var(--bg-primary);
-        padding: var(--space-5);
-        border: 1px solid var(--border-color);
-        transition: all var(--transition-fast);
-    }
-
-    .stat-card:hover {
-        border-color: var(--text-primary);
-    }
-
-    .stat-card.deco-card {
-        padding: var(--space-6);
-    }
-
-    .stat-value {
-        font-size: var(--text-3xl);
-        font-weight: var(--font-light);
-        margin-bottom: var(--space-1);
-        letter-spacing: -0.02em;
-    }
-
-    .stat-label {
-        font-size: var(--text-xs);
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-    }
-
     .quick-actions {
         margin-bottom: var(--space-8);
     }
@@ -346,11 +309,6 @@
         stroke-width: 1;
     }
 
-    @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
-        }
-    }
 </style>
 {% endblock %}
 
@@ -368,31 +326,6 @@
             </div>
             <div class="welcome-divider-line right"></div>
         </div>
-    </div>
-
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-        <div class="stat-card deco-card">
-            <div class="stat-value" id="stat-conversations">0</div>
-            <div class="stat-label">Conversations</div>
-        </div>
-        <div class="stat-card deco-card">
-            <div class="stat-value" id="stat-personas">0</div>
-            <div class="stat-label">Personas</div>
-        </div>
-        <div class="stat-card deco-card">
-            <div class="stat-value" id="stat-documents">0</div>
-            <div class="stat-label">Documents</div>
-        </div>
-        <div class="stat-card deco-card">
-            <div class="stat-value" id="stat-facts">0</div>
-            <div class="stat-label">Learned Facts</div>
-        </div>
-    </div>
-
-    <!-- Section Divider -->
-    <div class="section-divider">
-        <div class="section-divider-chevron"><span></span><span></span></div>
     </div>
 
     <!-- Quick Actions -->
@@ -526,25 +459,11 @@
 <script>
     // Load dashboard data
     document.addEventListener('DOMContentLoaded', async function() {
-        // Fetch stats
-        try {
-            const response = await fetch('/api/dashboard/stats');
-            if (response.ok) {
-                const stats = await response.json();
-                document.getElementById('stat-conversations').textContent = stats.conversations || 0;
-                document.getElementById('stat-personas').textContent = stats.personas || 0;
-                document.getElementById('stat-documents').textContent = stats.documents || 0;
-            }
-        } catch (e) {
-            console.log('Could not load stats');
-        }
-
         // Fetch personas for onboarding
         try {
             const response = await fetch('/api/characters');
             if (response.ok) {
                 const personas = await response.json();
-                document.getElementById('stat-personas').textContent = personas.length || 0;
 
                 // Initialize onboarding with personas
                 OnboardingManager.init({
@@ -555,17 +474,6 @@
             }
         } catch (e) {
             console.log('Could not load personas');
-        }
-
-        // Fetch facts count
-        try {
-            const response = await fetch('/api/facts');
-            if (response.ok) {
-                const data = await response.json();
-                document.getElementById('stat-facts').textContent = data.count || 0;
-            }
-        } catch (e) {
-            console.log('Could not load facts count');
         }
 
         // Fetch recent conversations

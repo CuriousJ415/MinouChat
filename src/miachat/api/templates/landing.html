@@ -1,342 +1,574 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="theme-light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiaChat - Meet Your AI Companions | Privacy-First Conversational AI</title>
-    <meta name="description" content="Experience intelligent AI personas with MiaChat. Meet Gordon, Sage, and Mia - your personal AI companions designed for meaningful conversations. 100% privacy-first with local processing.">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>MinouChat - Privacy-First AI Assistant Platform</title>
+    <meta name="description" content="Create personalized AI personas, chat with your documents, and keep your conversations private. 100% local processing with Ollama.">
+
+    <!-- Prevent flash -->
+    <script>
+        (function() {
+            const saved = localStorage.getItem('minouchat-theme');
+            const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.classList.remove('theme-light', 'theme-dark');
+            document.documentElement.classList.add('theme-' + theme);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
+
     <style>
-        .hero-section {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0c4a6e 100%);
-            color: white;
-            padding: 100px 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .hero-section::before {
-            content: '';
-            position: absolute;
+        /* Landing Specific Styles */
+        .landing-nav {
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 70% 50%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
-            pointer-events: none;
+            z-index: 100;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-subtle);
+            transition: all var(--transition-fast);
         }
-        
-        .hero-character {
-            max-width: 400px;
-            width: 100%;
-            height: auto;
-            border-radius: 20px;
-            box-shadow: 
-                0 20px 40px rgba(6, 182, 212, 0.3),
-                0 0 60px rgba(6, 182, 212, 0.2),
-                inset 0 0 30px rgba(6, 182, 212, 0.1);
-            transition: all 0.3s ease;
-            position: relative;
+
+        .landing-nav.scrolled {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
-        
-        .hero-character:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 
-                0 30px 60px rgba(6, 182, 212, 0.4),
-                0 0 80px rgba(6, 182, 212, 0.3),
-                inset 0 0 40px rgba(6, 182, 212, 0.15);
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        
-        .hero-character-container {
-            position: relative;
-            display: inline-block;
+
+        .nav-logo {
+            font-size: var(--text-xl);
+            font-weight: var(--font-semibold);
+            color: var(--text-primary);
+            text-decoration: none;
         }
-        
-        .hero-character-container::after {
-            content: '';
-            position: absolute;
-            top: -20px;
-            left: -20px;
-            right: -20px;
-            bottom: -20px;
-            background: linear-gradient(45deg, transparent, rgba(6, 182, 212, 0.1), transparent);
-            border-radius: 30px;
-            animation: glow-pulse 3s ease-in-out infinite alternate;
-            pointer-events: none;
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
         }
-        
-        @keyframes glow-pulse {
-            0% { opacity: 0.5; transform: scale(1); }
-            100% { opacity: 1; transform: scale(1.05); }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: var(--text-sm);
+            transition: color var(--transition-fast);
         }
-        
-        .hero-text {
-            animation: fadeInUp 1s ease-out;
+
+        .nav-links a:hover {
+            color: var(--text-primary);
         }
-        
-        .hero-character-container {
-            animation: fadeInRight 1s ease-out 0.3s both;
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-16) var(--space-4);
+            text-align: center;
         }
-        
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+
+        .hero-content {
+            max-width: 800px;
         }
-        
-        @keyframes fadeInRight {
-            from {
-                opacity: 0;
-                transform: translateX(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: var(--font-semibold);
+            color: var(--text-primary);
+            line-height: 1.1;
+            margin-bottom: var(--space-6);
+            letter-spacing: -0.02em;
         }
-        
-        /* Mobile responsiveness for hero character */
-        @media (max-width: 768px) {
-            .hero-character {
-                max-width: 300px;
-            }
-            
-            .hero-section {
-                padding: 80px 0;
-            }
-            
-            .display-4 {
-                font-size: 2.5rem;
-            }
+
+        .hero-subtitle {
+            font-size: var(--text-lg);
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: var(--space-8);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
+
+        .hero-actions {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+        }
+
+        .hero-actions .btn {
+            padding: var(--space-3) var(--space-6);
+            font-size: var(--text-base);
+        }
+
+        /* Features Section */
+        .section {
+            padding: var(--space-16) var(--space-4);
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: var(--space-12);
+        }
+
+        .section-title {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-semibold);
+            color: var(--text-primary);
+            margin-bottom: var(--space-4);
+        }
+
+        .section-subtitle {
+            font-size: var(--text-base);
+            color: var(--text-muted);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-6);
+        }
+
         .feature-card {
-            transition: all 0.3s;
-            border: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            height: 100%;
+            padding: var(--space-6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            transition: all var(--transition-fast);
         }
+
         .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            border-color: var(--text-primary);
         }
-        .persona-preview {
-            background-color: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 20px 0;
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            color: var(--text-primary);
+            margin-bottom: var(--space-4);
         }
-        .btn-hero {
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 50px;
-            margin: 10px;
-            transition: all 0.3s;
+
+        .feature-title {
+            font-size: var(--text-lg);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
         }
-        .btn-hero:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+
+        .feature-desc {
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+            line-height: 1.6;
         }
-        .navbar-brand {
-            font-size: 1.8rem;
-            font-weight: bold;
+
+        /* Personas Section */
+        .personas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-6);
+        }
+
+        .persona-card {
+            padding: var(--space-6);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            text-align: center;
+        }
+
+        .persona-icon {
+            width: 64px;
+            height: 64px;
+            color: var(--text-muted);
+            margin-bottom: var(--space-4);
+        }
+
+        .persona-title {
+            font-size: var(--text-lg);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+        }
+
+        .persona-category {
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+            margin-bottom: var(--space-3);
+        }
+
+        .persona-desc {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            text-align: center;
+        }
+
+        .cta-title {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-semibold);
+            margin-bottom: var(--space-4);
+        }
+
+        .cta-text {
+            font-size: var(--text-base);
+            opacity: 0.8;
+            margin-bottom: var(--space-6);
+        }
+
+        .cta-section .btn {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .cta-section .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Footer */
+        .landing-footer {
+            padding: var(--space-8) var(--space-4);
+            border-top: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+
+        .footer-text {
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+        }
+
+        /* Privacy Badge */
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin-top: var(--space-8);
+        }
+
+        .privacy-badge svg {
+            width: 16px;
+            height: 16px;
+            color: var(--pop-success);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            padding: var(--space-2);
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .mobile-menu-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--bg-primary);
+                border-top: 1px solid var(--border-subtle);
+                padding: var(--space-4);
+                flex-direction: column;
+                gap: var(--space-3);
+            }
+
+            .nav-links.show {
+                display: flex;
+            }
+
+            .hero {
+                padding-top: var(--space-20);
+            }
+        }
+
+        /* Scroll animation */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s ease;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
-        <div class="container">
-            <a class="navbar-brand text-primary" href="/">
-                <i class="fas fa-robot me-2"></i>MiaChat
+    <nav class="landing-nav" id="landing-nav">
+        <div class="nav-container">
+            <a href="/" class="nav-logo" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;">
+                    <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/>
+                    <path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
+                </svg>
+                MinouChat
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#features">Features</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#personas">Personas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link btn btn-outline-primary ms-2 px-3" href="/auth/login">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link btn btn-primary text-white ms-2 px-3" href="/auth/register">Get Started</a>
-                    </li>
-                </ul>
+
+            <div class="nav-links" id="nav-links">
+                <a href="#features">Features</a>
+                <a href="#personas">Personas</a>
+                <button class="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme" style="margin-left: var(--space-2);">
+                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+                <a href="/auth/login" class="btn btn-secondary">Login</a>
+                <a href="/auth/register" class="btn btn-primary">Get Started</a>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
-    <section class="hero-section">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-6 hero-text">
-                    <h1 class="display-4 fw-bold mb-4">AI-Powered Conversations with Smart Memory</h1>
-                    <p class="lead mb-4">Experience intelligent AI personas with document analysis, contextual memory, and future agentic capabilities. Upload documents, ask questions, and get personalized responses that remember your conversations.</p>
-                    <div class="d-flex flex-wrap">
-                        <a href="/auth/register" class="btn btn-light btn-hero">
-                            <i class="fas fa-rocket me-2"></i>Get Started Free
-                        </a>
-                        <a href="/auth/login" class="btn btn-outline-light btn-hero">
-                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                        </a>
-                    </div>
-                </div>
-                <div class="col-lg-6 text-center">
-                    <div class="hero-character-container">
-                        <img src="/static/images/hero-character.jpg" 
-                             alt="MiaChat AI Assistant" 
-                             class="hero-character img-fluid">
-                    </div>
-                </div>
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Your Private AI Assistant Platform</h1>
+            <p class="hero-subtitle">
+                Create personalized AI personas, chat with context from your documents,
+                and keep your conversations private with local LLM processing.
+            </p>
+            <div class="hero-actions">
+                <a href="/auth/register" class="btn btn-primary">
+                    Get Started Free
+                </a>
+                <a href="/auth/login" class="btn btn-secondary">
+                    Sign In
+                </a>
+            </div>
+            <div class="privacy-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span>100% Local Processing with Ollama</span>
             </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section id="features" class="py-5 bg-light">
-        <div class="container">
-            <div class="row">
-                <div class="col-12 text-center mb-5">
-                    <h2 class="display-5 fw-bold">Everything you need to create amazing AI personas</h2>
-                    <p class="lead text-muted">Powerful features to bring your AI characters to life</p>
-                </div>
+    <section class="section" id="features">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2 class="section-title">Powerful Features</h2>
+                <p class="section-subtitle">Everything you need for intelligent AI conversations</p>
             </div>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="card feature-card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-file-text text-primary mb-3" style="font-size: 3rem;"></i>
-                            <h5 class="card-title">Document Analysis</h5>
-                            <p class="card-text">Upload and analyze documents directly in chat. Get insights, summaries, and detailed analysis.</p>
-                        </div>
-                    </div>
+
+            <div class="features-grid">
+                <div class="feature-card fade-in">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    <h3 class="feature-title">Document Analysis</h3>
+                    <p class="feature-desc">Upload PDFs, Word docs, and more. Get instant analysis, summaries, and context-aware answers from your files.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-brain text-primary mb-3" style="font-size: 3rem;"></i>
-                            <h5 class="card-title">Smart Memory</h5>
-                            <p class="card-text">AI remembers your conversations and documents, providing contextual responses.</p>
-                        </div>
-                    </div>
+
+                <div class="feature-card fade-in">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    <h3 class="feature-title">Persistent Memory</h3>
+                    <p class="feature-desc">Your AI remembers conversations and documents, providing contextual responses that improve over time.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-users text-primary mb-3" style="font-size: 3rem;"></i>
-                            <h5 class="card-title">Specialized Personas</h5>
-                            <p class="card-text">Choose from assistants, coaches, storytellers, and role-play characters.</p>
-                        </div>
-                    </div>
+
+                <div class="feature-card fade-in">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <h3 class="feature-title">Custom Personas</h3>
+                    <p class="feature-desc">Create specialized AI personalities - coaches, assistants, storytellers, or any character you imagine.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-calendar-alt text-primary mb-3" style="font-size: 3rem;"></i>
-                            <h5 class="card-title">Agentic Capabilities</h5>
-                            <p class="card-text">Future integration with calendars, reminders, and task management systems.</p>
-                        </div>
-                    </div>
+
+                <div class="feature-card fade-in">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <h3 class="feature-title">Privacy-First</h3>
+                    <p class="feature-desc">Run completely offline with Ollama. Your data never leaves your machine unless you choose cloud providers.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-search text-primary mb-3" style="font-size: 3rem;"></i>
-                            <h5 class="card-title">Web Search Integration</h5>
-                            <p class="card-text">Real-time information access for up-to-date responses and research.</p>
-                        </div>
-                    </div>
+
+                <div class="feature-card fade-in">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="3" y1="9" x2="21" y2="9"/>
+                        <line x1="9" y1="21" x2="9" y2="9"/>
+                    </svg>
+                    <h3 class="feature-title">Multiple Providers</h3>
+                    <p class="feature-desc">Switch between Ollama, OpenAI, Anthropic, or OpenRouter. Choose your preferred model and privacy level.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-shield-alt text-primary mb-3" style="font-size: 3rem;"></i>
-                            <h5 class="card-title">Privacy-First Design</h5>
-                            <p class="card-text">Local LLM processing with Ollama (no external data transmission)</p>
-                        </div>
-                    </div>
+
+                <div class="feature-card fade-in">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    <h3 class="feature-title">RAG Search</h3>
+                    <p class="feature-desc">Semantic search across your documents. Find relevant information instantly with vector embeddings.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Persona Types Section -->
-    <section id="personas" class="py-5">
-        <div class="container">
-            <div class="row">
-                <div class="col-12 text-center mb-5">
-                    <h2 class="display-5 fw-bold">Persona Categories</h2>
-                    <p class="lead text-muted">Choose from various AI specialists or create your own</p>
-                </div>
+    <!-- Personas Section -->
+    <section class="section" id="personas" style="background: var(--bg-secondary);">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2 class="section-title">Persona Categories</h2>
+                <p class="section-subtitle">Choose from specialized AI assistants or create your own</p>
             </div>
-            <div class="row g-4">
-                <div class="col-lg-4">
-                    <div class="persona-preview text-center">
-                        <i class="fas fa-user-tie text-primary mb-3" style="font-size: 4rem;"></i>
-                        <h4 class="fw-bold">Coaches & Advisors</h4>
-                        <p class="text-muted mb-3"><strong>Categories:</strong> Business, Life, Career</p>
-                        <p class="mb-3">Professional guidance and strategic thinking</p>
-                        <p class="mb-3"><strong>Style:</strong> Structured, goal-oriented, analytical</p>
-                        <p><strong>Best for:</strong> Professional development, planning, skill building</p>
-                    </div>
+
+            <div class="personas-grid">
+                <div class="persona-card fade-in">
+                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                    <h3 class="persona-title">Coaches & Advisors</h3>
+                    <p class="persona-category">Business, Life, Career</p>
+                    <p class="persona-desc">Professional guidance with structured, goal-oriented conversations for development and planning.</p>
                 </div>
-                <div class="col-lg-4">
-                    <div class="persona-preview text-center">
-                        <i class="fas fa-hands-helping text-primary mb-3" style="font-size: 4rem;"></i>
-                        <h4 class="fw-bold">Assistants & Organizers</h4>
-                        <p class="text-muted mb-3"><strong>Categories:</strong> Personal, Administrative, Research</p>
-                        <p class="mb-3">Task management and information organization</p>
-                        <p class="mb-3"><strong>Style:</strong> Efficient, detail-oriented, supportive</p>
-                        <p><strong>Best for:</strong> Productivity, scheduling, document analysis</p>
-                    </div>
+
+                <div class="persona-card fade-in">
+                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+                        <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        <path d="M21 21v-2a4 4 0 0 0-3-3.85"/>
+                    </svg>
+                    <h3 class="persona-title">Assistants</h3>
+                    <p class="persona-category">Personal, Research, Admin</p>
+                    <p class="persona-desc">Task management, document analysis, and organization with efficient, detail-oriented support.</p>
                 </div>
-                <div class="col-lg-4">
-                    <div class="persona-preview text-center">
-                        <i class="fas fa-theater-masks text-primary mb-3" style="font-size: 4rem;"></i>
-                        <h4 class="fw-bold">Creative & Role-Play</h4>
-                        <p class="text-muted mb-3"><strong>Categories:</strong> Storytelling, Entertainment, Learning</p>
-                        <p class="mb-3">Imaginative interactions and creative exploration</p>
-                        <p class="mb-3"><strong>Style:</strong> Engaging, adaptable, entertaining</p>
-                        <p><strong>Best for:</strong> Creative writing, learning scenarios, entertainment</p>
-                    </div>
+
+                <div class="persona-card fade-in">
+                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M12 20l9-5-9-5-9 5 9 5z"/>
+                        <path d="M12 12l9-5-9-5-9 5 9 5z"/>
+                    </svg>
+                    <h3 class="persona-title">Creative & Roleplay</h3>
+                    <p class="persona-category">Storytelling, Entertainment</p>
+                    <p class="persona-desc">Imaginative interactions for creative writing, learning scenarios, and entertainment.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- CTA Section -->
-    <section class="py-5 bg-primary text-white">
-        <div class="container text-center">
-            <h2 class="display-5 fw-bold mb-4">Ready to Get Started?</h2>
-            <p class="lead mb-4">Join thousands of developers creating amazing AI personas</p>
-            <a href="/auth/register" class="btn btn-light btn-hero">
-                <i class="fas fa-rocket me-2"></i>Create Your First Persona
-            </a>
+    <section class="section cta-section">
+        <div class="section-container fade-in">
+            <h2 class="cta-title">Ready to Get Started?</h2>
+            <p class="cta-text">Create your first AI persona in minutes.</p>
+            <a href="/auth/register" class="btn">Create Free Account</a>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="py-4 bg-dark text-white text-center">
-        <div class="container">
-            <p class="mb-0">&copy; 2025 MiaChat. All rights reserved. | Privacy-First AI Persona Platform</p>
-        </div>
+    <footer class="landing-footer">
+        <p class="footer-text">MinouChat - Privacy-First AI Assistant Platform</p>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', path='js/theme.js') }}"></script>
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.getElementById('nav-links').classList.toggle('show');
+        }
+
+        // Nav scroll effect
+        window.addEventListener('scroll', function() {
+            const nav = document.getElementById('landing-nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Scroll animations
+        const fadeElements = document.querySelectorAll('.fade-in');
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+
+        fadeElements.forEach(el => observer.observe(el));
+
+        // Close mobile menu on link click
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('nav-links').classList.remove('show');
+            });
+        });
+    </script>
 </body>
 </html>

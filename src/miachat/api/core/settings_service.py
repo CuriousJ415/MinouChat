@@ -75,7 +75,7 @@ class SettingsService:
             return None
     
     def get_llm_config(self, user_id: int, db: Session) -> Dict[str, Any]:
-        """Get LLM configuration for a user"""
+        """Get LLM configuration for a user (for chat with personas)"""
         settings = self.get_user_settings(user_id, db)
         if not settings:
             # Return default configuration
@@ -85,14 +85,14 @@ class SettingsService:
                 "privacy_mode": "local_only",
                 "api_url": f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
             }
-        
+
         config = {
             "provider": settings.default_llm_provider,
             "model": settings.default_model,
             "privacy_mode": settings.privacy_mode,
             "api_url": settings.ollama_url
         }
-        
+
         # Add provider-specific settings
         if settings.default_llm_provider == "openai":
             config["api_key"] = settings.openai_api_key
@@ -103,8 +103,62 @@ class SettingsService:
         elif settings.default_llm_provider == "openrouter":
             config["api_key"] = settings.openrouter_api_key
             config["model"] = settings.openrouter_model
-        
+
         return config
+
+    def get_assistant_llm_config(self, user_id: int, db: Session) -> Dict[str, Any]:
+        """Get Assistant LLM configuration for utility tasks (prompt generation, trait suggestions, etc.)"""
+        settings = self.get_user_settings(user_id, db)
+
+        # Default assistant config
+        default_config = {
+            "provider": "ollama",
+            "model": "llama3.1:8b",
+            "temperature": 0.7,
+            "max_tokens": 512,
+            "api_url": f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+        }
+
+        if not settings:
+            return default_config
+
+        provider = settings.assistant_llm_provider or "ollama"
+        model = settings.assistant_llm_model or "llama3.1:8b"
+
+        config = {
+            "provider": provider,
+            "model": model,
+            "temperature": 0.7,
+            "max_tokens": 512,
+            "api_url": settings.ollama_url
+        }
+
+        # Add provider-specific API keys
+        if provider == "openai":
+            config["api_key"] = settings.openai_api_key
+        elif provider == "anthropic":
+            config["api_key"] = settings.anthropic_api_key
+        elif provider == "openrouter":
+            config["api_key"] = settings.openrouter_api_key
+
+        return config
+
+    def update_assistant_llm_config(self, user_id: int, db: Session, provider: str, model: str) -> bool:
+        """Update Assistant LLM configuration"""
+        try:
+            if provider not in self.supported_providers:
+                raise ValueError(f"Unsupported provider: {provider}")
+
+            update_data = {
+                "assistant_llm_provider": provider,
+                "assistant_llm_model": model
+            }
+
+            settings = self.update_user_settings(user_id, db, **update_data)
+            return settings is not None
+        except Exception as e:
+            logger.error(f"Error updating assistant LLM config for user {user_id}: {e}")
+            return False
     
     def update_llm_config(self, user_id: int, db: Session, config: Dict[str, Any]) -> bool:
         """Update LLM configuration for a user"""

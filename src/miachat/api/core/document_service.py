@@ -283,12 +283,14 @@ class DocumentService:
 
             # Filter by character if specified
             if character_id:
-                # Get document IDs assigned to this character
-                character_doc_ids = db.query(CharacterDocument.document_id).filter(
-                    CharacterDocument.character_id == character_id,
-                    CharacterDocument.is_active == True
-                ).all()
-                character_doc_ids = {doc_id[0] for doc_id in character_doc_ids}
+                # Get document IDs that have this character in their associations
+                # Documents use character_associations JSON field to store associated character IDs
+                all_docs = db.query(Document).filter(Document.user_id == user_id).all()
+                character_doc_ids = set()
+                for doc in all_docs:
+                    associations = doc.character_associations or []
+                    if character_id in associations:
+                        character_doc_ids.add(doc.id)
 
                 # Filter results to only include documents assigned to this character
                 filtered_results = []

@@ -1,658 +1,1153 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiaChat - Settings</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .settings-section {
-            margin-bottom: 2rem;
-        }
-        .provider-card {
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            transition: all 0.3s ease;
-        }
-        .provider-card:hover {
-            border-color: #007bff;
-            box-shadow: 0 2px 8px rgba(0,123,255,0.1);
-        }
-        .provider-card.active {
-            border-color: #28a745;
-            background-color: #f8fff9;
-        }
-        .privacy-badge {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-        }
-        .api-key-field {
-            position: relative;
-        }
-        .api-key-field .form-control {
-            padding-right: 2.5rem;
-        }
-        .toggle-password {
-            position: absolute;
-            right: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #6c757d;
-        }
-        .connection-status {
-            margin-top: 1rem;
-        }
-        .status-success {
-            color: #28a745;
-        }
-        .status-error {
-            color: #dc3545;
-        }
-        .status-loading {
-            color: #007bff;
-        }
-    </style>
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-robot"></i> MiaChat
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/chat">Chat</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/persona">Personas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="/settings">Settings</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
+{% set active_page = 'settings' %}
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <h1><i class="fas fa-cog"></i> Settings</h1>
-                <p class="text-muted">Configure your MiaChat experience and LLM provider preferences</p>
-                
-                <!-- LLM Provider Settings -->
-                <div class="settings-section">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-robot"></i> LLM Provider Configuration</h5>
+{% block title %}Settings - MinouChat{% endblock %}
+
+{% block head %}
+<style>
+    .settings-header {
+        padding: var(--space-8) 0;
+        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: var(--space-6);
+    }
+
+    .settings-title {
+        font-size: var(--text-2xl);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
+    }
+
+    .settings-subtitle {
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+    }
+
+    /* Settings Sections */
+    .settings-section {
+        margin-bottom: var(--space-8);
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-4);
+    }
+
+    .section-title svg {
+        width: 20px;
+        height: 20px;
+        color: var(--text-muted);
+    }
+
+    .settings-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+    }
+
+    /* Subsection Styles */
+    .subsection-title {
+        font-size: var(--text-base);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
+    }
+
+    /* Credential Card Styles */
+    .credential-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        margin-bottom: var(--space-3);
+        transition: all var(--transition-fast);
+    }
+
+    .credential-card:hover {
+        border-color: var(--text-muted);
+    }
+
+    .credential-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-3);
+    }
+
+    .credential-info {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .credential-name {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+    }
+
+    .credential-fields {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--space-3);
+    }
+
+    .credential-fields .form-group {
+        margin-bottom: 0;
+    }
+
+    .credential-fields .btn-sm {
+        flex-shrink: 0;
+        height: 38px;
+    }
+
+    /* Status Dots */
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--text-muted);
+    }
+
+    .status-dot-muted {
+        background: var(--text-muted);
+        opacity: 0.5;
+    }
+
+    .status-dot-success {
+        background: var(--pop-success);
+    }
+
+    .status-dot-error {
+        background: var(--pop-danger);
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+
+    .privacy-badge {
+        display: inline-block;
+        font-size: var(--text-xs);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        margin-top: var(--space-2);
+    }
+
+    .privacy-badge.local {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--pop-success);
+    }
+
+    .privacy-badge.cloud {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--pop-primary);
+    }
+
+    /* Provider Config */
+    .provider-config {
+        display: none;
+        padding-top: var(--space-4);
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    .provider-config.active {
+        display: block;
+    }
+
+    .config-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: var(--space-4);
+    }
+
+    /* API Key Field */
+    .api-key-field {
+        position: relative;
+    }
+
+    .api-key-field .form-input {
+        padding-right: var(--space-10);
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: var(--space-3);
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        padding: var(--space-1);
+        cursor: pointer;
+        color: var(--text-muted);
+        transition: color var(--transition-fast);
+    }
+
+    .toggle-password:hover {
+        color: var(--text-primary);
+    }
+
+    .toggle-password svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Connection Status */
+    .connection-status {
+        margin-top: var(--space-4);
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        display: none;
+    }
+
+    .connection-status.show {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .connection-status.success {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--pop-success);
+    }
+
+    .connection-status.error {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--pop-danger);
+    }
+
+    .connection-status.loading {
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+    }
+
+    /* Preference Row */
+    .preference-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-4) 0;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .preference-row:last-child {
+        border-bottom: none;
+    }
+
+    .preference-info {
+        flex: 1;
+    }
+
+    .preference-label {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-1);
+    }
+
+    .preference-desc {
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+    }
+
+    .preference-control {
+        min-width: 150px;
+    }
+
+    /* Actions Row */
+    .actions-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--space-4);
+        margin-top: var(--space-6);
+        padding-top: var(--space-6);
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    /* Danger Zone */
+    .danger-zone {
+        border-color: var(--pop-danger);
+    }
+
+    .danger-zone .section-title {
+        color: var(--pop-danger);
+    }
+
+    /* Spinner */
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .spinner-sm {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--text-primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .preference-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--space-3);
+        }
+
+        .preference-control {
+            width: 100%;
+        }
+
+        .actions-row {
+            flex-direction: column;
+        }
+
+        .actions-row .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 0 auto; padding: 0 var(--space-4);">
+    <!-- Header -->
+    <div class="settings-header">
+        <h1 class="settings-title">Settings</h1>
+        <p class="settings-subtitle">Configure your MinouChat experience and preferences</p>
+    </div>
+
+    <!-- LLM Configuration -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73v1.54a7 7 0 0 1 5.27 5.27h1.54c.34-.6.99-1 1.73-1a2 2 0 1 1 0 4c-.74 0-1.39-.4-1.73-1h-1.54a7 7 0 0 1-5.27 5.27v1.54c.6.34 1 .99 1 1.73a2 2 0 1 1-4 0c0-.74.4-1.39 1-1.73v-1.54A7 7 0 0 1 4.73 14.5H3.19c-.34.6-.99 1-1.73 1a2 2 0 1 1 0-4c.74 0 1.39.4 1.73 1h1.54A7 7 0 0 1 10 7.27V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+            </svg>
+            LLM Configuration
+        </h2>
+
+        <div class="settings-card">
+            <form id="llm-settings-form">
+                <!-- API Keys & Connections Subsection -->
+                <div class="subsection">
+                    <h3 class="subsection-title">API Keys & Connections</h3>
+                    <p class="text-sm text-muted mb-4">Store your API credentials here to enable LLM providers. These credentials give you access to models—select your active model below.</p>
+
+                    <!-- Ollama -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">Ollama</span>
+                                <span class="privacy-badge local">Local</span>
+                            </div>
+                            <div class="credential-status" id="ollama-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <p class="text-muted mb-3">
-                                Choose your preferred language model provider. MiaChat supports multiple providers with different privacy and performance characteristics.
-                            </p>
-                            
-                            <form id="llm-settings-form">
-                                <!-- Provider Selection -->
-                                <div class="mb-3">
-                                    <label for="provider" class="form-label">Default LLM Provider</label>
-                                    <select class="form-select" id="provider" name="provider" required>
-                                        <option value="ollama">Ollama (Local - Recommended for Privacy)</option>
-                                        <option value="openai">OpenAI (Cloud)</option>
-                                        <option value="anthropic">Anthropic Claude (Cloud)</option>
-                                        <option value="openrouter">OpenRouter (Cloud)</option>
-                                        <option value="litellm">LiteLLM (Local/Cloud)</option>
-                                    </select>
-                                    <div class="form-text">
-                                        <i class="fas fa-shield-alt text-success"></i> Ollama provides complete privacy by running locally on your machine.
-                                    </div>
-                                </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API URL</label>
+                                <input type="url" class="form-input" id="ollama-url"
+                                       value="http://localhost:11434" placeholder="http://localhost:11434">
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('ollama')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
 
-                                <!-- Privacy Mode -->
-                                <div class="mb-3">
-                                    <label for="privacy-mode" class="form-label">Privacy Mode</label>
-                                    <select class="form-select" id="privacy-mode" name="privacy_mode">
-                                        <option value="local_only">Local Only (Maximum Privacy)</option>
-                                        <option value="cloud_allowed">Allow Cloud Providers</option>
-                                        <option value="hybrid">Hybrid (Local with Cloud Fallback)</option>
-                                    </select>
-                                    <div class="form-text">
-                                        Controls how your data is processed and stored.
-                                    </div>
-                                </div>
-
-                                <!-- Provider-specific configurations -->
-                                <div id="provider-configs">
-                                    <!-- Ollama Configuration -->
-                                    <div id="ollama-config" class="provider-config">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="ollama-url" class="form-label">Ollama API URL</label>
-                                                    <input type="url" class="form-control" id="ollama-url" name="api_url" 
-                                                           value="http://localhost:11434" placeholder="http://localhost:11434">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="ollama-model" class="form-label">Default Model</label>
-                                                    <select class="form-select" id="ollama-model" name="model">
-                                                        <option value="llama3:8b">Llama 3 8B</option>
-                                                        <option value="llama3:70b">Llama 3 70B</option>
-                                                        <option value="mistral:7b">Mistral 7B</option>
-                                                        <option value="codellama:7b">Code Llama 7B</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- OpenAI Configuration -->
-                                    <div id="openai-config" class="provider-config" style="display: none;">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="openai-api-key" class="form-label">OpenAI API Key</label>
-                                                    <div class="api-key-field">
-                                                        <input type="password" class="form-control" id="openai-api-key" 
-                                                               name="api_key" placeholder="sk-...">
-                                                        <button type="button" class="toggle-password" onclick="togglePassword('openai-api-key')">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="openai-model" class="form-label">Model</label>
-                                                    <select class="form-select" id="openai-model" name="model">
-                                                        <option value="gpt-4">GPT-4</option>
-                                                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                                                        <option value="gpt-4o">GPT-4o</option>
-                                                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Anthropic Configuration -->
-                                    <div id="anthropic-config" class="provider-config" style="display: none;">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="anthropic-api-key" class="form-label">Anthropic API Key</label>
-                                                    <div class="api-key-field">
-                                                        <input type="password" class="form-control" id="anthropic-api-key" 
-                                                               name="api_key" placeholder="sk-ant-...">
-                                                        <button type="button" class="toggle-password" onclick="togglePassword('anthropic-api-key')">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="anthropic-model" class="form-label">Model</label>
-                                                    <select class="form-select" id="anthropic-model" name="model">
-                                                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-                                                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
-                                                        <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- OpenRouter Configuration -->
-                                    <div id="openrouter-config" class="provider-config" style="display: none;">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="openrouter-api-key" class="form-label">OpenRouter API Key</label>
-                                                    <div class="api-key-field">
-                                                        <input type="password" class="form-control" id="openrouter-api-key" 
-                                                               name="api_key" placeholder="sk-or-...">
-                                                        <button type="button" class="toggle-password" onclick="togglePassword('openrouter-api-key')">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="openrouter-model" class="form-label">Model</label>
-                                                    <select class="form-select" id="openrouter-model" name="model">
-                                                        <option value="openai/gpt-4">OpenAI GPT-4</option>
-                                                        <option value="anthropic/claude-3-opus">Anthropic Claude 3 Opus</option>
-                                                        <option value="google/gemini-pro">Google Gemini Pro</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Test Connection Button -->
-                                <div class="mb-3">
-                                    <button type="button" class="btn btn-outline-primary" id="test-connection-btn">
-                                        <i class="fas fa-plug"></i> Test Connection
+                    <!-- OpenAI -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">OpenAI</span>
+                                <span class="privacy-badge cloud">Cloud</span>
+                            </div>
+                            <div class="credential-status" id="openai-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API Key</label>
+                                <div class="api-key-field">
+                                    <input type="password" class="form-input" id="openai-api-key" placeholder="sk-...">
+                                    <button type="button" class="toggle-password" onclick="togglePassword('openai-api-key')">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
                                     </button>
-                                    <div id="connection-status" class="connection-status"></div>
                                 </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('openai')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
 
-                                <!-- Save Button -->
-                                <div class="d-flex justify-content-between">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save"></i> Save Settings
+                    <!-- Anthropic -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">Anthropic</span>
+                                <span class="privacy-badge cloud">Cloud</span>
+                            </div>
+                            <div class="credential-status" id="anthropic-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API Key</label>
+                                <div class="api-key-field">
+                                    <input type="password" class="form-input" id="anthropic-api-key" placeholder="sk-ant-...">
+                                    <button type="button" class="toggle-password" onclick="togglePassword('anthropic-api-key')">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
                                     </button>
-                                    <a href="/" class="btn btn-secondary">
-                                        <i class="fas fa-arrow-left"></i> Back to Home
-                                    </a>
                                 </div>
-                            </form>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('anthropic')">
+                                Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- OpenRouter -->
+                    <div class="credential-card">
+                        <div class="credential-header">
+                            <div class="credential-info">
+                                <span class="credential-name">OpenRouter</span>
+                                <span class="privacy-badge cloud">Cloud</span>
+                            </div>
+                            <div class="credential-status" id="openrouter-status-indicator">
+                                <span class="status-dot status-dot-muted"></span>
+                            </div>
+                        </div>
+                        <div class="credential-fields">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">API Key</label>
+                                <div class="api-key-field">
+                                    <input type="password" class="form-input" id="openrouter-api-key" placeholder="sk-or-...">
+                                    <button type="button" class="toggle-password" onclick="togglePassword('openrouter-api-key')">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('openrouter')">
+                                Test
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- User Preferences -->
-                <div class="settings-section">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-user"></i> User Preferences</h5>
+                <!-- Active Model Subsection -->
+                <div class="subsection" style="margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
+                    <h3 class="subsection-title">Active Model</h3>
+                    <p class="text-sm text-muted mb-4">Select which LLM to use for chat and utility tasks across the application.</p>
+
+                    <div class="config-row">
+                        <div class="form-group">
+                            <label class="form-label">Provider</label>
+                            <select class="form-select" id="active-provider" onchange="updateActiveModels()">
+                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="openrouter">OpenRouter</option>
+                            </select>
                         </div>
-                        <div class="card-body">
-                            <form id="user-preferences-form">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="theme" class="form-label">Theme</label>
-                                            <select class="form-select" id="theme" name="theme">
-                                                <option value="light">Light</option>
-                                                <option value="dark">Dark</option>
-                                                <option value="auto">Auto (System)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="language" class="form-label">Language</label>
-                                            <select class="form-select" id="language" name="language">
-                                                <option value="en">English</option>
-                                                <option value="es">Español</option>
-                                                <option value="fr">Français</option>
-                                                <option value="de">Deutsch</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Save Preferences
-                                </button>
-                            </form>
+                        <div class="form-group">
+                            <label class="form-label">Model</label>
+                            <select class="form-select" id="active-model">
+                                <option value="">Loading models...</option>
+                            </select>
                         </div>
                     </div>
+                </div>
+
+                <!-- Connection Status -->
+                <div class="connection-status" id="connection-status">
+                    <span class="status-icon"></span>
+                    <span class="status-text"></span>
+                </div>
+
+                <!-- Actions -->
+                <div class="actions-row">
+                    <span></span>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Preferences -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Preferences
+        </h2>
+
+        <div class="settings-card">
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Theme</div>
+                    <div class="preference-desc">Choose your preferred color scheme</div>
+                </div>
+                <div class="preference-control">
+                    <select class="form-select" id="theme-select">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="system">System</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Privacy Mode</div>
+                    <div class="preference-desc">Control how your data is processed</div>
+                </div>
+                <div class="preference-control">
+                    <select class="form-select" id="privacy-mode">
+                        <option value="local_only">Local Only</option>
+                        <option value="cloud_allowed">Allow Cloud</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Restart Onboarding</div>
+                    <div class="preference-desc">Show the welcome wizard again on next visit</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn btn-secondary" onclick="resetOnboarding()">
+                        Reset
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        class SettingsManager {
-            constructor() {
-                this.providerSelect = document.getElementById('provider');
-                this.privacyModeSelect = document.getElementById('privacy-mode');
-                this.llmForm = document.getElementById('llm-settings-form');
-                this.userForm = document.getElementById('user-preferences-form');
-                this.testBtn = document.getElementById('test-connection-btn');
-                this.connectionStatus = document.getElementById('connection-status');
-                
-                this.init();
+    <!-- Account Section -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Account
+        </h2>
+
+        <div class="settings-card">
+            {% if current_user %}
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Username</div>
+                    <div class="preference-desc">{{ current_user.username }}</div>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Email</div>
+                    <div class="preference-desc">{{ current_user.email or 'Not set' }}</div>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Change Password</div>
+                    <div class="preference-desc">Update your account password</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn btn-secondary" onclick="showPasswordModal()">Change</button>
+                </div>
+            </div>
+
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Sign Out</div>
+                    <div class="preference-desc">End your current session</div>
+                </div>
+                <div class="preference-control">
+                    <a href="/auth/logout" class="btn btn-secondary">Logout</a>
+                </div>
+            </div>
+            {% else %}
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Not logged in</div>
+                    <div class="preference-desc">Sign in to sync your settings</div>
+                </div>
+                <div class="preference-control">
+                    <a href="/auth/login" class="btn btn-primary">Login</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="settings-section">
+        <h2 class="section-title" style="color: var(--pop-danger);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Danger Zone
+        </h2>
+
+        <div class="settings-card danger-zone">
+            <!-- Option 1: Full Reset -->
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Restore to Default</div>
+                    <div class="preference-desc">Full factory reset. Clears all conversations, documents, learned facts, and user-created characters. Restores default characters.</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn" style="background: var(--pop-danger); color: white;" onclick="confirmResetFull()">
+                        Reset All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Option 2: Clear User Data -->
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Clear User Data</div>
+                    <div class="preference-desc">Clears conversations, learned facts, and documents. Keeps all characters (default and custom).</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn" style="background: var(--pop-danger); color: white;" onclick="confirmResetUserData()">
+                        Clear Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Option 3: Clear Conversations Only -->
+            <div class="preference-row">
+                <div class="preference-info">
+                    <div class="preference-label">Clear Conversations Only</div>
+                    <div class="preference-desc">Clears chat history only. Keeps characters, learned facts, and documents.</div>
+                </div>
+                <div class="preference-control">
+                    <button class="btn" style="background: var(--pop-danger); color: white;" onclick="confirmClearConversations()">
+                        Clear Chats
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Password Change Modal -->
+<div id="password-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Change Password</h3>
+            <button class="btn btn-ghost" onclick="hidePasswordModal()" style="padding: var(--space-1);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <form id="password-form" onsubmit="changePassword(event)">
+            <div class="modal-body">
+                <p class="text-sm text-muted mb-4">Enter your new password below. Since you're logged in, you don't need to provide your current password.</p>
+
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <div class="api-key-field">
+                        <input type="password" class="form-input" id="new-password" placeholder="Enter new password" required minlength="6">
+                        <button type="button" class="toggle-password" onclick="togglePassword('new-password')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <div class="api-key-field">
+                        <input type="password" class="form-input" id="confirm-password" placeholder="Confirm new password" required minlength="6">
+                        <button type="button" class="toggle-password" onclick="togglePassword('confirm-password')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="password-error" class="text-sm" style="color: var(--pop-danger); margin-top: var(--space-2); display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="hidePasswordModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="password-submit-btn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-content {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        width: 90%;
+        max-width: 500px;
+        border: 1px solid var(--border-color);
+    }
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-4) var(--space-6);
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    .modal-title {
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+    }
+    .modal-body {
+        padding: var(--space-6);
+    }
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-3);
+        padding: var(--space-4) var(--space-6);
+        border-top: 1px solid var(--border-subtle);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Model lists for providers
+    const PROVIDER_MODELS = {
+        'ollama': [], // Populated dynamically
+        'openai': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+        'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+        'openrouter': ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5']
+    };
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadSettings();
+        loadThemeSetting();
+        lucide.createIcons();
+    });
+
+    // Load all settings from server
+    async function loadSettings() {
+        try {
+            const response = await fetch('/api/settings/llm');
+            if (!response.ok) return;
+
+            const config = await response.json();
+
+            // Set Ollama URL
+            if (config.api_url) {
+                document.getElementById('ollama-url').value = config.api_url;
             }
-            
-            init() {
-                this.loadSettings();
-                this.loadAvailableModels();
-                this.setupEventListeners();
+
+            // Set privacy mode
+            if (config.privacy_mode) {
+                document.getElementById('privacy-mode').value = config.privacy_mode;
             }
-            
-            setupEventListeners() {
-                this.providerSelect.addEventListener('change', () => {
-                    this.toggleProviderConfig();
-                    this.updateModelsForProvider();
-                });
-                this.llmForm.addEventListener('submit', (e) => this.saveLLMSettings(e));
-                this.userForm.addEventListener('submit', (e) => this.saveUserPreferences(e));
-                this.testBtn.addEventListener('click', () => this.testConnection());
-            }
-            
-            async loadAvailableModels() {
-                try {
-                    // Always use cloud_allowed mode in settings to show all available models
-                    // This enables full model switching regardless of setup preference
-                    const response = await fetch('/api/models?privacy_mode=cloud_allowed');
-                    if (!response.ok) throw new Error('Failed to load models');
-                    
-                    this.availableModels = await response.json();
-                    this.populateModelSelects();
-                    
-                } catch (error) {
-                    console.error('Error loading available models:', error);
-                    // Fallback to comprehensive model lists if API fails
-                    this.availableModels = {
-                        'ollama': ['llama3.1:8b', 'llama3.1:latest', 'mistral:latest'],
-                        'openai': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'o1-preview', 'o1-mini'],
-                        'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-                        'openrouter': ['openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5']
-                    };
-                    this.populateModelSelects();
+
+            // Set active provider and model
+            const provider = config.provider || 'ollama';
+            const model = config.model || '';
+
+            document.getElementById('active-provider').value = provider;
+            await updateActiveModels(model);
+
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            // Default to Ollama
+            await updateActiveModels();
+        }
+    }
+
+    // Update active model dropdown based on selected provider
+    async function updateActiveModels(savedModel = null) {
+        const provider = document.getElementById('active-provider').value;
+        const select = document.getElementById('active-model');
+
+        if (provider === 'ollama') {
+            // Load Ollama models dynamically
+            try {
+                const response = await fetch('/api/models');
+                if (!response.ok) {
+                    select.innerHTML = '<option value="">Failed to load models</option>';
+                    return;
                 }
-            }
-            
-            populateModelSelects() {
-                // Update Ollama models
-                this.updateSelectOptions('ollama-model', this.availableModels.ollama || []);
-                
-                // Update OpenAI models  
-                this.updateSelectOptions('openai-model', this.availableModels.openai || []);
-                
-                // Update Anthropic models
-                this.updateSelectOptions('anthropic-model', this.availableModels.anthropic || []);
-                
-                // Update OpenRouter models
-                this.updateSelectOptions('openrouter-model', this.availableModels.openrouter || []);
-            }
-            
-            updateSelectOptions(selectId, models) {
-                const select = document.getElementById(selectId);
-                if (!select || !models.length) return;
-                
-                const currentValue = select.value;
-                select.innerHTML = '';
-                
-                models.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    option.textContent = this.formatModelName(model);
-                    select.appendChild(option);
-                });
-                
-                // Restore previous value if it exists in new list
-                if (models.includes(currentValue)) {
-                    select.value = currentValue;
-                } else if (models.length > 0) {
-                    select.value = models[0];
+
+                const models = await response.json();
+                const ollamaModels = models.ollama || [];
+
+                if (ollamaModels.length === 0) {
+                    select.innerHTML = '<option value="">No Ollama models found</option>';
+                    return;
                 }
-            }
-            
-            formatModelName(model) {
-                // Format model names for better display
-                const modelNames = {
-                    'gpt-5': 'GPT-5 (Latest)',
-                    'gpt-4o': 'GPT-4o (Omni)',
-                    'gpt-4o-mini': 'GPT-4o Mini',
-                    'gpt-4-turbo': 'GPT-4 Turbo',
-                    'gpt-4': 'GPT-4',
-                    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
-                    'o1-preview': 'o1 Preview (Reasoning)',
-                    'o1-mini': 'o1 Mini (Reasoning)',
-                    'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet (Latest)',
-                    'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku (Latest)',
-                    'claude-3-opus-20240229': 'Claude 3 Opus',
-                    'llama3.1:8b': 'Llama 3.1 8B',
-                    'llama3.1:latest': 'Llama 3.1 (Latest)',
-                    'mistral:latest': 'Mistral (Latest)'
-                };
-                
-                return modelNames[model] || model;
-            }
-            
-            updateModelsForProvider() {
-                const provider = this.providerSelect.value;
-                if (this.availableModels && this.availableModels[provider]) {
-                    this.updateSelectOptions(`${provider}-model`, this.availableModels[provider]);
-                }
-            }
-            
-            async loadSettings() {
-                try {
-                    const response = await fetch('/api/settings/llm');
-                    if (!response.ok) throw new Error('Failed to load settings');
-                    
-                    const config = await response.json();
-                    
-                    // Set provider
-                    this.providerSelect.value = config.provider || 'ollama';
-                    this.toggleProviderConfig();
-                    
-                    // Set privacy mode
-                    this.privacyModeSelect.value = config.privacy_mode || 'local_only';
-                    
-                    // Set provider-specific fields
-                    this.setProviderFields(config);
-                    
-                } catch (error) {
-                    console.error('Error loading settings:', error);
-                    this.showAlert('Failed to load settings', 'danger');
-                }
-            }
-            
-            setProviderFields(config) {
-                // Set API URL for Ollama
-                const ollamaUrl = document.getElementById('ollama-url');
-                if (ollamaUrl) ollamaUrl.value = config.api_url || 'http://localhost:11434';
-                
-                // Set models
-                const ollamaModel = document.getElementById('ollama-model');
-                if (ollamaModel) ollamaModel.value = config.model || 'llama3:8b';
-                
-                const openaiModel = document.getElementById('openai-model');
-                if (openaiModel) openaiModel.value = config.model || 'gpt-4';
-                
-                const anthropicModel = document.getElementById('anthropic-model');
-                if (anthropicModel) anthropicModel.value = config.model || 'claude-3-opus-20240229';
-                
-                const openrouterModel = document.getElementById('openrouter-model');
-                if (openrouterModel) openrouterModel.value = config.model || 'openai/gpt-4';
-                
-                // Set API keys (just show if they exist)
-                const openaiKey = document.getElementById('openai-api-key');
-                if (openaiKey) openaiKey.placeholder = config.api_key ? '••••••••' : 'sk-...';
-                
-                const anthropicKey = document.getElementById('anthropic-api-key');
-                if (anthropicKey) anthropicKey.placeholder = config.api_key ? '••••••••' : 'sk-ant-...';
-                
-                const openrouterKey = document.getElementById('openrouter-api-key');
-                if (openrouterKey) openrouterKey.placeholder = config.api_key ? '••••••••' : 'sk-or-...';
-            }
-            
-            toggleProviderConfig() {
-                const provider = this.providerSelect.value;
-                const configs = document.querySelectorAll('.provider-config');
-                
-                // Hide all configs
-                configs.forEach(config => config.style.display = 'none');
-                
-                // Show the selected config
-                const selectedConfig = document.getElementById(`${provider}-config`);
-                if (selectedConfig) {
-                    selectedConfig.style.display = 'block';
-                }
-            }
-            
-            async saveLLMSettings(event) {
-                event.preventDefault();
-                
-                const provider = this.providerSelect.value;
-                const privacyMode = this.privacyModeSelect.value;
-                
-                let config = {
-                    provider: provider,
-                    privacy_mode: privacyMode
-                };
-                
-                // Add provider-specific config
-                if (provider === 'ollama') {
-                    config.api_url = document.getElementById('ollama-url').value;
-                    config.model = document.getElementById('ollama-model').value;
-                } else if (provider === 'openai') {
-                    const apiKey = document.getElementById('openai-api-key').value;
-                    if (apiKey) config.api_key = apiKey;
-                    config.model = document.getElementById('openai-model').value;
-                } else if (provider === 'anthropic') {
-                    const apiKey = document.getElementById('anthropic-api-key').value;
-                    if (apiKey) config.api_key = apiKey;
-                    config.model = document.getElementById('anthropic-model').value;
-                } else if (provider === 'openrouter') {
-                    const apiKey = document.getElementById('openrouter-api-key').value;
-                    if (apiKey) config.api_key = apiKey;
-                    config.model = document.getElementById('openrouter-model').value;
-                }
-                
-                try {
-                    const response = await fetch('/api/settings/llm', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(config)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        this.showAlert('Settings saved successfully!', 'success');
-                    } else {
-                        this.showAlert(`Failed to save settings: ${result.error}`, 'danger');
+
+                select.innerHTML = ollamaModels.map(model =>
+                    `<option value="${model}">${model}</option>`
+                ).join('');
+
+                // Set saved model if provided
+                if (savedModel) {
+                    if (![...select.options].some(opt => opt.value === savedModel)) {
+                        const option = new Option(savedModel, savedModel);
+                        select.add(option);
                     }
-                } catch (error) {
-                    console.error('Error saving settings:', error);
-                    this.showAlert(`Error saving settings: ${error.message}`, 'danger');
+                    select.value = savedModel;
                 }
+            } catch (error) {
+                console.error('Error loading Ollama models:', error);
+                select.innerHTML = '<option value="">Error loading models</option>';
             }
-            
-            async saveUserPreferences(event) {
-                event.preventDefault();
-                
-                const formData = new FormData(this.userForm);
-                const data = Object.fromEntries(formData.entries());
-                
-                try {
-                    const response = await fetch('/api/settings/user', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        this.showAlert('Preferences saved successfully!', 'success');
-                    } else {
-                        this.showAlert(`Failed to save preferences: ${result.error}`, 'danger');
-                    }
-                } catch (error) {
-                    console.error('Error saving preferences:', error);
-                    this.showAlert(`Error saving preferences: ${error.message}`, 'danger');
-                }
+        } else {
+            // Use hardcoded model list for cloud providers
+            const models = PROVIDER_MODELS[provider] || [];
+            select.innerHTML = models.map(model =>
+                `<option value="${model}">${model}</option>`
+            ).join('');
+
+            // Set saved model if provided
+            if (savedModel && ![...select.options].some(opt => opt.value === savedModel)) {
+                const option = new Option(savedModel, savedModel);
+                select.add(option);
             }
-            
-            async testConnection() {
-                const provider = this.providerSelect.value;
-                let config = {};
-                
-                // Get provider-specific config
-                if (provider === 'ollama') {
-                    config.api_url = document.getElementById('ollama-url').value;
-                    config.model = document.getElementById('ollama-model').value;
-                } else if (provider === 'openai') {
-                    config.api_key = document.getElementById('openai-api-key').value;
-                    config.model = document.getElementById('openai-model').value;
-                } else if (provider === 'anthropic') {
-                    config.api_key = document.getElementById('anthropic-api-key').value;
-                    config.model = document.getElementById('anthropic-model').value;
-                } else if (provider === 'openrouter') {
-                    config.api_key = document.getElementById('openrouter-api-key').value;
-                    config.model = document.getElementById('openrouter-model').value;
-                }
-                
-                this.connectionStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing connection...';
-                this.connectionStatus.className = 'connection-status status-loading';
-                
-                try {
-                    const response = await fetch('/api/settings/llm/test', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ provider, config })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        this.connectionStatus.innerHTML = `<i class="fas fa-check"></i> ${result.message}`;
-                        this.connectionStatus.className = 'connection-status status-success';
-                    } else {
-                        this.connectionStatus.innerHTML = `<i class="fas fa-times"></i> ${result.message}`;
-                        this.connectionStatus.className = 'connection-status status-error';
-                    }
-                } catch (error) {
-                    this.connectionStatus.innerHTML = `<i class="fas fa-times"></i> Connection test failed: ${error.message}`;
-                    this.connectionStatus.className = 'connection-status status-error';
-                }
-            }
-            
-            showAlert(message, type) {
-                // Create alert element
-                const alertDiv = document.createElement('div');
-                alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-                alertDiv.innerHTML = `
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                
-                // Insert at the top of the container
-                const container = document.querySelector('.container');
-                container.insertBefore(alertDiv, container.firstChild);
-                
-                // Auto-dismiss after 5 seconds
-                setTimeout(() => {
-                    if (alertDiv.parentNode) {
-                        alertDiv.remove();
-                    }
-                }, 5000);
+            if (savedModel) {
+                select.value = savedModel;
             }
         }
-        
-        // Toggle password visibility
-        function togglePassword(fieldId) {
-            const field = document.getElementById(fieldId);
-            const button = field.nextElementSibling;
-            const icon = button.querySelector('i');
-            
-            if (field.type === 'password') {
-                field.type = 'text';
-                icon.className = 'fas fa-eye-slash';
+    }
+
+    // Test individual provider connection
+    async function testProvider(providerName) {
+        const statusIndicator = document.getElementById(`${providerName}-status-indicator`);
+        const statusDot = statusIndicator.querySelector('.status-dot');
+
+        let config = {};
+
+        if (providerName === 'ollama') {
+            config.api_url = document.getElementById('ollama-url').value;
+        } else if (providerName === 'openai') {
+            config.api_key = document.getElementById('openai-api-key').value;
+        } else if (providerName === 'anthropic') {
+            config.api_key = document.getElementById('anthropic-api-key').value;
+        } else if (providerName === 'openrouter') {
+            config.api_key = document.getElementById('openrouter-api-key').value;
+        }
+
+        // Show loading state
+        statusDot.className = 'status-dot';
+        statusDot.style.animation = 'pulse 1s infinite';
+
+        try {
+            const response = await fetch('/api/settings/llm/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerName, config })
+            });
+
+            const result = await response.json();
+            statusDot.style.animation = '';
+
+            if (result.success) {
+                statusDot.className = 'status-dot status-dot-success';
+                showToast(`${providerName} connection successful`, 'success');
             } else {
-                field.type = 'password';
-                icon.className = 'fas fa-eye';
+                statusDot.className = 'status-dot status-dot-error';
+                showToast(`${providerName} connection failed: ${result.message}`, 'error');
             }
+        } catch (error) {
+            statusDot.style.animation = '';
+            statusDot.className = 'status-dot status-dot-error';
+            showToast(`${providerName} connection failed: ${error.message}`, 'error');
         }
-        
-        // Initialize settings manager when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new SettingsManager();
+    }
+
+    // Load theme setting
+    function loadThemeSetting() {
+        const saved = localStorage.getItem('minouchat-theme');
+        const select = document.getElementById('theme-select');
+
+        if (saved === 'dark') {
+            select.value = 'dark';
+        } else if (saved === 'light') {
+            select.value = 'light';
+        } else {
+            select.value = 'system';
+        }
+
+        // Theme change handler
+        select.addEventListener('change', function() {
+            const value = this.value;
+            if (value === 'system') {
+                localStorage.removeItem('minouchat-theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.classList.remove('theme-light', 'theme-dark');
+                document.documentElement.classList.add(prefersDark ? 'theme-dark' : 'theme-light');
+            } else {
+                localStorage.setItem('minouchat-theme', value);
+                document.documentElement.classList.remove('theme-light', 'theme-dark');
+                document.documentElement.classList.add('theme-' + value);
+            }
         });
-    </script>
-</body>
-</html> 
+    }
+
+    // Save all LLM settings
+    document.getElementById('llm-settings-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const activeProvider = document.getElementById('active-provider').value;
+        const activeModel = document.getElementById('active-model').value;
+        const privacyMode = document.getElementById('privacy-mode').value;
+
+        // Collect all credentials
+        const config = {
+            provider: activeProvider,
+            model: activeModel,
+            privacy_mode: privacyMode,
+            api_url: document.getElementById('ollama-url').value,
+            credentials: {
+                openai: document.getElementById('openai-api-key').value,
+                anthropic: document.getElementById('anthropic-api-key').value,
+                openrouter: document.getElementById('openrouter-api-key').value
+            }
+        };
+
+        // Also send the appropriate api_key for the active provider
+        if (activeProvider === 'openai') {
+            config.api_key = config.credentials.openai;
+        } else if (activeProvider === 'anthropic') {
+            config.api_key = config.credentials.anthropic;
+        } else if (activeProvider === 'openrouter') {
+            config.api_key = config.credentials.openrouter;
+        }
+
+        try {
+            const response = await fetch('/api/settings/llm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showToast('Settings saved successfully', 'success');
+            } else {
+                showToast('Failed to save settings: ' + (result.error || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            showToast('Error saving settings: ' + error.message, 'error');
+        }
+    });
+
+    // Toggle password visibility
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field.type === 'password') {
+            field.type = 'text';
+        } else {
+            field.type = 'password';
+        }
+    }
+
+    // Reset onboarding
+    function resetOnboarding() {
+        localStorage.removeItem('minouchat-onboarding-complete');
+        localStorage.removeItem('minouchat-hints-dismissed');
+        showToast('Onboarding will show on your next visit', 'success');
+    }
+
+    // === Danger Zone Functions ===
+
+    // Option 1: Full Reset (Restore to Default)
+    function confirmResetFull() {
+        if (confirm('WARNING: This will perform a full factory reset!\n\nThis will delete:\n- All conversations\n- All documents\n- All learned facts\n- All user-created characters\n\nDefault characters will be restored.\n\nThis cannot be undone. Are you sure?')) {
+            resetFull();
+        }
+    }
+
+    async function resetFull() {
+        try {
+            const response = await fetch('/api/reset/full', {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('Application reset to defaults', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const result = await response.json();
+                showToast('Failed to reset: ' + (result.detail || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    // Option 2: Clear User Data (keep characters)
+    function confirmResetUserData() {
+        if (confirm('This will delete:\n- All conversations\n- All learned facts\n- All documents\n\nYour characters will be kept.\n\nThis cannot be undone. Are you sure?')) {
+            resetUserData();
+        }
+    }
+
+    async function resetUserData() {
+        try {
+            const response = await fetch('/api/reset/user-data', {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('User data cleared successfully', 'success');
+            } else {
+                const result = await response.json();
+                showToast('Failed to clear data: ' + (result.detail || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    // Option 3: Clear Conversations Only
+    function confirmClearConversations() {
+        if (confirm('This will delete all chat history.\n\nYour characters, learned facts, and documents will be kept.\n\nThis cannot be undone. Are you sure?')) {
+            clearAllConversations();
+        }
+    }
+
+    async function clearAllConversations() {
+        try {
+            const response = await fetch('/api/conversations', {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('All conversations cleared', 'success');
+            } else {
+                showToast('Failed to clear conversations', 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    // Password change modal functions
+    function showPasswordModal() {
+        document.getElementById('password-modal').style.display = 'flex';
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+        document.getElementById('password-error').style.display = 'none';
+        document.getElementById('new-password').focus();
+    }
+
+    function hidePasswordModal() {
+        document.getElementById('password-modal').style.display = 'none';
+    }
+
+    async function changePassword(event) {
+        event.preventDefault();
+
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        const errorEl = document.getElementById('password-error');
+        const submitBtn = document.getElementById('password-submit-btn');
+
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            errorEl.textContent = 'Passwords do not match';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // Validate minimum length
+        if (newPassword.length < 6) {
+            errorEl.textContent = 'Password must be at least 6 characters';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // Disable button during request
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Updating...';
+
+        try {
+            const response = await fetch('/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_password: newPassword })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                hidePasswordModal();
+                showToast('Password updated successfully', 'success');
+            } else {
+                errorEl.textContent = result.detail || 'Failed to update password';
+                errorEl.style.display = 'block';
+            }
+        } catch (error) {
+            errorEl.textContent = 'Error: ' + error.message;
+            errorEl.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Update Password';
+        }
+    }
+
+    // Close modal on backdrop click
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('password-modal');
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                hidePasswordModal();
+            }
+        });
+    });
+</script>
+{% endblock %}
