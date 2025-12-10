@@ -136,6 +136,38 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENROUTER_API_KEY=sk-or-...
 ```
 
+### LLM Selection Guidelines (from Market Analysis)
+
+**Key Insight:** Service-model matching is critical. Different LLMs excel at different use cases.
+
+| Use Case | Recommended Model | Why |
+|----------|-------------------|-----|
+| **Character Roleplay** | DeepSeek R1T2 Chimera | Best reasoning + character consistency, 30.5% market leader |
+| **Privacy-First** | Local Ollama (llama3.1:8b) | Zero data leaves machine, fully private |
+| **Power Users** | Claude Sonnet 4.5 | Best instruction-following, 200K context window |
+| **Cost-Effective** | DeepSeek V3.1 | Best cost-to-quality ratio for streaming chat |
+| **Balanced** | DeepSeek V3 0324 | Good across all metrics, maintains character 50+ turns |
+
+**Model Behavior Differences:**
+- **Claude (Anthropic):** Constitutional AI, high refusal rate (98.7%), best for SFW/professional use
+- **DeepSeek:** Minimal safety training, high flexibility, ideal for creative/character work
+- **Grok:** Intentionally unfiltered, designed for edgy/controversial content
+
+**Chat Interface Success Factors:**
+1. Context preservation across 50+ turns without coherence loss
+2. Effective response to system prompts defining behavior/personality
+3. Real-time streaming for natural conversation flow
+4. "Think through" complex interactions before responding (reasoning models)
+5. Sufficient flexibility to support creative expression
+
+**OpenRouter Privacy Notes:**
+- OpenRouter acts as proxy - providers don't see your IP/email/account info
+- Providers only receive: prompts, model parameters
+- Check provider data policies (some retain prompts for training)
+- For maximum privacy: use local Ollama models
+
+See `/documents/LLM_Market_Analysis_OpenRouter_2025.md` for full analysis.
+
 ### Data Storage
 
 - **SQLite**: All persistent data (users, conversations, messages, documents)

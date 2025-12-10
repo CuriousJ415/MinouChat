@@ -740,9 +740,25 @@ async def get_recent_conversations(request: Request, limit: int = 5, db = Depend
         return {"conversations": [], "error": str(e)}
 
 @app.get("/api/models")
-async def get_available_models(privacy_mode: str = "local_only"):
+async def get_available_models(request: Request, privacy_mode: str = "local_only", db: Session = Depends(get_db)):
     """Get available models by provider - PRIVACY-FIRST ORDERING."""
-    return character_manager.get_available_models(privacy_mode)
+    # Try to get user's API keys from their settings for dynamic model discovery
+    api_keys = {}
+    try:
+        current_user = await get_current_user_from_session(request, db)
+        if current_user:
+            settings = settings_service.get_user_settings(current_user.id, db)
+            if settings:
+                if settings.openrouter_api_key:
+                    api_keys['openrouter'] = settings.openrouter_api_key
+                if settings.openai_api_key:
+                    api_keys['openai'] = settings.openai_api_key
+                if settings.anthropic_api_key:
+                    api_keys['anthropic'] = settings.anthropic_api_key
+    except:
+        pass  # Continue without API keys if not authenticated
+
+    return character_manager.get_available_models(privacy_mode, api_keys)
 
 @app.get("/api/models/recommendations")
 async def get_model_recommendations():

@@ -825,7 +825,7 @@
         function updateEditPersonaLink(characterId) {
             const editLink = document.getElementById('editPersonaLink');
             if (characterId) {
-                editLink.href = `/personas/${characterId}/edit`;
+                editLink.href = `/persona/edit/${characterId}`;
                 editLink.style.display = 'inline-flex';
             } else {
                 editLink.style.display = 'none';

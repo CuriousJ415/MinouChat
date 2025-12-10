@@ -90,9 +90,9 @@ class CharacterManager:
             logger.error(f"Error deleting character {character_id}: {e}")
             return False
     
-    def get_available_models(self, privacy_mode: str = "local_only") -> Dict[str, List[str]]:
+    def get_available_models(self, privacy_mode: str = "local_only", api_keys: Dict[str, str] = None) -> Dict[str, List[str]]:
         """Get available models using privacy-respecting discovery."""
-        return model_discovery.get_available_models(privacy_mode)
+        return model_discovery.get_available_models(privacy_mode, api_keys)
     
     
     def _create_example_characters(self, examples_dir: Path):
