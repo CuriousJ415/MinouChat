@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ...database.config import get_db
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from ..core.setting_service import setting_service
 from ..core.user_profile_service import user_profile_service
 

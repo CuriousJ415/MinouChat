@@ -13,7 +13,7 @@ from ...database.models import User, Document
 from ..core.document_service import document_service
 from ..core.enhanced_context_service import enhanced_context_service
 from ..core.embedding_service import embedding_service
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from fastapi import Request
 
 logger = logging.getLogger(__name__)

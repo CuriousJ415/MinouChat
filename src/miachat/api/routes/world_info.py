@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...database.config import get_db
 from ...database.models import WorldInfoEntry
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from ..core.world_info_service import world_info_service
 
 router = APIRouter(prefix="/api/world-info", tags=["world-info"])

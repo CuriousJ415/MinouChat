@@ -578,6 +578,24 @@ python init_db.py
 - For Ollama: ensure it's running (`ollama serve`)
 - For cloud providers: verify API keys in `.env`
 
+### OpenRouter returns 404 "No endpoints found matching your data policy"
+
+Some OpenRouter models require specific privacy/data policy settings. If you see an error like:
+
+```
+{"error":{"message":"No endpoints found matching your data policy (Paid model training). Configure: https://openrouter.ai/settings/privacy","code":404}}
+```
+
+**Solution:**
+1. Go to https://openrouter.ai/settings/privacy
+2. Adjust your data policy to allow the providers that host the models you want to use
+3. Models like `tngtech/deepseek-r1t2-chimera` may require allowing "Paid model training"
+
+**Alternative:** Use models without policy restrictions, such as:
+- `deepseek/deepseek-chat`
+- `openai/gpt-4o-mini`
+- `anthropic/claude-3.5-sonnet`
+
 ### Import errors in VS Code
 
 - Set Python interpreter to `.venv/bin/python`

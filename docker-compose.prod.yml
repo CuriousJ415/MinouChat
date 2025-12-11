@@ -1,0 +1,39 @@
+# MinouChat Production Docker Compose
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  minouchat:
+    build: .
+    container_name: minouchat-prod
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"  # Only expose to localhost (nginx will proxy)
+    volumes:
+      # Production volumes - no source code mounting
+      - ./data:/app/data
+      - ./documents:/app/documents
+      - ./output_documents:/app/output_documents
+      - ./config:/app/config
+      - ./character_cards:/app/character_cards
+      - ./character_examples:/app/character_examples
+      - ./conversations:/app/conversations
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+    command: ["uvicorn", "src.miachat.api.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    driver: bridge

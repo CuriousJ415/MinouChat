@@ -1,18 +1,18 @@
 """
-FastAPI Authentication Routes
+FastAPI Authentication Routes - Clerk Integration
 """
+import os
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.security import HTTPBearer
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from ..core.auth import (
-    UserCreate, UserLogin, UserResponse, Token, PasswordChange,
-    register_user, authenticate_user, login_user,
-    get_current_user, get_current_user_optional,
-    refresh_access_token, login_user_session, logout_user_session,
-    get_current_user_from_session, get_password_hash
+from ..core.clerk_auth import (
+    get_current_user_from_session,
+    require_clerk_auth,
+    get_clerk_publishable_key,
+    is_clerk_configured,
+    get_or_create_user_from_clerk
 )
 from ..core.templates import render_template
 from ...database.config import get_db
@@ -20,166 +20,139 @@ from ...database.models import User
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
-# Security
-security = HTTPBearer(auto_error=False)
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, db: Session = Depends(get_db)):
-    """Login page"""
+    """Login page with Clerk sign-in component"""
     # Check if user is already logged in
     current_user = await get_current_user_from_session(request, db)
     if current_user:
-        return RedirectResponse(url="/", status_code=302)
-    
-    return await render_template(request, "login")
+        return RedirectResponse(url="/dashboard", status_code=302)
 
-@router.post("/login")
-async def login(user_data: UserLogin, request: Request, db: Session = Depends(get_db)):
-    """Login user and create session"""
-    user = await authenticate_user(user_data.username, user_data.password, db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
-        )
-    
-    # Create session
-    await login_user_session(user, request)
-    
-    # Return success response
-    return {
-        "success": True,
-        "message": "Login successful",
-        "redirect": "/"
-    }
+    # Pass Clerk publishable key to template
+    return await render_template(
+        request,
+        "login",
+        clerk_publishable_key=get_clerk_publishable_key(),
+        clerk_configured=is_clerk_configured()
+    )
+
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request, db: Session = Depends(get_db)):
-    """Registration page"""
+    """Registration page - redirects to login since sign-up is invite-only via Clerk"""
     # Check if user is already logged in
     current_user = await get_current_user_from_session(request, db)
     if current_user:
-        return RedirectResponse(url="/", status_code=302)
-    
-    return await render_template(request, "register")
+        return RedirectResponse(url="/dashboard", status_code=302)
 
-@router.post("/register")
-async def register(user_data: UserCreate, request: Request, db: Session = Depends(get_db)):
-    """Register a new user"""
-    user = await register_user(user_data, db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already exists"
-        )
-    
-    # Auto-login after registration
-    db_user = db.query(User).filter(User.id == user.id).first()
-    await login_user_session(db_user, request)
-    
-    return {
-        "success": True,
-        "message": "Registration successful",
-        "redirect": "/"
-    }
+    # Show sign-up page (invite-only is enforced in Clerk dashboard)
+    return await render_template(
+        request,
+        "register",
+        clerk_publishable_key=get_clerk_publishable_key(),
+        clerk_configured=is_clerk_configured()
+    )
+
 
 @router.post("/logout")
 async def logout(request: Request):
-    """Logout user and clear session"""
-    await logout_user_session(request)
+    """
+    Logout user - Clerk handles session invalidation on the frontend.
+    This endpoint just returns success for API calls.
+    """
     return {
         "success": True,
         "message": "Logout successful",
         "redirect": "/auth/login"
     }
 
-@router.post("/change-password")
-async def change_password(password_data: PasswordChange, request: Request, db: Session = Depends(get_db)):
-    """Change password for logged-in user (session-based, no old password required)"""
-    # Get current user from session
+
+@router.get("/callback")
+async def auth_callback(request: Request, db: Session = Depends(get_db)):
+    """
+    OAuth callback handler for Clerk.
+    Clerk handles most of the OAuth flow, this is just for any post-auth processing.
+    """
+    # The session should already be set by Clerk
     current_user = await get_current_user_from_session(request, db)
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
+    if current_user:
+        return RedirectResponse(url="/dashboard", status_code=302)
+
+    return RedirectResponse(url="/auth/login", status_code=302)
+
+
+@router.post("/clerk-webhook")
+async def clerk_webhook(request: Request, db: Session = Depends(get_db)):
+    """
+    Handle Clerk webhooks for user events.
+
+    Events:
+    - user.created: Create local user record
+    - user.updated: Update local user record
+    - user.deleted: Optionally remove local user data
+    """
+    # Get webhook secret for verification
+    webhook_secret = os.getenv("CLERK_WEBHOOK_SECRET", "")
+
+    try:
+        payload = await request.json()
+        event_type = payload.get("type")
+        data = payload.get("data", {})
+
+        if event_type == "user.created":
+            clerk_user_id = data.get("id")
+            email = None
+            # Get primary email
+            email_addresses = data.get("email_addresses", [])
+            for email_obj in email_addresses:
+                if email_obj.get("id") == data.get("primary_email_address_id"):
+                    email = email_obj.get("email_address")
+                    break
+
+            if not email and email_addresses:
+                email = email_addresses[0].get("email_address")
+
+            username = data.get("username") or data.get("first_name")
+
+            if clerk_user_id and email:
+                get_or_create_user_from_clerk(db, clerk_user_id, email, username)
+
+        elif event_type == "user.updated":
+            clerk_user_id = data.get("id")
+            user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+            if user:
+                # Update email if changed
+                email_addresses = data.get("email_addresses", [])
+                for email_obj in email_addresses:
+                    if email_obj.get("id") == data.get("primary_email_address_id"):
+                        user.email = email_obj.get("email_address")
+                        break
+                db.commit()
+
+        elif event_type == "user.deleted":
+            clerk_user_id = data.get("id")
+            # Optionally delete user data
+            # For now, just unlink the Clerk ID
+            user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+            if user:
+                user.clerk_id = None
+                db.commit()
+
+        return {"success": True}
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
         )
 
-    # Validate new password
-    if len(password_data.new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 6 characters"
-        )
 
-    # Hash and update password
-    new_hash = get_password_hash(password_data.new_password)
-    current_user.password_hash = new_hash
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "Password updated successfully"
-    }
-
-# API endpoints for JWT tokens (for API clients)
-@router.post("/api/login")
-async def api_login(user_data: UserLogin, db: Session = Depends(get_db)):
-    """Login user and return JWT tokens (for API clients)"""
-    user = await authenticate_user(user_data.username, user_data.password, db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    tokens = await login_user(user)
-    return {
-        "success": True,
-        "message": "Login successful",
-        "access_token": tokens.access_token,
-        "refresh_token": tokens.refresh_token,
-        "token_type": tokens.token_type,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email
-        }
-    }
-
-@router.post("/api/refresh")
-async def api_refresh_token(refresh_token: str, db: Session = Depends(get_db)):
-    """Refresh access token (for API clients)"""
-    new_access_token = await refresh_access_token(refresh_token, db)
-    if not new_access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
-        )
-    
-    return {
-        "success": True,
-        "access_token": new_access_token,
-        "token_type": "bearer"
-    }
-
-@router.get("/api/me")
-async def get_current_user_info(current_user = Depends(get_current_user)):
-    """Get current user information (for API clients)"""
-    return {
-        "success": True,
-        "user": {
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "created_at": current_user.created_at,
-            "last_login": current_user.last_login
-        }
-    }
-
+# API endpoints for checking auth status
 @router.get("/api/check")
-async def check_auth(current_user: Optional[dict] = Depends(get_current_user_optional)):
-    """Check if user is authenticated (for API clients)"""
+async def check_auth(request: Request, db: Session = Depends(get_db)):
+    """Check if user is authenticated"""
+    current_user = await get_current_user_from_session(request, db)
     if current_user:
         return {
             "success": True,
@@ -194,4 +167,26 @@ async def check_auth(current_user: Optional[dict] = Depends(get_current_user_opt
         return {
             "success": True,
             "authenticated": False
-        } 
+        }
+
+
+@router.get("/api/me")
+async def get_current_user_info(request: Request, db: Session = Depends(get_db)):
+    """Get current user information"""
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    return {
+        "success": True,
+        "user": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "email": current_user.email,
+            "created_at": current_user.created_at,
+            "last_login": current_user.last_login
+        }
+    }

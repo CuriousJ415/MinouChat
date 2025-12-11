@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..core.reminder_service import reminder_service
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from ...database.config import get_db
 
 logger = logging.getLogger(__name__)

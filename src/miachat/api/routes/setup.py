@@ -11,7 +11,7 @@ from pydantic import BaseModel
 import logging
 
 from ..core.setup_service import setup_service, SetupAssessment, PersonaModelAssignment
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from ...database.config import get_db
 from ..core.character_manager import character_manager
 from ..core.character_initializer import character_initializer

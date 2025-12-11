@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - MinouChat</title>
+    <title>Sign Up - MinouChat</title>
 
     <!-- Prevent flash -->
     <script>
@@ -28,7 +28,7 @@
 
         .auth-card {
             width: 100%;
-            max-width: 400px;
+            max-width: 440px;
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
@@ -37,7 +37,7 @@
 
         .auth-header {
             text-align: center;
-            margin-bottom: var(--space-8);
+            margin-bottom: var(--space-6);
         }
 
         .auth-logo {
@@ -45,6 +45,10 @@
             font-weight: var(--font-semibold);
             color: var(--text-primary);
             margin-bottom: var(--space-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
         .auth-subtitle {
@@ -52,20 +56,15 @@
             font-size: var(--text-sm);
         }
 
-        .auth-footer {
-            margin-top: var(--space-6);
+        .invite-notice {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin-bottom: var(--space-4);
             text-align: center;
+            color: var(--text-secondary);
             font-size: var(--text-sm);
-            color: var(--text-muted);
-        }
-
-        .auth-footer a {
-            color: var(--pop-primary);
-            font-weight: var(--font-medium);
-        }
-
-        .auth-footer a:hover {
-            text-decoration: underline;
         }
 
         .theme-toggle-auth {
@@ -74,47 +73,46 @@
             right: var(--space-4);
         }
 
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--pop-danger);
-            color: var(--pop-danger);
-            padding: var(--space-3);
-            border-radius: var(--radius-md);
-            font-size: var(--text-sm);
-            margin-bottom: var(--space-4);
-            display: none;
+        /* Clerk component container */
+        #clerk-sign-up {
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .error-message.show {
-            display: block;
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--pop-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
 
-        .success-message {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid var(--pop-success);
-            color: var(--pop-success);
-            padding: var(--space-3);
-            border-radius: var(--radius-md);
-            font-size: var(--text-sm);
-            margin-bottom: var(--space-4);
-            display: none;
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
-        .success-message.show {
-            display: block;
+        .clerk-error {
+            text-align: center;
+            padding: var(--space-6);
+            color: var(--text-muted);
         }
 
-        .terms-text {
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-        }
-
-        .terms-text a {
+        .clerk-error a {
             color: var(--pop-primary);
         }
 
-        .terms-text a:hover {
-            text-decoration: underline;
+        /* Override Clerk styles to match theme */
+        .cl-rootBox {
+            width: 100%;
+        }
+
+        .cl-card {
+            box-shadow: none !important;
+            border: none !important;
+            background: transparent !important;
         }
     </style>
 </head>
@@ -140,7 +138,7 @@
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
-                <div class="auth-logo" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <div class="auth-logo">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width: 28px; height: 28px;">
                         <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/>
                         <path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
@@ -150,124 +148,99 @@
                 <p class="auth-subtitle">Create your account</p>
             </div>
 
-            <div id="error-message" class="error-message"></div>
-            <div id="success-message" class="success-message"></div>
+            <div class="invite-notice">
+                MinouChat is currently invite-only. You'll need an invitation to sign up.
+            </div>
 
-            <form id="registerForm">
-                <div class="form-group">
-                    <label for="username" class="form-label">Username</label>
-                    <input type="text" id="username" name="username" class="form-input"
-                           placeholder="Choose a username" required autofocus>
-                </div>
-
-                <div class="form-group">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="email" id="email" name="email" class="form-input"
-                           placeholder="Enter your email" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="password" class="form-label">Password</label>
-                    <input type="password" id="password" name="password" class="form-input"
-                           placeholder="Create a password" required minlength="6">
-                    <span class="form-hint">At least 6 characters</span>
-                </div>
-
-                <div class="form-group">
-                    <label for="confirm_password" class="form-label">Confirm Password</label>
-                    <input type="password" id="confirm_password" name="confirm_password" class="form-input"
-                           placeholder="Confirm your password" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-check">
-                        <input type="checkbox" id="agree_terms" name="agree_terms" required>
-                        <span class="terms-text">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></span>
-                    </label>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="width: 100%;" id="submitBtn">
-                    Create Account
-                </button>
-            </form>
-
-            <div class="auth-footer">
-                Already have an account? <a href="/auth/login">Sign in</a>
+            <!-- Clerk Sign-Up Component -->
+            <div id="clerk-sign-up">
+                <div class="loading-spinner"></div>
             </div>
         </div>
     </div>
 
     <script src="{{ url_for('static', path='js/theme.js') }}"></script>
 
+    {% if clerk_configured %}
+    <!-- Clerk JavaScript SDK -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+
     <script>
-        document.getElementById('registerForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const submitBtn = document.getElementById('submitBtn');
-            const errorEl = document.getElementById('error-message');
-            const successEl = document.getElementById('success-message');
-
-            // Reset state
-            errorEl.classList.remove('show');
-            successEl.classList.remove('show');
-
-            const formData = new FormData(this);
-            const password = formData.get('password');
-            const confirmPassword = formData.get('confirm_password');
-
-            // Client-side validation
-            if (password !== confirmPassword) {
-                errorEl.textContent = 'Passwords do not match';
-                errorEl.classList.add('show');
-                return;
-            }
-
-            if (password.length < 6) {
-                errorEl.textContent = 'Password must be at least 6 characters';
-                errorEl.classList.add('show');
-                return;
-            }
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner spinner-sm"></span> Creating account...';
-
-            const data = {
-                username: formData.get('username'),
-                email: formData.get('email'),
-                password: password
-            };
-
+        window.addEventListener('load', async function() {
             try {
-                const response = await fetch('/auth/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
+                // Wait for Clerk to be available
+                await window.Clerk.load();
 
-                const result = await response.json();
-
-                if (result.success) {
-                    successEl.textContent = 'Account created! Redirecting to login...';
-                    successEl.classList.add('show');
-                    setTimeout(() => {
-                        window.location.href = '/auth/login';
-                    }, 1500);
-                } else {
-                    errorEl.textContent = result.detail || 'Registration failed';
-                    errorEl.classList.add('show');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create Account';
+                // Check if already signed in
+                if (window.Clerk.user) {
+                    window.location.href = '/dashboard';
+                    return;
                 }
+
+                // Mount sign-up component
+                const signUpEl = document.getElementById('clerk-sign-up');
+                signUpEl.innerHTML = '';
+
+                window.Clerk.mountSignUp(signUpEl, {
+                    afterSignInUrl: '/dashboard',
+                    afterSignUpUrl: '/dashboard',
+                    signInUrl: '/auth/login',
+                    appearance: {
+                        variables: {
+                            colorPrimary: '#6366f1',
+                            colorTextOnPrimaryBackground: '#ffffff',
+                            colorBackground: 'var(--bg-primary)',
+                            colorText: 'var(--text-primary)',
+                            colorTextSecondary: 'var(--text-muted)',
+                            colorInputBackground: 'var(--bg-secondary)',
+                            colorInputText: 'var(--text-primary)',
+                            borderRadius: '8px',
+                            fontFamily: 'inherit'
+                        },
+                        elements: {
+                            rootBox: {
+                                width: '100%'
+                            },
+                            card: {
+                                boxShadow: 'none',
+                                border: 'none',
+                                backgroundColor: 'transparent'
+                            },
+                            formButtonPrimary: {
+                                backgroundColor: 'var(--pop-primary)',
+                                '&:hover': {
+                                    backgroundColor: 'var(--pop-primary-hover)'
+                                }
+                            }
+                        }
+                    }
+                });
             } catch (error) {
-                console.error('Error:', error);
-                errorEl.textContent = 'An error occurred. Please try again.';
-                errorEl.classList.add('show');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Account';
+                console.error('Clerk initialization error:', error);
+                document.getElementById('clerk-sign-up').innerHTML = `
+                    <div class="clerk-error">
+                        <p>Unable to load sign-up. Please try again later.</p>
+                        <p><a href="javascript:location.reload()">Refresh page</a></p>
+                    </div>
+                `;
             }
         });
     </script>
+    {% else %}
+    <script>
+        document.getElementById('clerk-sign-up').innerHTML = `
+            <div class="clerk-error">
+                <p>Authentication is not configured.</p>
+                <p>Please set CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY in your environment.</p>
+            </div>
+        `;
+    </script>
+    {% endif %}
 </body>
 </html>

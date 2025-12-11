@@ -16,7 +16,7 @@ from ..core.artifact_service import (
     ExportFormat,
     ArtifactMetadata
 )
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from ...database.config import get_db
 
 logger = logging.getLogger(__name__)

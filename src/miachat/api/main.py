@@ -8,7 +8,7 @@ from .core.llm_client import llm_client
 from sqlalchemy.orm import Session
 from ..database.config import get_db
 from ..database.models import Base
-from .core.auth import require_session_auth, get_current_user_from_session
+from .core.clerk_auth import require_session_auth, get_current_user_from_session
 from .core.settings_service import settings_service
 from .core.style_overrides import get_style_overrides
 from .core.conversation_service import conversation_service
@@ -94,6 +94,19 @@ def _resolve_model_config(character_model_config: Optional[Dict[str, Any]], user
             config['api_url'] = app_config['api_url']
         if 'api_key' not in config and 'api_key' in app_config:
             config['api_key'] = app_config['api_key']
+
+    # Ensure API key is set for the resolved provider (even if character has provider but no api_key)
+    resolved_provider = config.get('provider')
+    if resolved_provider and resolved_provider != 'ollama' and 'api_key' not in config:
+        # Fetch user settings to get the appropriate API key for the provider
+        user_settings = settings_service.get_user_settings(user_id, db)
+        if user_settings:
+            if resolved_provider == 'openrouter' and user_settings.openrouter_api_key:
+                config['api_key'] = user_settings.openrouter_api_key
+            elif resolved_provider == 'openai' and user_settings.openai_api_key:
+                config['api_key'] = user_settings.openai_api_key
+            elif resolved_provider == 'anthropic' and user_settings.anthropic_api_key:
+                config['api_key'] = user_settings.anthropic_api_key
 
     return config
 
@@ -804,7 +817,7 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         character = character_manager.get_character(request.character_id)
         if not character:
             return {"error": "Character not found"}, 404
-        
+
         # Handle session management
         session_id = request.session_id
         migration_available = False
@@ -1626,6 +1639,7 @@ class LLMConfigRequest(BaseModel):
     api_key: Optional[str] = None
     api_url: Optional[str] = None
     privacy_mode: Optional[str] = "local_only"
+    credentials: Optional[Dict[str, str]] = None
 
 class TestConnectionRequest(BaseModel):
     provider: str

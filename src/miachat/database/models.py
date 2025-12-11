@@ -206,6 +206,7 @@ class User(Base):
     username = Column(String(50), nullable=False, unique=True)
     email = Column(String(120), nullable=False, unique=True)
     password_hash = Column(String(128), nullable=False)
+    clerk_id = Column(String(255), nullable=True, unique=True, index=True)  # Clerk user ID
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)
 
@@ -218,6 +219,7 @@ class User(Base):
             'id': self.id,
             'username': self.username,
             'email': self.email,
+            'clerk_id': self.clerk_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None
         }

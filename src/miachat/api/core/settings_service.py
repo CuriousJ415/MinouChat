@@ -166,29 +166,38 @@ class SettingsService:
             provider = config.get("provider", "ollama")
             if provider not in self.supported_providers:
                 raise ValueError(f"Unsupported provider: {provider}")
-            
+
             update_data = {
                 "default_llm_provider": provider,
                 "default_model": config.get("model", self.default_models[provider]),
                 "privacy_mode": config.get("privacy_mode", "local_only")
             }
-            
+
+            # Always save ALL credentials when provided (frontend sends all in 'credentials' dict)
+            credentials = config.get("credentials", {})
+            if credentials.get("openai"):
+                update_data["openai_api_key"] = credentials["openai"]
+            if credentials.get("anthropic"):
+                update_data["anthropic_api_key"] = credentials["anthropic"]
+            if credentials.get("openrouter"):
+                update_data["openrouter_api_key"] = credentials["openrouter"]
+
             # Provider-specific settings
             if provider == "ollama":
                 update_data["ollama_url"] = config.get("api_url", f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}")
             elif provider == "openai":
-                if "api_key" in config:
+                if "api_key" in config and not credentials.get("openai"):
                     update_data["openai_api_key"] = config["api_key"]
                 update_data["openai_model"] = config.get("model", "gpt-4")
             elif provider == "anthropic":
-                if "api_key" in config:
+                if "api_key" in config and not credentials.get("anthropic"):
                     update_data["anthropic_api_key"] = config["api_key"]
                 update_data["anthropic_model"] = config.get("model", "claude-3-opus-20240229")
             elif provider == "openrouter":
-                if "api_key" in config:
+                if "api_key" in config and not credentials.get("openrouter"):
                     update_data["openrouter_api_key"] = config["api_key"]
                 update_data["openrouter_model"] = config.get("model", "openai/gpt-4")
-            
+
             settings = self.update_user_settings(user_id, db, **update_data)
             return settings is not None
         except Exception as e:

@@ -209,8 +209,10 @@ class LLMClient:
         model_config: Dict[str, Any]
     ) -> str:
         """Generate response using OpenRouter API (cloud, multi-provider)."""
-        if not self.openrouter_key:
-            return "OpenRouter API key not configured. Set OPENROUTER_API_KEY environment variable."
+        # Check for API key in model_config first, then fall back to instance variable
+        api_key = model_config.get('api_key') or self.openrouter_key
+        if not api_key:
+            return "OpenRouter API key not configured. Set OPENROUTER_API_KEY environment variable or configure in Settings."
 
         model = model_config.get('model', 'openai/gpt-4o-mini')
 
@@ -227,7 +229,7 @@ class LLMClient:
         }
 
         headers = {
-            "Authorization": f"Bearer {self.openrouter_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://miachat.local",
             "X-Title": "MiaChat"

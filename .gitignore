@@ -157,4 +157,7 @@ documents/*.docx
 documents/*.txt
 
 # Database backups
-*.db.backup* 
+*.db.backup*
+
+# Cookies/session files
+cookies.txt 

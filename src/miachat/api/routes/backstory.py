@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ...database.config import get_db
-from ..core.auth import get_current_user_from_session
+from ..core.clerk_auth import get_current_user_from_session
 from ..core.backstory_service import backstory_service
 
 router = APIRouter(prefix="/api/characters", tags=["backstory"])
