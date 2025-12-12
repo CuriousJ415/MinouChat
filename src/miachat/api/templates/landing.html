@@ -1,574 +1,591 @@
 <!DOCTYPE html>
-<html lang="en" class="theme-light">
+<html lang="en" class="theme-dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MinouChat - Privacy-First AI Assistant Platform</title>
-    <meta name="description" content="Create personalized AI personas, chat with your documents, and keep your conversations private. 100% local processing with Ollama.">
+    <title>MinouChat - Private AI Sanctuary</title>
+    <meta name="description" content="Private AI, thoughtfully designed. By invitation only.">
 
     <!-- Prevent flash -->
     <script>
         (function() {
             const saved = localStorage.getItem('minouchat-theme');
-            const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            const theme = saved || 'dark';
             document.documentElement.classList.remove('theme-light', 'theme-dark');
             document.documentElement.classList.add('theme-' + theme);
         })();
     </script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
 
     <style>
-        /* Landing Specific Styles */
-        .landing-nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-            background: var(--bg-primary);
-            border-bottom: 1px solid var(--border-subtle);
-            transition: all var(--transition-fast);
+        /* Landing-specific overrides */
+        :root {
+            --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
-        .landing-nav.scrolled {
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        /* Obsidian dark for landing */
+        .theme-dark body.landing-body {
+            background-color: #050505;
         }
 
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: var(--space-4);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .theme-light body.landing-body {
+            background-color: #fafafa;
         }
 
-        .nav-logo {
-            font-size: var(--text-xl);
-            font-weight: var(--font-semibold);
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: var(--space-4);
-        }
-
-        .nav-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: var(--text-sm);
-            transition: color var(--transition-fast);
-        }
-
-        .nav-links a:hover {
-            color: var(--text-primary);
-        }
-
-        /* Hero Section */
-        .hero {
+        body.landing-body {
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: var(--space-16) var(--space-4);
-            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: background-color 700ms ease;
         }
 
-        .hero-content {
-            max-width: 800px;
+        /* Selection color */
+        ::selection {
+            background: #D4AF37;
+            color: #000;
         }
 
-        .hero-title {
-            font-size: clamp(2.5rem, 8vw, 4rem);
-            font-weight: var(--font-semibold);
+        /* Background ambience */
+        .bg-ambience {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* Light mode spot */
+        .bg-spot-light {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60rem;
+            height: 60rem;
+            background: rgba(199, 210, 254, 0.4);
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.6;
+            mix-blend-mode: multiply;
+        }
+
+        .theme-dark .bg-spot-light {
+            display: none;
+        }
+
+        /* Dark mode spots */
+        .bg-spot-dark-1 {
+            display: none;
+            position: absolute;
+            top: -10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40rem;
+            height: 40rem;
+            background: rgba(15, 15, 26, 0.2);
+            border-radius: 50%;
+            filter: blur(100px);
+            mix-blend-mode: screen;
+        }
+
+        .bg-spot-dark-2 {
+            display: none;
+            position: absolute;
+            bottom: -10%;
+            right: -10%;
+            width: 50rem;
+            height: 50rem;
+            background: rgba(24, 24, 27, 0.4);
+            border-radius: 50%;
+            filter: blur(120px);
+        }
+
+        .theme-dark .bg-spot-dark-1,
+        .theme-dark .bg-spot-dark-2 {
+            display: block;
+        }
+
+        /* Subtle grain texture */
+        .bg-grain {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            z-index: 10;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        /* Theme toggle */
+        .theme-toggle-landing {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            z-index: 50;
+            padding: 0.75rem;
+            border-radius: 50%;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 300ms ease;
+        }
+
+        .theme-toggle-landing:hover {
             color: var(--text-primary);
-            line-height: 1.1;
-            margin-bottom: var(--space-6);
-            letter-spacing: -0.02em;
+            border-color: var(--border-color);
         }
 
-        .hero-subtitle {
-            font-size: var(--text-lg);
-            color: var(--text-secondary);
-            line-height: 1.6;
-            margin-bottom: var(--space-8);
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
+        .theme-toggle-landing:focus {
+            outline: none;
+            box-shadow: 0 0 0 1px var(--border-color);
         }
 
-        .hero-actions {
+        .theme-toggle-landing svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .theme-light .icon-sun { display: block; }
+        .theme-light .icon-moon { display: none; }
+        .theme-dark .icon-sun { display: none; }
+        .theme-dark .icon-moon { display: block; }
+
+        /* Main content */
+        .landing-main {
+            position: relative;
+            z-index: 20;
             display: flex;
+            flex-direction: column;
+            align-items: center;
             justify-content: center;
-            gap: var(--space-4);
-            flex-wrap: wrap;
+            width: 100%;
+            max-width: 32rem;
+            padding: 1.5rem;
+            opacity: 0;
+            animation: fadeIn 1.2s ease-out forwards;
         }
 
-        .hero-actions .btn {
-            padding: var(--space-3) var(--space-6);
-            font-size: var(--text-base);
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
         }
 
-        /* Features Section */
-        .section {
-            padding: var(--space-16) var(--space-4);
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
 
-        .section-container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* Animated vignette overlay */
+        .vignette-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 0%, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
+            opacity: 1;
+            animation: vignetteReveal 2.5s ease-out forwards;
         }
 
-        .section-header {
-            text-align: center;
-            margin-bottom: var(--space-12);
+        .theme-light .vignette-overlay {
+            background: radial-gradient(ellipse at center, transparent 0%, transparent 40%, rgba(250, 250, 250, 0.95) 100%);
         }
 
-        .section-title {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-semibold);
-            color: var(--text-primary);
-            margin-bottom: var(--space-4);
+        @keyframes vignetteReveal {
+            0% {
+                opacity: 1;
+                background: radial-gradient(ellipse at center, transparent 0%, transparent 0%, rgba(0, 0, 0, 1) 30%);
+            }
+            30% {
+                opacity: 1;
+                background: radial-gradient(ellipse at center, transparent 0%, transparent 20%, rgba(0, 0, 0, 0.9) 60%);
+            }
+            100% {
+                opacity: 0;
+                background: radial-gradient(ellipse at center, transparent 0%, transparent 60%, rgba(0, 0, 0, 0) 100%);
+            }
         }
 
-        .section-subtitle {
-            font-size: var(--text-base);
-            color: var(--text-muted);
+        .theme-light .vignette-overlay {
+            animation: vignetteRevealLight 2.5s ease-out forwards;
         }
 
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: var(--space-6);
+        @keyframes vignetteRevealLight {
+            0% {
+                opacity: 1;
+                background: radial-gradient(ellipse at center, transparent 0%, transparent 0%, rgba(250, 250, 250, 1) 30%);
+            }
+            30% {
+                opacity: 1;
+                background: radial-gradient(ellipse at center, transparent 0%, transparent 20%, rgba(250, 250, 250, 0.95) 60%);
+            }
+            100% {
+                opacity: 0;
+                background: radial-gradient(ellipse at center, transparent 0%, transparent 60%, rgba(250, 250, 250, 0) 100%);
+            }
         }
 
-        .feature-card {
-            padding: var(--space-6);
+        /* Blur reveal effect */
+        .blur-reveal {
+            filter: blur(20px);
+            animation: blurReveal 2s ease-out forwards;
+        }
+
+        @keyframes blurReveal {
+            0% {
+                filter: blur(20px);
+                opacity: 0;
+            }
+            50% {
+                filter: blur(8px);
+                opacity: 0.7;
+            }
+            100% {
+                filter: blur(0);
+                opacity: 1;
+            }
+        }
+
+        /* Logo section */
+        .logo-container {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .logo-glow {
+            position: absolute;
+            inset: 0;
+            background: rgba(212, 175, 55, 0.2);
+            filter: blur(1rem);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 1000ms ease;
+        }
+
+        .theme-dark .logo-glow {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .logo-container:hover .logo-glow {
+            opacity: 1;
+        }
+
+        .logo-box {
+            position: relative;
+            width: 4rem;
+            height: 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1rem;
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            transition: all var(--transition-fast);
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-sm);
+            transition: transform 500ms ease;
         }
 
-        .feature-card:hover {
-            border-color: var(--text-primary);
+        .theme-dark .logo-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
         }
 
-        .feature-icon {
-            width: 48px;
-            height: 48px;
+        .logo-container:hover .logo-box {
+            transform: scale(1.05);
+        }
+
+        .logo-box svg {
+            width: 28px;
+            height: 28px;
             color: var(--text-primary);
-            margin-bottom: var(--space-4);
         }
 
-        .feature-title {
-            font-size: var(--text-lg);
-            font-weight: var(--font-medium);
+        /* Typography */
+        .landing-title {
+            font-size: clamp(1.875rem, 5vw, 2.25rem);
+            font-weight: 300;
+            letter-spacing: -0.02em;
+            text-align: center;
+            margin-bottom: 0.75rem;
             color: var(--text-primary);
-            margin-bottom: var(--space-2);
         }
 
-        .feature-desc {
-            font-size: var(--text-sm);
+        .landing-tagline {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-weight: 500;
             color: var(--text-muted);
-            line-height: 1.6;
-        }
-
-        /* Personas Section */
-        .personas-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: var(--space-6);
-        }
-
-        .persona-card {
-            padding: var(--space-6);
-            background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
+            margin-bottom: 2.5rem;
             text-align: center;
         }
 
-        .persona-icon {
-            width: 64px;
-            height: 64px;
-            color: var(--text-muted);
-            margin-bottom: var(--space-4);
+        /* Actions */
+        .landing-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            gap: 1.25rem;
+            opacity: 0;
+            animation: fadeInUp 1s ease-out 0.3s forwards;
         }
 
-        .persona-title {
-            font-size: var(--text-lg);
-            font-weight: var(--font-medium);
-            color: var(--text-primary);
-            margin-bottom: var(--space-2);
-        }
-
-        .persona-category {
-            font-size: var(--text-sm);
-            color: var(--text-muted);
-            margin-bottom: var(--space-3);
-        }
-
-        .persona-desc {
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* CTA Section */
-        .cta-section {
+        /* Sign In button */
+        .btn-signin {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+            overflow: hidden;
+            border-radius: 0.5rem;
             background: var(--text-primary);
             color: var(--bg-primary);
-            text-align: center;
+            padding: 0.875rem 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            letter-spacing: 0.025em;
+            border: none;
+            cursor: pointer;
+            transition: all 300ms ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
-        .cta-title {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-semibold);
-            margin-bottom: var(--space-4);
+        .btn-signin:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
         }
 
-        .cta-text {
-            font-size: var(--text-base);
-            opacity: 0.8;
-            margin-bottom: var(--space-6);
+        .btn-signin:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
         }
 
-        .cta-section .btn {
-            background: var(--bg-primary);
-            color: var(--text-primary);
+        .theme-dark .btn-signin {
+            background: #f4f4f5;
+            color: #18181b;
         }
 
-        .cta-section .btn:hover {
-            opacity: 0.9;
+        .theme-dark .btn-signin:focus {
+            box-shadow: 0 0 0 2px #050505, 0 0 0 4px #f4f4f5;
+        }
+
+        .btn-signin-bg {
+            position: absolute;
+            inset: 0;
+            width: 0;
+            background: rgba(0, 0, 0, 0.1);
+            transition: width 250ms ease-out;
+            opacity: 0.1;
+        }
+
+        .theme-dark .btn-signin-bg {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-signin:hover .btn-signin-bg {
+            width: 100%;
+        }
+
+        .btn-signin svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+            transition: transform 300ms ease;
+        }
+
+        .btn-signin:hover svg {
+            transform: translateX(4px);
+        }
+
+        /* Request access link */
+        .request-access {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 300ms ease;
+        }
+
+        .request-access:hover {
+            color: var(--text-secondary);
+        }
+
+        .request-access span:last-child {
+            text-decoration: underline;
+            text-underline-offset: 4px;
+            text-decoration-color: var(--border-color);
+            transition: text-decoration-color 300ms ease;
+        }
+
+        .request-access:hover span:last-child {
+            text-decoration-color: var(--text-muted);
         }
 
         /* Footer */
         .landing-footer {
-            padding: var(--space-8) var(--space-4);
-            border-top: 1px solid var(--border-subtle);
+            position: absolute;
+            bottom: 2rem;
+            width: 100%;
             text-align: center;
+            z-index: 20;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .footer-line {
+            width: 1px;
+            height: 2rem;
+            background: linear-gradient(to bottom, transparent, var(--border-color), transparent);
         }
 
         .footer-text {
-            font-size: var(--text-sm);
+            font-size: 0.625rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
             color: var(--text-muted);
+            font-weight: 500;
         }
 
-        /* Privacy Badge */
-        .privacy-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-full);
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-            margin-top: var(--space-8);
-        }
-
-        .privacy-badge svg {
-            width: 16px;
-            height: 16px;
-            color: var(--pop-success);
-        }
-
-        /* Mobile Menu */
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            padding: var(--space-2);
-            cursor: pointer;
-            color: var(--text-primary);
-        }
-
-        .mobile-menu-btn svg {
-            width: 24px;
-            height: 24px;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: block;
+        /* Mobile adjustments */
+        @media (max-width: 480px) {
+            .landing-title {
+                font-size: 1.75rem;
             }
 
-            .nav-links {
-                display: none;
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: var(--bg-primary);
-                border-top: 1px solid var(--border-subtle);
-                padding: var(--space-4);
-                flex-direction: column;
-                gap: var(--space-3);
+            .landing-tagline {
+                font-size: 0.65rem;
+                letter-spacing: 0.15em;
             }
 
-            .nav-links.show {
-                display: flex;
+            .btn-signin {
+                max-width: 100%;
             }
 
-            .hero {
-                padding-top: var(--space-20);
+            .landing-footer {
+                bottom: 1.5rem;
             }
-        }
-
-        /* Scroll animation */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
         }
     </style>
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="landing-nav" id="landing-nav">
-        <div class="nav-container">
-            <a href="/" class="nav-logo" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;">
-                    <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/>
-                    <path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
+<body class="landing-body">
+
+    <!-- Animated Vignette Overlay -->
+    <div class="vignette-overlay"></div>
+
+    <!-- Background Ambience -->
+    <div class="bg-ambience">
+        <div class="bg-spot-light"></div>
+        <div class="bg-spot-dark-1"></div>
+        <div class="bg-spot-dark-2"></div>
+        <div class="bg-grain"></div>
+    </div>
+
+    <!-- Theme Toggle -->
+    <button class="theme-toggle-landing" id="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme">
+        <svg class="icon-sun" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+    </button>
+
+    <!-- Main Content -->
+    <main class="landing-main blur-reveal">
+
+        <!-- Logo Section -->
+        <div class="logo-container">
+            <div class="logo-glow"></div>
+            <div class="logo-box">
+                <svg viewBox="0 0 512 512">
+                    <path fill="currentColor" d="m198.313 56.688l-8.438 14.28l-22.938 38.844c-18.317-4.358-35.37-5.354-55.375.126l-41.687-41.47l-8.375-8.312l-6.156 10.063C19.29 128.875 14.09 177.377 33.437 212.28c9.654 17.415 24.894 30.734 44.094 40.157c-4.407 32.957.132 71.53 10.657 108.625l1.938 6.782h97.156c.022 13.4 3.196 26.253 8.72 37.875c18.2 38.29 59.696 64.798 98.625 67.624c42.657 3.095 79.943-12.74 110.156-36.438c30.215-23.696 53.762-55.214 70.533-84.937c27.083-48.002 23.293-97.405-.72-133.22c-22.51-33.576-62.396-55.233-108.906-54.844c-3.1.026-6.218.15-9.375.375c-33.52 2.39-70.68 16.482-108.218 44.97a366 366 0 0 0-15.156-9.813c9.13-31.093 2.846-72.824-26.782-128.125l-7.844-14.624zM65.405 90.374l36.844 36.656l4.063 4.032l5.406-1.75c21.994-7.123 36.01-5.824 57.28.094l6.906 1.938l3.625-6.188l17.657-29.844c11.94 25.023 18.157 45.963 20.157 63.5c-29.35-13.022-46.757 3.998-49.438 31.157c23.753 11.46 38.94 9.244 48.563-1.907c-1.185 5.91-2.98 11.267-5.282 16.093c-11.72 24.558-37.484 38.487-65.75 46.22c-46.488-3.5-80.715-20.203-95.657-47.157c-14.135-25.5-12.516-62.744 15.626-112.845zm26.875 63.97c-8.15-.045-17.81 2.947-28.874 9.81c7.008 29.103 23.402 43.218 59.47 25.814c-2.045-20.708-12.664-35.53-30.595-35.626zm273.564 28.25c40.662-.374 74.304 18.35 93.22 46.56c20.174 30.093 24.05 70.946-.033 113.626c-15.854 28.103-38.213 57.787-65.78 79.408c-27.567 21.62-59.918 35.21-97.25 32.5c-31.075-2.256-68.383-25.954-83.125-56.97c-7.37-15.507-9.546-32.477-3.656-50.624s20.176-37.867 47.374-57.406c21.33-15.324 36.078-10.8 42.437-3.625c3.18 3.587 4.542 8.016 3.595 12.968c-.947 4.953-4.324 10.816-12.625 16.283c-25.07 16.512-36.64 35.432-35.5 53.312s15.07 31.54 32.53 37c34.927 10.922 86.795-8.394 110.314-77.75l-17.72-6c-3.582 10.567-7.777 19.537-12.343 27.313h-87.436c4.227-5.682 10.68-11.854 20.437-18.282c11.62-7.65 18.666-17.773 20.69-28.344c2.02-10.57-1.13-21.222-7.94-28.906c-13.62-15.367-40.788-18.203-67.342.875c-29.526 21.213-46.817 43.975-54.22 66.783a88 88 0 0 0-2.124 7.843H104.5c-7.996-30.958-10.887-62.56-8.313-89.156c15.005 4.93 31.685 7.97 49.5 9.188l1.532.093l1.5-.374c30.016-7.953 60.795-22.987 76.936-52.062a350 350 0 0 1 17.344 11.5l5.72 4.03l5.5-4.343c37.01-29.482 72.603-42.928 103.405-45.124c2.77-.197 5.508-.287 8.22-.312zm-92.656 185.28h80.25c-20.555 21.655-44.696 24.956-60.844 19.906c-11.815-3.693-18.643-11.213-19.406-19.905z"/>
                 </svg>
-                MinouChat
+            </div>
+        </div>
+
+        <!-- Typography -->
+        <h1 class="landing-title">MinouChat</h1>
+
+        <p class="landing-tagline">Private AI, thoughtfully designed</p>
+
+        <!-- Actions -->
+        <div class="landing-actions">
+
+            <!-- Sign In Button -->
+            <a href="/auth/login" class="btn-signin">
+                <div class="btn-signin-bg"></div>
+                <span>Sign In</span>
+                <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12 5 19 12 12 19"/>
+                </svg>
             </a>
 
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-            </button>
+            <!-- Request Access Link -->
+            <a href="/auth/register" class="request-access">
+                <span>Invited?</span>
+                <span>Request access</span>
+            </a>
 
-            <div class="nav-links" id="nav-links">
-                <a href="#features">Features</a>
-                <a href="#personas">Personas</a>
-                <button class="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme" style="margin-left: var(--space-2);">
-                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="12" cy="12" r="5"/>
-                        <line x1="12" y1="1" x2="12" y2="3"/>
-                        <line x1="12" y1="21" x2="12" y2="23"/>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                        <line x1="1" y1="12" x2="3" y2="12"/>
-                        <line x1="21" y1="12" x2="23" y2="12"/>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                </button>
-                <a href="/auth/login" class="btn btn-secondary">Login</a>
-                <a href="/auth/register" class="btn btn-primary">Get Started</a>
-            </div>
         </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">Your Private AI Assistant Platform</h1>
-            <p class="hero-subtitle">
-                Create personalized AI personas, chat with context from your documents,
-                and keep your conversations private with local LLM processing.
-            </p>
-            <div class="hero-actions">
-                <a href="/auth/register" class="btn btn-primary">
-                    Get Started Free
-                </a>
-                <a href="/auth/login" class="btn btn-secondary">
-                    Sign In
-                </a>
-            </div>
-            <div class="privacy-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-                <span>100% Local Processing with Ollama</span>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="section" id="features">
-        <div class="section-container">
-            <div class="section-header fade-in">
-                <h2 class="section-title">Powerful Features</h2>
-                <p class="section-subtitle">Everything you need for intelligent AI conversations</p>
-            </div>
-
-            <div class="features-grid">
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                    </svg>
-                    <h3 class="feature-title">Document Analysis</h3>
-                    <p class="feature-desc">Upload PDFs, Word docs, and more. Get instant analysis, summaries, and context-aware answers from your files.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 6v6l4 2"/>
-                    </svg>
-                    <h3 class="feature-title">Persistent Memory</h3>
-                    <p class="feature-desc">Your AI remembers conversations and documents, providing contextual responses that improve over time.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    <h3 class="feature-title">Custom Personas</h3>
-                    <p class="feature-desc">Create specialized AI personalities - coaches, assistants, storytellers, or any character you imagine.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    <h3 class="feature-title">Privacy-First</h3>
-                    <p class="feature-desc">Run completely offline with Ollama. Your data never leaves your machine unless you choose cloud providers.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="3" y1="9" x2="21" y2="9"/>
-                        <line x1="9" y1="21" x2="9" y2="9"/>
-                    </svg>
-                    <h3 class="feature-title">Multiple Providers</h3>
-                    <p class="feature-desc">Switch between Ollama, OpenAI, Anthropic, or OpenRouter. Choose your preferred model and privacy level.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
-                    <h3 class="feature-title">RAG Search</h3>
-                    <p class="feature-desc">Semantic search across your documents. Find relevant information instantly with vector embeddings.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Personas Section -->
-    <section class="section" id="personas" style="background: var(--bg-secondary);">
-        <div class="section-container">
-            <div class="section-header fade-in">
-                <h2 class="section-title">Persona Categories</h2>
-                <p class="section-subtitle">Choose from specialized AI assistants or create your own</p>
-            </div>
-
-            <div class="personas-grid">
-                <div class="persona-card fade-in">
-                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                    </svg>
-                    <h3 class="persona-title">Coaches & Advisors</h3>
-                    <p class="persona-category">Business, Life, Career</p>
-                    <p class="persona-desc">Professional guidance with structured, goal-oriented conversations for development and planning.</p>
-                </div>
-
-                <div class="persona-card fade-in">
-                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
-                        <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        <path d="M21 21v-2a4 4 0 0 0-3-3.85"/>
-                    </svg>
-                    <h3 class="persona-title">Assistants</h3>
-                    <p class="persona-category">Personal, Research, Admin</p>
-                    <p class="persona-desc">Task management, document analysis, and organization with efficient, detail-oriented support.</p>
-                </div>
-
-                <div class="persona-card fade-in">
-                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <path d="M12 20l9-5-9-5-9 5 9 5z"/>
-                        <path d="M12 12l9-5-9-5-9 5 9 5z"/>
-                    </svg>
-                    <h3 class="persona-title">Creative & Roleplay</h3>
-                    <p class="persona-category">Storytelling, Entertainment</p>
-                    <p class="persona-desc">Imaginative interactions for creative writing, learning scenarios, and entertainment.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="section cta-section">
-        <div class="section-container fade-in">
-            <h2 class="cta-title">Ready to Get Started?</h2>
-            <p class="cta-text">Create your first AI persona in minutes.</p>
-            <a href="/auth/register" class="btn">Create Free Account</a>
-        </div>
-    </section>
+    </main>
 
     <!-- Footer -->
     <footer class="landing-footer">
-        <p class="footer-text">MinouChat - Privacy-First AI Assistant Platform</p>
+        <div class="footer-content">
+            <div class="footer-line"></div>
+            <p class="footer-text">MinouChat — By Invitation Only</p>
+        </div>
     </footer>
 
-    <script src="{{ url_for('static', path='js/theme.js') }}"></script>
-
+    <!-- Theme Toggle Script -->
     <script>
-        // Mobile menu toggle
-        function toggleMobileMenu() {
-            document.getElementById('nav-links').classList.toggle('show');
-        }
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const htmlElement = document.documentElement;
 
-        // Nav scroll effect
-        window.addEventListener('scroll', function() {
-            const nav = document.getElementById('landing-nav');
-            if (window.scrollY > 50) {
-                nav.classList.add('scrolled');
+        themeToggleBtn.addEventListener('click', () => {
+            if (htmlElement.classList.contains('theme-dark')) {
+                htmlElement.classList.remove('theme-dark');
+                htmlElement.classList.add('theme-light');
+                localStorage.setItem('minouchat-theme', 'light');
             } else {
-                nav.classList.remove('scrolled');
+                htmlElement.classList.remove('theme-light');
+                htmlElement.classList.add('theme-dark');
+                localStorage.setItem('minouchat-theme', 'dark');
             }
         });
-
-        // Scroll animations
-        const fadeElements = document.querySelectorAll('.fade-in');
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        });
-
-        fadeElements.forEach(el => observer.observe(el));
-
-        // Close mobile menu on link click
-        document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
-                document.getElementById('nav-links').classList.remove('show');
-            });
-        });
     </script>
+
 </body>
 </html>
