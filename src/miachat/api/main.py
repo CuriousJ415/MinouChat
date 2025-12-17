@@ -1,4 +1,14 @@
-from fastapi import FastAPI, Request, Depends, Body, Form, File, UploadFile
+"""
+MinouChat API Main Application
+
+FastAPI application with security hardening:
+- CORS configured from environment variables
+- Session secret from environment
+- Rate limiting on authentication endpoints
+"""
+
+import secrets
+from fastapi import FastAPI, Request, Depends, Body, Form, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .core.templates import render_template
@@ -18,7 +28,7 @@ from .routes.documents import router as documents_router
 from .routes.setup import router as setup_router, reset_router
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 from starlette.responses import RedirectResponse
@@ -26,6 +36,107 @@ import json
 import re
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from collections import defaultdict
+import time
+
+# =============================================================================
+# Security Configuration
+# =============================================================================
+
+# Session secret - MUST be set in production
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    # Generate a random secret for development only
+    SESSION_SECRET_KEY = secrets.token_hex(32)
+    logging.warning(
+        "SESSION_SECRET_KEY not set in environment! "
+        "Using random secret (sessions will not persist across restarts). "
+        "Set SESSION_SECRET_KEY for production."
+    )
+
+# CORS origins - comma-separated list of allowed origins
+CORS_ORIGINS_STR = os.getenv("CORS_ORIGINS", "")
+if CORS_ORIGINS_STR:
+    CORS_ORIGINS = [origin.strip() for origin in CORS_ORIGINS_STR.split(",")]
+else:
+    # Default development origins
+    CORS_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:5173",  # Vite dev server
+    ]
+
+# In production mode, require explicit CORS configuration
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+if IS_PRODUCTION and not CORS_ORIGINS_STR:
+    logging.warning(
+        "Running in production without explicit CORS_ORIGINS! "
+        "Set CORS_ORIGINS environment variable."
+    )
+
+
+# =============================================================================
+# Rate Limiting
+# =============================================================================
+
+class RateLimiter:
+    """
+    Simple in-memory rate limiter for authentication endpoints.
+
+    Tracks request counts per IP address within a sliding time window.
+    Production deployments should use Redis-backed rate limiting.
+    """
+
+    def __init__(self, requests_per_window: int = 10, window_seconds: int = 60):
+        self.requests_per_window = requests_per_window
+        self.window_seconds = window_seconds
+        self.request_counts: Dict[str, List[float]] = defaultdict(list)
+
+    def is_allowed(self, identifier: str) -> bool:
+        """
+        Check if a request is allowed for the given identifier.
+
+        Args:
+            identifier: Usually client IP address
+
+        Returns:
+            True if request is allowed, False if rate limited
+        """
+        now = time.time()
+        window_start = now - self.window_seconds
+
+        # Clean old entries
+        self.request_counts[identifier] = [
+            ts for ts in self.request_counts[identifier]
+            if ts > window_start
+        ]
+
+        # Check if under limit
+        if len(self.request_counts[identifier]) >= self.requests_per_window:
+            return False
+
+        # Record this request
+        self.request_counts[identifier].append(now)
+        return True
+
+    def get_retry_after(self, identifier: str) -> int:
+        """Get seconds until rate limit resets for identifier."""
+        if not self.request_counts[identifier]:
+            return 0
+        oldest = min(self.request_counts[identifier])
+        retry_after = int(oldest + self.window_seconds - time.time())
+        return max(0, retry_after)
+
+
+# Rate limiters for different endpoint types
+# More lenient in development mode for easier testing
+if IS_PRODUCTION:
+    auth_rate_limiter = RateLimiter(requests_per_window=10, window_seconds=60)
+    api_rate_limiter = RateLimiter(requests_per_window=100, window_seconds=60)
+else:
+    auth_rate_limiter = RateLimiter(requests_per_window=100, window_seconds=60)
+    api_rate_limiter = RateLimiter(requests_per_window=500, window_seconds=60)
 
 def _should_use_comprehensive_analysis(message: str) -> bool:
     """Detect if a message requires comprehensive document analysis.
@@ -143,20 +254,47 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS with secure origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
-# Add session middleware
+# Add session middleware with secure secret
 app.add_middleware(
     SessionMiddleware,
-    secret_key="your-secret-key-here"  # In production, use environment variable
+    secret_key=SESSION_SECRET_KEY,
+    same_site="lax",  # Prevent CSRF
+    https_only=IS_PRODUCTION  # Only send cookie over HTTPS in production
 )
+
+
+# Rate limiting middleware
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Apply rate limiting to authentication endpoints."""
+    # Get client IP
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Check if this is an auth endpoint
+    path = request.url.path
+    if path.startswith("/auth/"):
+        if not auth_rate_limiter.is_allowed(client_ip):
+            retry_after = auth_rate_limiter.get_retry_after(client_ip)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Too many requests",
+                    "detail": "Rate limit exceeded for authentication endpoints",
+                    "retry_after": retry_after
+                },
+                headers={"Retry-After": str(retry_after)}
+            )
+
+    return await call_next(request)
 
 # Mount static files
 mount_static_files(app)
@@ -502,7 +640,7 @@ async def health_check():
                 "cloud": cloud_count
             },
             "privacy_focus": "Local Ollama models are used by default for complete privacy",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -676,6 +814,85 @@ async def delete_character(character_id: str, db = Depends(get_db)):
         logger.error(f"Error deleting conversations for character {character_id}: {e}")
 
     return {"success": True}
+
+
+# Avatar upload endpoint
+@app.post("/api/characters/{character_id}/avatar")
+async def upload_character_avatar(
+    character_id: str,
+    file: UploadFile = File(...),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """Upload an avatar image for a character.
+
+    The image will be processed to create a circular avatar and resized to 256x256 pixels.
+    Supported formats: JPEG, PNG, GIF, WebP (max 5MB).
+
+    Returns:
+        Dictionary with avatar URL and metadata
+    """
+    from .core.avatar_service import avatar_service, InvalidImageError, FileTooLargeError
+
+    # Check authentication
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Verify character exists
+    character = character_manager.get_character(character_id)
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    try:
+        # Process and save avatar
+        result = await avatar_service.upload_avatar(character_id, file)
+
+        # Update character with avatar URL
+        character_manager.update_character(character_id, {
+            "avatar_url": result["avatar_url"]
+        })
+
+        return result
+
+    except InvalidImageError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileTooLargeError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/characters/{character_id}/avatar")
+async def delete_character_avatar(
+    character_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Delete a character's avatar."""
+    from .core.avatar_service import avatar_service
+
+    # Check authentication
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Verify character exists
+    character = character_manager.get_character(character_id)
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    # Delete avatar file
+    deleted = avatar_service.delete_avatar(character_id)
+
+    # Update character to remove avatar URL
+    if deleted:
+        character_manager.update_character(character_id, {
+            "avatar_url": None
+        })
+
+    return {"success": True, "deleted": deleted}
+
 
 @app.post("/api/conversations/{session_id}/migrate")
 async def migrate_conversation(session_id: str, request: Request, db = Depends(get_db)):
@@ -1119,7 +1336,7 @@ You should be proactive about offering to create documents when it would be help
         
         # Update character usage
         character_manager.update_character(request.character_id, {
-            'last_used': datetime.now().isoformat(),
+            'last_used': datetime.now(timezone.utc).isoformat(),
             'conversation_count': character.get('conversation_count', 0) + 1,
             'total_messages': character.get('total_messages', 0) + 1
         })
@@ -1495,7 +1712,7 @@ You should be proactive about offering to create documents when it would be help
 
         # Update character usage
         character_manager.update_character(chat_request.character_id, {
-            'last_used': datetime.now().isoformat(),
+            'last_used': datetime.now(timezone.utc).isoformat(),
             'conversation_count': character.get('conversation_count', 0) + 1,
             'total_messages': character.get('total_messages', 0) + 1
         })

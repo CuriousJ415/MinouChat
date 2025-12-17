@@ -1,44 +1,54 @@
 services:
-  # Main MiaAI application
-  miaai:
+  # MinouChat FastAPI Application
+  minouchat:
     build: .
-    container_name: miaai-app
+    container_name: minouchat-app
     restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - ./src:/app/src        # Live development code mounting
-      - ./data:/app/data      # Persistent data directory
+      - ./src:/app/src                          # Live development code mounting
+      - ./data:/app/data                        # Persistent data directory
       - ./documents:/app/documents
       - ./output_documents:/app/output_documents
-      - ./config:/app/config  # Configuration files
+      - ./config:/app/config                    # Configuration files
       - ./character_cards:/app/character_cards  # User character definitions
+      - ./character_avatars:/app/character_avatars  # Character avatar images
       - ./character_examples:/app/character_examples  # Example character templates
-      - ./conversations:/app/conversations  # Conversation history and versions
     environment:
-      - FLASK_APP=app
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      # Application Settings
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - DATABASE_PATH=/app/data/memories.db
-      
+
+      # Security Configuration
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080,http://localhost:3000}
+
+      # Clerk Authentication
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY:-}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
+
       # LLM Provider Configuration
-      - LLM_PROVIDER=ollama
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
       - OLLAMA_HOST=host.docker.internal
       - OLLAMA_PORT=11434
-      
+
       # OpenAI Configuration (optional)
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
-      
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+
       # Anthropic Configuration (optional)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-instant-1}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-sonnet-20240229}
+
+      # OpenRouter Configuration (optional)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
     networks:
-      - miaai-network
+      - minouchat-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -52,21 +62,21 @@ services:
     container_name: ngrok-tunnel
     restart: unless-stopped
     depends_on:
-      - miaai
+      - minouchat
     ports:
       - "4040:4040"
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTH_TOKEN:-}
-    command: http miaai:8080
+    command: http minouchat:8080
     networks:
-      - miaai-network
+      - minouchat-network
     profiles:
       - with-ngrok
 
 volumes:
-  ollama_data:
-    name: miaai-ollama-data
+  minouchat_data:
+    name: minouchat-data
 
 networks:
-  miaai-network:
+  minouchat-network:
     driver: bridge

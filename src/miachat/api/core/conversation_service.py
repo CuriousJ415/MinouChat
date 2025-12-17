@@ -1,9 +1,17 @@
 """
 Conversation service for managing chat conversations with database persistence.
+
+Provides session-based conversation management with message history,
+supporting both character-scoped and session-scoped conversations.
+
+Security:
+- Session IDs are validated as UUIDs
+- Database queries use parameterized statements
+- All timestamps use UTC timezone
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, text
@@ -35,7 +43,7 @@ class ConversationService:
                 "character_id": character_id,
                 "session_id": session_id,
                 "user_id": user_id,
-                "created_at": datetime.utcnow().isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat()
             }
         )
         db.add(conversation)
@@ -159,7 +167,7 @@ class ConversationService:
             conversation_data={
                 "character_id": character_id,
                 "started_by": "user",
-                "created_at": datetime.utcnow().isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat()
             }
         )
         db.add(conversation)
@@ -177,9 +185,9 @@ class ConversationService:
             conversation_id=conversation_id,
             content=content,
             role=role,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             file_attachments={
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         )
         db.add(message)
