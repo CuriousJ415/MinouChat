@@ -193,3 +193,73 @@ All endpoints are under `/api/` prefix:
 - Privacy-first: Ollama is default, cloud providers require explicit keys
 - Enhanced context combines conversation history, semantic memory, and RAG
 - Frontend is vanilla JavaScript SPA with modular design
+
+## Troubleshooting
+
+### Clerk Authentication Issues
+
+**Problem:** User sees a generated username like `user_3ffabdde` instead of their real name.
+
+**Cause:** Clerk API calls failing with 403 errors. Check Docker logs for:
+```
+ERROR:src.miachat.api.core.clerk_auth:Clerk API HTTP error 403: Forbidden
+```
+
+**Root Cause:** External API calls from Docker containers can be blocked by Cloudflare if they lack a `User-Agent` header. Python's `urllib` doesn't send one by default.
+
+**Solution:** Ensure all external API calls in `clerk_auth.py` include:
+```python
+headers = {
+    "Authorization": f"Bearer {CLERK_SECRET_KEY}",
+    "Content-Type": "application/json",
+    "User-Agent": "MinouChat/1.0",  # Required to avoid Cloudflare blocks
+}
+```
+
+**Fix existing user:** If a user was created with a fallback username, update directly:
+```bash
+docker exec minouchat-app python3 -c "
+import sqlite3
+conn = sqlite3.connect('/app/data/memories.db')
+cursor = conn.cursor()
+cursor.execute(\"UPDATE users SET username = 'RealName' WHERE clerk_id = 'user_xxx'\")
+conn.commit()
+conn.close()
+"
+```
+
+### OpenRouter 404 Errors
+
+**Problem:** Character configured with OpenRouter model returns 404 error.
+
+**Cause:** OpenRouter data policy restrictions blocking certain models.
+
+**Solution:**
+1. Go to https://openrouter.ai/settings/privacy
+2. Adjust your data policy settings to allow the models you want to use
+3. Some models require less restrictive privacy settings
+
+### Docker Container Debugging
+
+```bash
+# Check logs
+docker logs minouchat-app --tail 50
+
+# Test Clerk API from container
+docker exec minouchat-app python3 -c "
+import sys
+sys.path.insert(0, '/app/src')
+from miachat.api.core.clerk_auth import fetch_clerk_user_profile
+profile = fetch_clerk_user_profile('user_xxx')
+print(profile.display_name if profile else 'FAILED')
+"
+
+# Query database
+docker exec minouchat-app python3 -c "
+import sqlite3
+conn = sqlite3.connect('/app/data/memories.db')
+cursor = conn.cursor()
+cursor.execute('SELECT id, username, email, clerk_id FROM users')
+for row in cursor.fetchall(): print(row)
+"
+```
