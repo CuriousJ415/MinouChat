@@ -172,6 +172,33 @@
             gap: var(--space-2);
         }
 
+        /* LLM Info Banner */
+        .llm-info-banner {
+            display: none;
+            padding: var(--space-2) var(--space-4);
+            background: rgba(59, 130, 246, 0.1);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            color: var(--text-muted);
+            font-size: var(--text-sm);
+            text-align: center;
+        }
+
+        .llm-info-banner.warning {
+            background: rgba(234, 179, 8, 0.1);
+            border-color: rgba(234, 179, 8, 0.2);
+            color: #ca8a04;
+        }
+
+        .llm-info-banner.show {
+            display: block;
+        }
+
+        .llm-info-banner a {
+            color: inherit;
+            text-decoration: underline;
+            margin-left: var(--space-2);
+        }
+
         /* Messages Area */
         .chat-messages {
             flex: 1;
@@ -672,6 +699,12 @@
                 </div>
             </header>
 
+            <!-- LLM Info Banner (shown when using system default LLM) -->
+            <div class="llm-info-banner" id="llmInfoBanner">
+                <span id="llmInfoText">Using system default AI</span>
+                <a href="/settings" title="Change AI settings">Settings</a>
+            </div>
+
             <div class="chat-messages" id="chatContainer">
                 <!-- Messages will be added here -->
             </div>
@@ -1038,6 +1071,19 @@
                     if (data.response) {
                         currentSessionId = data.session_id;
                         localStorage.setItem('currentSessionId', currentSessionId);
+
+                        // Show LLM info banner if using default LLM
+                        const llmBanner = document.getElementById('llmInfoBanner');
+                        const llmText = document.getElementById('llmInfoText');
+                        if (data.using_default_llm && data.llm_message) {
+                            llmText.textContent = data.llm_message;
+                            llmBanner.classList.add('show', 'warning');
+                        } else if (data.llm_provider && data.llm_model) {
+                            // Show current LLM info (non-warning)
+                            llmText.textContent = `Using ${data.llm_provider}/${data.llm_model}`;
+                            llmBanner.classList.remove('warning');
+                            llmBanner.classList.add('show');
+                        }
 
                         let content = data.response;
                         if (data.uploaded_document?.analysis) {

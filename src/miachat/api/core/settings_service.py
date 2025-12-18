@@ -256,5 +256,190 @@ class SettingsService:
                 "provider": provider
             }
 
+    def check_llm_status(self, user_id: int, db: Session) -> Dict[str, Any]:
+        """
+        Check if the user has a valid LLM configuration and if it's available.
+
+        Returns:
+            Dict with:
+                - configured: bool - whether settings exist
+                - available: bool - whether the configured LLM is reachable
+                - provider: str - configured provider name
+                - model: str - configured model name
+                - message: str - human-readable status message
+                - needs_setup: bool - whether user needs to configure LLM settings
+        """
+        import requests
+
+        settings = self.get_user_settings(user_id, db)
+
+        if not settings:
+            return {
+                "configured": False,
+                "available": False,
+                "provider": None,
+                "model": None,
+                "message": "LLM settings not configured. Please set up your AI provider in Settings.",
+                "needs_setup": True
+            }
+
+        provider = settings.default_llm_provider or "ollama"
+        model = settings.default_model or "llama3:8b"
+
+        # Check availability based on provider
+        available = False
+        message = ""
+
+        if provider == "ollama":
+            ollama_url = settings.ollama_url or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+            try:
+                response = requests.get(f"{ollama_url}/api/tags", timeout=5)
+                if response.ok:
+                    available = True
+                    message = f"Ollama is running with model {model}"
+                else:
+                    message = "Ollama is not responding. Please ensure Ollama is running."
+            except requests.exceptions.RequestException:
+                message = "Cannot connect to Ollama. Please ensure Ollama is running."
+
+        elif provider == "openai":
+            if settings.openai_api_key:
+                available = True
+                message = f"OpenAI configured with model {model}"
+            else:
+                message = "OpenAI API key not configured. Please add your API key in Settings."
+
+        elif provider == "anthropic":
+            if settings.anthropic_api_key:
+                available = True
+                message = f"Anthropic configured with model {model}"
+            else:
+                message = "Anthropic API key not configured. Please add your API key in Settings."
+
+        elif provider == "openrouter":
+            if settings.openrouter_api_key:
+                available = True
+                message = f"OpenRouter configured with model {model}"
+            else:
+                message = "OpenRouter API key not configured. Please add your API key in Settings."
+
+        else:
+            message = f"Unknown provider: {provider}"
+
+        return {
+            "configured": True,
+            "available": available,
+            "provider": provider,
+            "model": model,
+            "message": message,
+            "needs_setup": not available
+        }
+
+    def check_character_llm_status(
+        self,
+        user_id: int,
+        character_model_config: Optional[Dict[str, Any]],
+        db: Session
+    ) -> Dict[str, Any]:
+        """
+        Check if a character's LLM configuration is available, with fallback info.
+
+        Returns:
+            Dict with:
+                - available: bool
+                - using_default: bool - true if falling back to system default
+                - provider: str
+                - model: str
+                - message: str
+        """
+        import requests
+
+        # Check if character has its own config
+        has_character_config = (
+            character_model_config and
+            character_model_config.get('provider') and
+            character_model_config.get('model')
+        )
+
+        if has_character_config:
+            provider = character_model_config['provider']
+            model = character_model_config['model']
+
+            # Check character's LLM availability
+            char_available = self._check_provider_available(provider, character_model_config, user_id, db)
+
+            if char_available:
+                return {
+                    "available": True,
+                    "using_default": False,
+                    "provider": provider,
+                    "model": model,
+                    "message": f"Using character's configured {provider} model: {model}"
+                }
+            else:
+                # Character LLM not available, check system default
+                system_status = self.check_llm_status(user_id, db)
+                if system_status['available']:
+                    return {
+                        "available": True,
+                        "using_default": True,
+                        "provider": system_status['provider'],
+                        "model": system_status['model'],
+                        "message": f"Character's {provider} is not available. Using system default: {system_status['provider']}/{system_status['model']}",
+                        "character_provider_unavailable": provider
+                    }
+                else:
+                    return {
+                        "available": False,
+                        "using_default": False,
+                        "provider": None,
+                        "model": None,
+                        "message": "No LLM available. Please configure your AI settings."
+                    }
+        else:
+            # No character config, use system default
+            system_status = self.check_llm_status(user_id, db)
+            return {
+                "available": system_status['available'],
+                "using_default": True,
+                "provider": system_status.get('provider'),
+                "model": system_status.get('model'),
+                "message": system_status['message'] if not system_status['available'] else f"Using system default: {system_status['provider']}/{system_status['model']}"
+            }
+
+    def _check_provider_available(
+        self,
+        provider: str,
+        config: Dict[str, Any],
+        user_id: int,
+        db: Session
+    ) -> bool:
+        """Check if a specific provider is available."""
+        import requests
+
+        user_settings = self.get_user_settings(user_id, db)
+
+        if provider == "ollama":
+            ollama_url = config.get('api_url') or (user_settings.ollama_url if user_settings else None) or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+            try:
+                response = requests.get(f"{ollama_url}/api/tags", timeout=5)
+                return response.ok
+            except:
+                return False
+
+        elif provider == "openai":
+            api_key = config.get('api_key') or (user_settings.openai_api_key if user_settings else None)
+            return bool(api_key)
+
+        elif provider == "anthropic":
+            api_key = config.get('api_key') or (user_settings.anthropic_api_key if user_settings else None)
+            return bool(api_key)
+
+        elif provider == "openrouter":
+            api_key = config.get('api_key') or (user_settings.openrouter_api_key if user_settings else None)
+            return bool(api_key)
+
+        return False
+
 # Global settings service instance
 settings_service = SettingsService() 

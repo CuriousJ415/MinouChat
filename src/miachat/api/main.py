@@ -228,6 +228,11 @@ class ChatResponse(BaseModel):
     sources: List[Dict[str, Any]] = []
     context_summary: Optional[str] = None  # Compact version for UI display
     context_summary_full: Optional[str] = None  # Full version for detailed view
+    # LLM configuration info
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    using_default_llm: bool = False  # True if using system default instead of character config
+    llm_message: Optional[str] = None  # Info message about LLM being used
 
 class CharacterCreateRequest(BaseModel):
     name: str
@@ -977,6 +982,23 @@ You should be proactive about offering to create documents when it would be help
 
         system_prompt_text += artifact_instructions
 
+        # --- Check LLM availability and get config ---
+        llm_status = settings_service.check_character_llm_status(
+            current_user.id,
+            character.get('model_config'),
+            db
+        )
+
+        # If no LLM is available, return error
+        if not llm_status['available']:
+            return {"error": llm_status['message'], "needs_llm_setup": True}, 503
+
+        # Track if using default LLM (for notification to user)
+        using_default_llm = llm_status.get('using_default', False)
+        llm_provider = llm_status.get('provider')
+        llm_model = llm_status.get('model')
+        llm_message = llm_status.get('message') if using_default_llm else None
+
         # --- Enhanced RAG: Add Persistent Memory and World Info ---
         try:
             # Get model configuration for token budgeting (with app LLM fallback)
@@ -1136,7 +1158,12 @@ You should be proactive about offering to create documents when it would be help
             document_context_used=document_context_used,
             sources=sources,
             context_summary=context_summary if document_context_used else None,
-            context_summary_full=enhanced_context.get('context_summary', '') if document_context_used else None
+            context_summary_full=enhanced_context.get('context_summary', '') if document_context_used else None,
+            # LLM info for frontend notification
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            using_default_llm=using_default_llm,
+            llm_message=llm_message
         )
         
     except Exception as e:
@@ -1692,6 +1719,58 @@ async def test_llm_connection(request: TestConnectionRequest):
     """Test connection to an LLM provider."""
     result = settings_service.test_provider_connection(request.provider, request.config)
     return result
+
+@app.get("/api/settings/llm/status")
+async def get_llm_status(request: Request, db = Depends(get_db)):
+    """Check if the user's LLM settings are configured and available.
+
+    This endpoint should be called on login/dashboard load to ensure
+    the user has a working LLM before attempting to chat.
+
+    Returns:
+        - configured: bool - whether settings exist
+        - available: bool - whether the configured LLM is reachable
+        - provider: str - configured provider name
+        - model: str - configured model name
+        - message: str - human-readable status message
+        - needs_setup: bool - whether user needs to configure LLM settings
+    """
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    status = settings_service.check_llm_status(current_user.id, db)
+    return status
+
+@app.get("/api/characters/{character_id}/llm-status")
+async def get_character_llm_status(character_id: str, request: Request, db = Depends(get_db)):
+    """Check if a character's LLM configuration is available.
+
+    Returns information about whether the character's configured LLM
+    is available, or if the system default will be used instead.
+
+    Returns:
+        - available: bool
+        - using_default: bool - true if falling back to system default
+        - provider: str
+        - model: str
+        - message: str
+    """
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    character = character_manager.get_character(character_id)
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    character_model_config = character.get('model_config')
+    status = settings_service.check_character_llm_status(
+        current_user.id,
+        character_model_config,
+        db
+    )
+    return status
 
 @app.get("/api/settings/application-llm")
 async def get_application_llm_settings(request: Request, db = Depends(get_db)):
