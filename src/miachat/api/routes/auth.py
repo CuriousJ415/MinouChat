@@ -68,6 +68,19 @@ async def logout(request: Request):
     }
 
 
+@router.get("/logout", response_class=HTMLResponse)
+async def logout_page(request: Request):
+    """
+    Logout page that properly clears Clerk session via JavaScript.
+    """
+    return await render_template(
+        request,
+        "logout",
+        clerk_publishable_key=get_clerk_publishable_key(),
+        clerk_configured=is_clerk_configured()
+    )
+
+
 @router.get("/callback")
 async def auth_callback(request: Request, db: Session = Depends(get_db)):
     """

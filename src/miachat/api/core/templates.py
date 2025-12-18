@@ -34,6 +34,7 @@ TEMPLATE_MAPPING = {
     # Auth pages
     "login": "auth/login.html",
     "register": "auth/register.html",
+    "logout": "auth/logout.html",
 }
 
 def url_for_static(endpoint: str, **kwargs) -> str:

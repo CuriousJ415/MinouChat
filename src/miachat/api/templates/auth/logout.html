@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logging out - MinouChat</title>
+
+    <!-- Prevent flash -->
+    <script>
+        (function() {
+            const saved = localStorage.getItem('minouchat-theme');
+            const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.classList.remove('theme-light', 'theme-dark');
+            document.documentElement.classList.add('theme-' + theme);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
+
+    <style>
+        .logout-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-4);
+        }
+
+        .logout-card {
+            text-align: center;
+            padding: var(--space-8);
+        }
+
+        .logout-message {
+            color: var(--text-secondary);
+            font-size: var(--text-lg);
+            margin-bottom: var(--space-4);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--pop-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="logout-container">
+        <div class="logout-card">
+            <div class="loading-spinner"></div>
+            <p class="logout-message">Signing out...</p>
+        </div>
+    </div>
+
+    {% if clerk_configured %}
+    <!-- Clerk JavaScript SDK -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+
+    <script>
+        window.addEventListener('load', async function() {
+            try {
+                // Wait for Clerk to be available
+                await window.Clerk.load();
+
+                // Sign out the user
+                await window.Clerk.signOut();
+
+                // Redirect to login page
+                window.location.href = '/auth/login';
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Still redirect to login even if there's an error
+                window.location.href = '/auth/login';
+            }
+        });
+    </script>
+    {% else %}
+    <script>
+        // If Clerk isn't configured, just redirect
+        window.location.href = '/auth/login';
+    </script>
+    {% endif %}
+</body>
+</html>

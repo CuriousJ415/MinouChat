@@ -292,9 +292,10 @@ async def index(request: Request, db = Depends(get_db)):
     try:
         from .core.setup_service import setup_service
         assessment = await setup_service.perform_full_assessment()
-        
-        # Redirect to setup if system needs configuration
-        if assessment.overall_status in ["broken", "needs_setup"] or assessment.setup_required:
+
+        # Only redirect to setup if system is truly broken (no providers available)
+        # For "needs_setup" status, users can still access dashboard and see LLM alerts
+        if assessment.overall_status == "broken":
             return RedirectResponse(url="/setup", status_code=302)
     except Exception as e:
         logger.warning(f"Setup check failed: {e}")
@@ -1001,10 +1002,16 @@ You should be proactive about offering to create documents when it would be help
 
         # --- Enhanced RAG: Add Persistent Memory and World Info ---
         try:
-            # Get model configuration for token budgeting (with app LLM fallback)
-            model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
-            model = model_config['model']  # Guaranteed by _resolve_model_config
-            provider = model_config['provider']  # Guaranteed by _resolve_model_config
+            # Get model configuration - use system default if character's LLM is unavailable
+            if using_default_llm:
+                # Character's LLM unavailable, use system default config
+                model_config = settings_service.get_llm_config(current_user.id, db)
+            else:
+                # Use character's config (with fallback logic)
+                model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
+
+            model = model_config.get('model', 'llama3:8b')
+            provider = model_config.get('provider', 'ollama')
 
             # Calculate token budgets
             budgets = token_service.calculate_budget(model, provider)
