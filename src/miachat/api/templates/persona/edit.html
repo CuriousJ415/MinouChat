@@ -543,6 +543,47 @@
         <div class="form-card">
             <h3 class="form-section-title">Basic Information</h3>
 
+            <!-- Avatar Upload Section -->
+            <div class="avatar-section" style="margin-bottom: var(--space-6);">
+                <div class="avatar-upload-container" style="display: flex; align-items: flex-start; gap: var(--space-4);">
+                    <div class="avatar-preview-wrapper" style="position: relative;">
+                        <div class="avatar-preview" id="avatar-preview"
+                             style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-tertiary);
+                                    border: 2px dashed var(--border-color); display: flex; align-items: center;
+                                    justify-content: center; overflow: hidden; cursor: pointer; transition: all var(--transition-fast);">
+                            {% if persona.avatar_url %}
+                            <img src="{{ persona.avatar_url }}" alt="{{ persona.name }}"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                            {% else %}
+                            <i data-lucide="user" style="width: 40px; height: 40px; color: var(--text-muted);"></i>
+                            {% endif %}
+                        </div>
+                        {% if persona.avatar_url %}
+                        <button type="button" class="avatar-remove-btn" id="remove-avatar-btn"
+                                style="position: absolute; top: -8px; right: -8px; width: 24px; height: 24px;
+                                       border-radius: 50%; background: var(--pop-danger); border: none;
+                                       color: white; cursor: pointer; display: flex; align-items: center;
+                                       justify-content: center; font-size: 14px; line-height: 1;">×</button>
+                        {% endif %}
+                    </div>
+                    <div class="avatar-upload-info">
+                        <label class="form-label">Avatar</label>
+                        <p style="color: var(--text-muted); font-size: var(--text-xs); margin-bottom: var(--space-2);">
+                            Upload a profile image. It will be cropped to a circle.
+                        </p>
+                        <input type="file" id="avatar-input" name="avatar" accept="image/*"
+                               style="display: none;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="upload-avatar-btn"
+                                style="padding: var(--space-2) var(--space-3); font-size: var(--text-xs);">
+                            <i data-lucide="upload" style="width: 14px; height: 14px; margin-right: var(--space-1);"></i>
+                            Upload Image
+                        </button>
+                        <span id="avatar-status" style="display: none; margin-left: var(--space-2);
+                              font-size: var(--text-xs); color: var(--text-muted);"></span>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label for="name" class="form-label">Name</label>
@@ -1872,11 +1913,143 @@
         }
     });
 
+    // ===========================================
+    // Avatar Upload Functionality
+    // ===========================================
+
+    // Initialize avatar upload handlers
+    function initAvatarUpload() {
+        const uploadBtn = document.getElementById('upload-avatar-btn');
+        const avatarInput = document.getElementById('avatar-input');
+        const avatarPreview = document.getElementById('avatar-preview');
+        const removeBtn = document.getElementById('remove-avatar-btn');
+        const avatarStatus = document.getElementById('avatar-status');
+
+        if (uploadBtn && avatarInput) {
+            // Trigger file input when upload button is clicked
+            uploadBtn.addEventListener('click', () => avatarInput.click());
+
+            // Also trigger on preview click
+            if (avatarPreview) {
+                avatarPreview.addEventListener('click', () => avatarInput.click());
+            }
+
+            // Handle file selection
+            avatarInput.addEventListener('change', async function() {
+                const file = this.files[0];
+                if (!file) return;
+
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showToast('Please select an image file', 'error');
+                    return;
+                }
+
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('Image must be less than 5MB', 'error');
+                    return;
+                }
+
+                // Show uploading status
+                uploadBtn.disabled = true;
+                uploadBtn.innerHTML = '<span class="spinner spinner-sm"></span> Uploading...';
+                if (avatarStatus) {
+                    avatarStatus.style.display = 'inline';
+                    avatarStatus.textContent = 'Uploading...';
+                }
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch(`/api/characters/${PERSONA_ID}/avatar`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+
+                        // Update preview with new avatar
+                        avatarPreview.innerHTML = `<img src="${result.avatar_url}?t=${Date.now()}"
+                            alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`;
+
+                        // Add remove button if not present
+                        if (!document.getElementById('remove-avatar-btn')) {
+                            const wrapper = avatarPreview.parentElement;
+                            const newRemoveBtn = document.createElement('button');
+                            newRemoveBtn.type = 'button';
+                            newRemoveBtn.className = 'avatar-remove-btn';
+                            newRemoveBtn.id = 'remove-avatar-btn';
+                            newRemoveBtn.style.cssText = 'position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; background: var(--pop-danger); border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;';
+                            newRemoveBtn.textContent = '×';
+                            newRemoveBtn.addEventListener('click', handleAvatarRemove);
+                            wrapper.appendChild(newRemoveBtn);
+                        }
+
+                        showToast('Avatar uploaded successfully', 'success');
+                        if (avatarStatus) avatarStatus.style.display = 'none';
+                    } else {
+                        const error = await response.json();
+                        showToast('Upload failed: ' + (error.detail || 'Unknown error'), 'error');
+                    }
+                } catch (err) {
+                    console.error('Avatar upload error:', err);
+                    showToast('Upload failed: ' + err.message, 'error');
+                } finally {
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerHTML = '<i data-lucide="upload" style="width: 14px; height: 14px; margin-right: var(--space-1);"></i> Upload Image';
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                    if (avatarStatus) avatarStatus.style.display = 'none';
+                    avatarInput.value = ''; // Reset input
+                }
+            });
+        }
+
+        // Handle remove button click
+        if (removeBtn) {
+            removeBtn.addEventListener('click', handleAvatarRemove);
+        }
+    }
+
+    // Remove avatar handler
+    async function handleAvatarRemove(e) {
+        e.stopPropagation();
+
+        if (!confirm('Remove this avatar?')) return;
+
+        try {
+            const response = await fetch(`/api/characters/${PERSONA_ID}/avatar`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                const avatarPreview = document.getElementById('avatar-preview');
+                avatarPreview.innerHTML = '<i data-lucide="user" style="width: 40px; height: 40px; color: var(--text-muted);"></i>';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                // Remove the remove button
+                const removeBtn = document.getElementById('remove-avatar-btn');
+                if (removeBtn) removeBtn.remove();
+
+                showToast('Avatar removed', 'success');
+            } else {
+                showToast('Failed to remove avatar', 'error');
+            }
+        } catch (err) {
+            console.error('Avatar remove error:', err);
+            showToast('Failed to remove avatar: ' + err.message, 'error');
+        }
+    }
+
     // Re-initialize icons
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
+        // Initialize avatar upload handlers
+        initAvatarUpload();
     });
 </script>
 {% endblock %}

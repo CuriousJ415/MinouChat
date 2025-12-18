@@ -1,0 +1,28 @@
+{
+  "name": "Browser Test",
+  "persona": "",
+  "system_prompt": "You help with creative tasks",
+  "role": "assistant",
+  "category": "Creative",
+  "backstory": "",
+  "gender": "",
+  "tags": [],
+  "traits": null,
+  "communication_style": {
+    "warmth": "warm",
+    "formality": "casual",
+    "directness": "gentle",
+    "humor": "playful"
+  },
+  "llm_config": null,
+  "llm_model_config": null,
+  "model_config": {
+    "provider": null,
+    "model": null,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "repeat_penalty": 1.1,
+    "top_k": 40
+  },
+  "id": "0eee63a4-11f4-47de-a0fd-8a10786ae412"
+}

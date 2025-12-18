@@ -13,6 +13,7 @@ Provides unified context orchestration combining:
 import logging
 import re
 from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from ...database.config import get_db
 from .document_service import document_service
@@ -597,10 +598,9 @@ class EnhancedContextService:
         """
         try:
             from ...database.models import Document, DocumentChunk
-            from datetime import datetime, timedelta
 
             # Get recent documents with time-based filtering
-            cutoff_time = datetime.now() - timedelta(hours=hours_back)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
             base_query = db.query(Document).filter(
                 Document.user_id == user_id,
                 Document.is_processed == 1,

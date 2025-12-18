@@ -115,21 +115,26 @@ async def clerk_webhook(request: Request, db: Session = Depends(get_db)):
 
         if event_type == "user.created":
             clerk_user_id = data.get("id")
+            # Extract fallback email from webhook data
             email = None
-            # Get primary email
             email_addresses = data.get("email_addresses", [])
             for email_obj in email_addresses:
                 if email_obj.get("id") == data.get("primary_email_address_id"):
                     email = email_obj.get("email_address")
                     break
-
             if not email and email_addresses:
                 email = email_addresses[0].get("email_address")
 
             username = data.get("username") or data.get("first_name")
 
-            if clerk_user_id and email:
-                get_or_create_user_from_clerk(db, clerk_user_id, email, username)
+            if clerk_user_id:
+                # Will fetch full profile from Clerk API, fallbacks used if unavailable
+                get_or_create_user_from_clerk(
+                    db,
+                    clerk_user_id,
+                    fallback_email=email,
+                    fallback_username=username
+                )
 
         elif event_type == "user.updated":
             clerk_user_id = data.get("id")
@@ -139,8 +144,24 @@ async def clerk_webhook(request: Request, db: Session = Depends(get_db)):
                 email_addresses = data.get("email_addresses", [])
                 for email_obj in email_addresses:
                     if email_obj.get("id") == data.get("primary_email_address_id"):
-                        user.email = email_obj.get("email_address")
+                        new_email = email_obj.get("email_address")
+                        if new_email and new_email != user.email:
+                            # Check email isn't already in use
+                            existing = db.query(User).filter(User.email == new_email).first()
+                            if not existing:
+                                user.email = new_email
                         break
+
+                # Update username if changed and available
+                new_username = data.get("username") or data.get("first_name")
+                if new_username and new_username != user.username:
+                    # Sanitize and check uniqueness
+                    sanitized = ''.join(c for c in new_username if c.isalnum() or c == '_')[:50]
+                    if sanitized:
+                        existing = db.query(User).filter(User.username == sanitized).first()
+                        if not existing:
+                            user.username = sanitized
+
                 db.commit()
 
         elif event_type == "user.deleted":
@@ -159,6 +180,32 @@ async def clerk_webhook(request: Request, db: Session = Depends(get_db)):
             status_code=500,
             content={"error": str(e)}
         )
+
+
+# Session sync endpoint - bridges Clerk JS session to server
+@router.post("/sync")
+async def sync_session(request: Request, db: Session = Depends(get_db)):
+    """
+    Sync Clerk session from frontend to server.
+
+    The client sends the Clerk session token via Authorization header.
+    Server verifies and creates a user session.
+    """
+    current_user = await get_current_user_from_session(request, db)
+    if current_user:
+        return {
+            "success": True,
+            "authenticated": True,
+            "user": {
+                "id": current_user.id,
+                "username": current_user.username
+            }
+        }
+
+    return JSONResponse(
+        status_code=401,
+        content={"success": False, "error": "Invalid or missing session token"}
+    )
 
 
 # API endpoints for checking auth status

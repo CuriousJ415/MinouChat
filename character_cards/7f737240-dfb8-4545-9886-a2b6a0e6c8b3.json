@@ -1,0 +1,26 @@
+{
+  "name": "Test Bot",
+  "persona": "",
+  "system_prompt": "You are a helpful assistant",
+  "role": "assistant",
+  "category": "Assistant",
+  "backstory": "",
+  "gender": "",
+  "tags": [],
+  "traits": null,
+  "communication_style": {
+    "warmth": "warm",
+    "formality": "casual"
+  },
+  "llm_config": null,
+  "llm_model_config": null,
+  "model_config": {
+    "provider": null,
+    "model": null,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "repeat_penalty": 1.1,
+    "top_k": 40
+  },
+  "id": "7f737240-dfb8-4545-9886-a2b6a0e6c8b3"
+}
