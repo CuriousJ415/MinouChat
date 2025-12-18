@@ -33,6 +33,13 @@ services:
       # Anthropic Configuration (optional)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-instant-1}
+
+      # OpenRouter Configuration (optional)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+
+      # Clerk Authentication (required)
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY:-}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
     networks:
       - miaai-network
     extra_hosts:
