@@ -103,6 +103,30 @@
             border: none !important;
             background: transparent !important;
         }
+
+        /* Fix social buttons in dark mode - all should have white backgrounds */
+        .theme-dark .cl-socialButtonsIconButton,
+        .theme-dark .cl-socialButtonsBlockButton {
+            background-color: #ffffff !important;
+            border-color: #e5e5e5 !important;
+            color: #1f1f1f !important;
+        }
+
+        .theme-dark .cl-socialButtonsIconButton:hover,
+        .theme-dark .cl-socialButtonsBlockButton:hover {
+            background-color: #f5f5f5 !important;
+            border-color: #d5d5d5 !important;
+        }
+
+        .theme-dark .cl-socialButtonsBlockButtonText {
+            color: #1f1f1f !important;
+        }
+
+        /* Ensure icons are visible */
+        .theme-dark .cl-socialButtonsIconButton svg,
+        .theme-dark .cl-socialButtonsBlockButton svg {
+            filter: none !important;
+        }
     </style>
 </head>
 <body>
@@ -188,6 +212,9 @@
                 const signInEl = document.getElementById('clerk-sign-in');
                 signInEl.innerHTML = '';
 
+                // Detect if dark mode is active
+                const isDarkMode = document.documentElement.classList.contains('theme-dark');
+
                 window.Clerk.mountSignIn(signInEl, {
                     afterSignInUrl: '/dashboard',
                     afterSignUpUrl: '/dashboard',
@@ -196,11 +223,11 @@
                         variables: {
                             colorPrimary: '#6366f1',
                             colorTextOnPrimaryBackground: '#ffffff',
-                            colorBackground: 'var(--bg-primary)',
-                            colorText: 'var(--text-primary)',
-                            colorTextSecondary: 'var(--text-muted)',
-                            colorInputBackground: 'var(--bg-secondary)',
-                            colorInputText: 'var(--text-primary)',
+                            colorBackground: isDarkMode ? '#0a0a0a' : '#ffffff',
+                            colorText: isDarkMode ? '#fafafa' : '#1c1917',
+                            colorTextSecondary: isDarkMode ? '#71717a' : '#a8a29e',
+                            colorInputBackground: isDarkMode ? '#18181b' : '#f4f4f5',
+                            colorInputText: isDarkMode ? '#fafafa' : '#1c1917',
                             borderRadius: '8px',
                             fontFamily: 'inherit'
                         },
@@ -214,9 +241,9 @@
                                 backgroundColor: 'transparent'
                             },
                             formButtonPrimary: {
-                                backgroundColor: 'var(--pop-primary)',
+                                backgroundColor: '#6366f1',
                                 '&:hover': {
-                                    backgroundColor: 'var(--pop-primary-hover)'
+                                    backgroundColor: '#4f46e5'
                                 }
                             }
                         }

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends, Body, Form, File, UploadFile
+from fastapi import FastAPI, Request, Depends, Body, Form, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .core.templates import render_template

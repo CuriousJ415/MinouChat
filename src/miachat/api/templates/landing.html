@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="theme-light">
+<html lang="en" class="theme-dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MinouChat - Privacy-First AI Assistant Platform</title>
-    <meta name="description" content="Create personalized AI personas, chat with your documents, and keep your conversations private. 100% local processing with Ollama.">
+    <title>MinouChat - Private AI Sanctuary</title>
+    <meta name="description" content="Private AI Sanctuary">
 
     <!-- Prevent flash -->
     <script>
@@ -16,558 +16,449 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
-        /* Landing Specific Styles */
-        .landing-nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
+        :root {
+            /* Light mode */
+            --bg-primary: #fafaf9;
+            --bg-secondary: #f5f5f4;
+            --text-primary: #1c1917;
+            --text-secondary: #57534e;
+            --text-muted: #a8a29e;
+            --border-color: #e7e5e4;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+        }
+
+        .theme-dark {
+            --bg-primary: #050505;
+            --bg-secondary: #0a0a0a;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-glow: rgba(99, 102, 241, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 16px;
+        }
+
+        body {
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg-primary);
-            border-bottom: 1px solid var(--border-subtle);
-            transition: all var(--transition-fast);
-        }
-
-        .landing-nav.scrolled {
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: var(--space-4);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .nav-logo {
-            font-size: var(--text-xl);
-            font-weight: var(--font-semibold);
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: var(--space-4);
-        }
-
-        .nav-links a {
             color: var(--text-secondary);
-            text-decoration: none;
-            font-size: var(--text-sm);
-            transition: color var(--transition-fast);
-        }
-
-        .nav-links a:hover {
-            color: var(--text-primary);
-        }
-
-        /* Hero Section */
-        .hero {
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: var(--space-16) var(--space-4);
-            text-align: center;
+            position: relative;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.7s, color 0.7s;
         }
 
-        .hero-content {
-            max-width: 800px;
+        ::selection {
+            background: #D4AF37;
+            color: black;
         }
 
-        .hero-title {
-            font-size: clamp(2.5rem, 8vw, 4rem);
-            font-weight: var(--font-semibold);
+        /* Background Ambience */
+        .bg-ambience {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .theme-light .bg-spot-light {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60rem;
+            height: 60rem;
+            background: rgba(199, 210, 254, 0.4);
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.6;
+            mix-blend-mode: multiply;
+        }
+
+        .theme-dark .bg-spot-light {
+            display: none;
+        }
+
+        .theme-dark .bg-spot-dark-1 {
+            position: absolute;
+            top: -10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40rem;
+            height: 40rem;
+            background: rgba(15, 15, 26, 0.2);
+            border-radius: 50%;
+            filter: blur(100px);
+            mix-blend-mode: screen;
+        }
+
+        .theme-dark .bg-spot-dark-2 {
+            position: absolute;
+            bottom: -10%;
+            right: -10%;
+            width: 50rem;
+            height: 50rem;
+            background: rgba(24, 24, 27, 0.4);
+            border-radius: 50%;
+            filter: blur(120px);
+        }
+
+        .theme-light .bg-spot-dark-1,
+        .theme-light .bg-spot-dark-2 {
+            display: none;
+        }
+
+        .bg-grain {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            z-index: 10;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            z-index: 50;
+            padding: 0.75rem;
+            border-radius: 50%;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
             color: var(--text-primary);
-            line-height: 1.1;
-            margin-bottom: var(--space-6);
-            letter-spacing: -0.02em;
+            border-color: var(--border-color);
         }
 
-        .hero-subtitle {
-            font-size: var(--text-lg);
-            color: var(--text-secondary);
-            line-height: 1.6;
-            margin-bottom: var(--space-8);
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
+        .theme-toggle:focus {
+            outline: none;
+            box-shadow: 0 0 0 1px var(--border-color);
         }
 
-        .hero-actions {
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        .theme-light .icon-sun { display: block; }
+        .theme-light .icon-moon { display: none; }
+        .theme-dark .icon-sun { display: none; }
+        .theme-dark .icon-moon { display: block; }
+
+        /* Main Content */
+        main {
+            position: relative;
+            z-index: 20;
             display: flex;
+            flex-direction: column;
+            align-items: center;
             justify-content: center;
-            gap: var(--space-4);
-            flex-wrap: wrap;
+            width: 100%;
+            max-width: 32rem;
+            padding: 1.5rem;
+            animation: fadeIn 1.2s ease-out forwards;
         }
 
-        .hero-actions .btn {
-            padding: var(--space-3) var(--space-6);
-            font-size: var(--text-base);
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        /* Features Section */
-        .section {
-            padding: var(--space-16) var(--space-4);
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        .section-container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* Logo */
+        .logo-container {
+            position: relative;
+            margin-bottom: 2rem;
         }
 
-        .section-header {
-            text-align: center;
-            margin-bottom: var(--space-12);
+        .logo-glow {
+            position: absolute;
+            inset: 0;
+            background: var(--accent-glow);
+            filter: blur(20px);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 1s;
         }
 
-        .section-title {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-semibold);
-            color: var(--text-primary);
-            margin-bottom: var(--space-4);
+        .logo-container:hover .logo-glow {
+            opacity: 1;
         }
 
-        .section-subtitle {
-            font-size: var(--text-base);
-            color: var(--text-muted);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: var(--space-6);
-        }
-
-        .feature-card {
-            padding: var(--space-6);
+        .logo {
+            position: relative;
+            width: 4rem;
+            height: 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1rem;
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            transition: all var(--transition-fast);
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: transform 0.5s;
         }
 
-        .feature-card:hover {
-            border-color: var(--text-primary);
+        .theme-dark .logo {
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .feature-icon {
-            width: 48px;
-            height: 48px;
+        .logo-container:hover .logo {
+            transform: scale(1.05);
+        }
+
+        .logo svg {
+            width: 28px;
+            height: 28px;
             color: var(--text-primary);
-            margin-bottom: var(--space-4);
+            stroke-width: 1.5;
         }
 
-        .feature-title {
-            font-size: var(--text-lg);
-            font-weight: var(--font-medium);
-            color: var(--text-primary);
-            margin-bottom: var(--space-2);
-        }
-
-        .feature-desc {
-            font-size: var(--text-sm);
-            color: var(--text-muted);
-            line-height: 1.6;
-        }
-
-        /* Personas Section */
-        .personas-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: var(--space-6);
-        }
-
-        .persona-card {
-            padding: var(--space-6);
-            background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
+        /* Typography */
+        h1 {
+            font-size: clamp(1.875rem, 5vw, 2.25rem);
+            font-weight: 300;
+            letter-spacing: -0.025em;
             text-align: center;
-        }
-
-        .persona-icon {
-            width: 64px;
-            height: 64px;
-            color: var(--text-muted);
-            margin-bottom: var(--space-4);
-        }
-
-        .persona-title {
-            font-size: var(--text-lg);
-            font-weight: var(--font-medium);
+            margin-bottom: 2.5rem;
             color: var(--text-primary);
-            margin-bottom: var(--space-2);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        .persona-category {
-            font-size: var(--text-sm);
-            color: var(--text-muted);
-            margin-bottom: var(--space-3);
+        /* Actions */
+        .actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            gap: 1.25rem;
+            opacity: 0;
+            animation: fadeInUp 1s ease-out 0.3s forwards;
         }
 
-        .persona-desc {
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* CTA Section */
-        .cta-section {
+        .btn-signin {
+            position: relative;
+            width: 100%;
+            max-width: 16rem;
+            overflow: hidden;
+            border-radius: 0.5rem;
             background: var(--text-primary);
             color: var(--bg-primary);
-            text-align: center;
+            padding: 0.875rem 1.5rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            letter-spacing: 0.025em;
         }
 
-        .cta-title {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-semibold);
-            margin-bottom: var(--space-4);
+        .btn-signin:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
         }
 
-        .cta-text {
-            font-size: var(--text-base);
-            opacity: 0.8;
-            margin-bottom: var(--space-6);
+        .btn-signin:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
         }
 
-        .cta-section .btn {
-            background: var(--bg-primary);
-            color: var(--text-primary);
+        .btn-signin svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 1.5;
+            transition: transform 0.3s;
         }
 
-        .cta-section .btn:hover {
-            opacity: 0.9;
+        .btn-signin:hover svg {
+            transform: translateX(4px);
+        }
+
+        .invite-link {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .invite-link:hover {
+            color: var(--text-secondary);
+        }
+
+        .invite-link span:last-child {
+            text-decoration: underline;
+            text-underline-offset: 4px;
+            text-decoration-color: var(--border-color);
+            transition: text-decoration-color 0.3s;
+        }
+
+        .invite-link:hover span:last-child {
+            text-decoration-color: var(--text-muted);
         }
 
         /* Footer */
-        .landing-footer {
-            padding: var(--space-8) var(--space-4);
-            border-top: 1px solid var(--border-subtle);
+        footer {
+            position: absolute;
+            bottom: 2rem;
+            width: 100%;
             text-align: center;
+            z-index: 20;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .footer-line {
+            width: 1px;
+            height: 2rem;
+            background: linear-gradient(to bottom, transparent, var(--border-color), transparent);
         }
 
         .footer-text {
-            font-size: var(--text-sm);
+            font-size: 0.625rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
             color: var(--text-muted);
-        }
-
-        /* Privacy Badge */
-        .privacy-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-full);
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-            margin-top: var(--space-8);
-        }
-
-        .privacy-badge svg {
-            width: 16px;
-            height: 16px;
-            color: var(--pop-success);
-        }
-
-        /* Mobile Menu */
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            padding: var(--space-2);
-            cursor: pointer;
-            color: var(--text-primary);
-        }
-
-        .mobile-menu-btn svg {
-            width: 24px;
-            height: 24px;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: block;
-            }
-
-            .nav-links {
-                display: none;
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: var(--bg-primary);
-                border-top: 1px solid var(--border-subtle);
-                padding: var(--space-4);
-                flex-direction: column;
-                gap: var(--space-3);
-            }
-
-            .nav-links.show {
-                display: flex;
-            }
-
-            .hero {
-                padding-top: var(--space-20);
-            }
-        }
-
-        /* Scroll animation */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
+            font-weight: 500;
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="landing-nav" id="landing-nav">
-        <div class="nav-container">
-            <a href="/" class="nav-logo" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;">
+    <!-- Background Ambience -->
+    <div class="bg-ambience">
+        <div class="bg-spot-light"></div>
+        <div class="bg-spot-dark-1"></div>
+        <div class="bg-spot-dark-2"></div>
+        <div class="bg-grain"></div>
+    </div>
+
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+    </button>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Logo -->
+        <div class="logo-container">
+            <div class="logo-glow"></div>
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/>
-                    <path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
+                    <path d="M8 14v.5"/>
+                    <path d="M16 14v.5"/>
+                    <path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
                 </svg>
-                MinouChat
+            </div>
+        </div>
+
+        <!-- Typography -->
+        <h1>MinouChat</h1>
+
+        <!-- Actions -->
+        <div class="actions">
+            <a href="/auth/login" class="btn-signin">
+                <span>Sign In</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12 5 19 12 12 19"/>
+                </svg>
             </a>
-
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-            </button>
-
-            <div class="nav-links" id="nav-links">
-                <a href="#features">Features</a>
-                <a href="#personas">Personas</a>
-                <button class="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme" style="margin-left: var(--space-2);">
-                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="12" cy="12" r="5"/>
-                        <line x1="12" y1="1" x2="12" y2="3"/>
-                        <line x1="12" y1="21" x2="12" y2="23"/>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                        <line x1="1" y1="12" x2="3" y2="12"/>
-                        <line x1="21" y1="12" x2="23" y2="12"/>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                </button>
-                <a href="/auth/login" class="btn btn-secondary">Login</a>
-                <a href="/auth/register" class="btn btn-primary">Get Started</a>
-            </div>
+            <a href="/auth/register" class="invite-link">
+                <span>Invited?</span>
+                <span>Request access</span>
+            </a>
         </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">Your Private AI Assistant Platform</h1>
-            <p class="hero-subtitle">
-                Create personalized AI personas, chat with context from your documents,
-                and keep your conversations private with local LLM processing.
-            </p>
-            <div class="hero-actions">
-                <a href="/auth/register" class="btn btn-primary">
-                    Get Started Free
-                </a>
-                <a href="/auth/login" class="btn btn-secondary">
-                    Sign In
-                </a>
-            </div>
-            <div class="privacy-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-                <span>100% Local Processing with Ollama</span>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="section" id="features">
-        <div class="section-container">
-            <div class="section-header fade-in">
-                <h2 class="section-title">Powerful Features</h2>
-                <p class="section-subtitle">Everything you need for intelligent AI conversations</p>
-            </div>
-
-            <div class="features-grid">
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                    </svg>
-                    <h3 class="feature-title">Document Analysis</h3>
-                    <p class="feature-desc">Upload PDFs, Word docs, and more. Get instant analysis, summaries, and context-aware answers from your files.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 6v6l4 2"/>
-                    </svg>
-                    <h3 class="feature-title">Persistent Memory</h3>
-                    <p class="feature-desc">Your AI remembers conversations and documents, providing contextual responses that improve over time.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    <h3 class="feature-title">Custom Personas</h3>
-                    <p class="feature-desc">Create specialized AI personalities - coaches, assistants, storytellers, or any character you imagine.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    <h3 class="feature-title">Privacy-First</h3>
-                    <p class="feature-desc">Run completely offline with Ollama. Your data never leaves your machine unless you choose cloud providers.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="3" y1="9" x2="21" y2="9"/>
-                        <line x1="9" y1="21" x2="9" y2="9"/>
-                    </svg>
-                    <h3 class="feature-title">Multiple Providers</h3>
-                    <p class="feature-desc">Switch between Ollama, OpenAI, Anthropic, or OpenRouter. Choose your preferred model and privacy level.</p>
-                </div>
-
-                <div class="feature-card fade-in">
-                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
-                    <h3 class="feature-title">RAG Search</h3>
-                    <p class="feature-desc">Semantic search across your documents. Find relevant information instantly with vector embeddings.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Personas Section -->
-    <section class="section" id="personas" style="background: var(--bg-secondary);">
-        <div class="section-container">
-            <div class="section-header fade-in">
-                <h2 class="section-title">Persona Categories</h2>
-                <p class="section-subtitle">Choose from specialized AI assistants or create your own</p>
-            </div>
-
-            <div class="personas-grid">
-                <div class="persona-card fade-in">
-                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                    </svg>
-                    <h3 class="persona-title">Coaches & Advisors</h3>
-                    <p class="persona-category">Business, Life, Career</p>
-                    <p class="persona-desc">Professional guidance with structured, goal-oriented conversations for development and planning.</p>
-                </div>
-
-                <div class="persona-card fade-in">
-                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
-                        <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        <path d="M21 21v-2a4 4 0 0 0-3-3.85"/>
-                    </svg>
-                    <h3 class="persona-title">Assistants</h3>
-                    <p class="persona-category">Personal, Research, Admin</p>
-                    <p class="persona-desc">Task management, document analysis, and organization with efficient, detail-oriented support.</p>
-                </div>
-
-                <div class="persona-card fade-in">
-                    <svg class="persona-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <path d="M12 20l9-5-9-5-9 5 9 5z"/>
-                        <path d="M12 12l9-5-9-5-9 5 9 5z"/>
-                    </svg>
-                    <h3 class="persona-title">Creative & Roleplay</h3>
-                    <p class="persona-category">Storytelling, Entertainment</p>
-                    <p class="persona-desc">Imaginative interactions for creative writing, learning scenarios, and entertainment.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="section cta-section">
-        <div class="section-container fade-in">
-            <h2 class="cta-title">Ready to Get Started?</h2>
-            <p class="cta-text">Create your first AI persona in minutes.</p>
-            <a href="/auth/register" class="btn">Create Free Account</a>
-        </div>
-    </section>
+    </main>
 
     <!-- Footer -->
-    <footer class="landing-footer">
-        <p class="footer-text">MinouChat - Privacy-First AI Assistant Platform</p>
+    <footer>
+        <div class="footer-content">
+            <div class="footer-line"></div>
+            <p class="footer-text">MinouChat — By Invitation Only</p>
+        </div>
     </footer>
 
-    <script src="{{ url_for('static', path='js/theme.js') }}"></script>
-
+    <!-- Theme Toggle Script -->
     <script>
-        // Mobile menu toggle
-        function toggleMobileMenu() {
-            document.getElementById('nav-links').classList.toggle('show');
-        }
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const htmlElement = document.documentElement;
 
-        // Nav scroll effect
-        window.addEventListener('scroll', function() {
-            const nav = document.getElementById('landing-nav');
-            if (window.scrollY > 50) {
-                nav.classList.add('scrolled');
+        themeToggleBtn.addEventListener('click', () => {
+            if (htmlElement.classList.contains('theme-dark')) {
+                htmlElement.classList.remove('theme-dark');
+                htmlElement.classList.add('theme-light');
+                localStorage.setItem('minouchat-theme', 'light');
             } else {
-                nav.classList.remove('scrolled');
+                htmlElement.classList.remove('theme-light');
+                htmlElement.classList.add('theme-dark');
+                localStorage.setItem('minouchat-theme', 'dark');
             }
-        });
-
-        // Scroll animations
-        const fadeElements = document.querySelectorAll('.fade-in');
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        });
-
-        fadeElements.forEach(el => observer.observe(el));
-
-        // Close mobile menu on link click
-        document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
-                document.getElementById('nav-links').classList.remove('show');
-            });
         });
     </script>
 </body>
