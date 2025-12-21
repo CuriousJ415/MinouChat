@@ -613,13 +613,17 @@ async def create_persona_page(request: Request, db = Depends(get_db)):
 
 @app.get("/persona/edit/{persona_id}")
 async def edit_persona_page(persona_id: str, request: Request, db = Depends(get_db)):
+    logger.info(f"[PERSONA EDIT] Request for persona_id: {persona_id}")
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
+        logger.warning(f"[PERSONA EDIT] No authenticated user, redirecting to login")
         return RedirectResponse(url="/auth/login", status_code=302)
     # Fetch the persona by id
     persona = character_manager.get_character(persona_id)
     if not persona:
+        logger.warning(f"[PERSONA EDIT] Persona not found: {persona_id}, redirecting to /personas")
         return RedirectResponse(url="/personas", status_code=302)
+    logger.info(f"[PERSONA EDIT] Rendering edit page for persona: {persona.get('name', persona_id)}")
     return await render_template(request, "persona/edit", persona=persona, user=current_user)
 
 # API Routes
@@ -1034,12 +1038,12 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         # Get current user
         current_user = await get_current_user_from_session(request_obj, db)
         if not current_user:
-            return {"error": "Authentication required"}, 401
-        
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
         # Get character
         character = character_manager.get_character(request.character_id)
         if not character:
-            return {"error": "Character not found"}, 404
+            return JSONResponse(status_code=404, content={"error": "Character not found"})
 
         # Handle session management
         session_id = request.session_id
@@ -1149,14 +1153,22 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
         # Add time-aware context for the persona
         try:
             from .core.reminder_service import reminder_service
+            from datetime import datetime
             time_context = reminder_service.get_context_for_chat(
                 db=db,
                 user_id=current_user.id,
                 persona_name=character.get('name', 'Assistant')
             )
 
+            # Always include explicit current date to help LLM with time awareness
+            current_date = datetime.now()
+            date_str = current_date.strftime('%B %d, %Y')  # e.g., "December 19, 2025"
+            year = current_date.year
+
+            time_prompt = f"\n\n**IMPORTANT - CURRENT DATE**: Today is {date_str}. The year is {year}, NOT {year - 1}."
             if time_context:
-                system_prompt_text += f"\n\nCurrent time and context:\n{time_context}"
+                time_prompt += f"\n{time_context}"
+            system_prompt_text += time_prompt
 
         except Exception as e:
             logger.warning(f"Failed to get time context for chat: {e}")
@@ -1209,7 +1221,10 @@ You should be proactive about offering to create documents when it would be help
 
         # If no LLM is available, return error
         if not llm_status['available']:
-            return {"error": llm_status['message'], "needs_llm_setup": True}, 503
+            return JSONResponse(
+                status_code=503,
+                content={"error": llm_status['message'], "needs_llm_setup": True}
+            )
 
         # Track if using default LLM (for notification to user)
         using_default_llm = llm_status.get('using_default', False)
@@ -1308,9 +1323,7 @@ You should be proactive about offering to create documents when it would be help
             # Add current user message
             messages.append({"role": "user", "content": request.message})
 
-        # Generate response using the character's model configuration (with app LLM fallback)
-        model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
-        provider = model_config['provider']  # Guaranteed by _resolve_model_config
+        # model_config and provider were already set based on using_default_llm check above
 
         # Log privacy information
         if provider == 'ollama':
@@ -1323,7 +1336,7 @@ You should be proactive about offering to create documents when it would be help
             system_prompt=None,  # System prompt already included in messages
             model_config=model_config
         )
-        
+
         # Save messages to database
         conversation_service.save_message(session_id, "user", request.message, db)
         conversation_service.save_message(session_id, "assistant", response, db)
@@ -1392,7 +1405,7 @@ You should be proactive about offering to create documents when it would be help
         
     except Exception as e:
         logger.error(f"Error in chat: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/characters/{character_id}/greeting")
 async def get_personalized_greeting(character_id: str, request: Request, db = Depends(get_db)):
@@ -1409,12 +1422,12 @@ async def get_personalized_greeting(character_id: str, request: Request, db = De
         # Get current user
         current_user = await get_current_user_from_session(request, db)
         if not current_user:
-            return {"error": "Authentication required"}, 401
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
 
         # Get character
         character = character_manager.get_character(character_id)
         if not character:
-            return {"error": "Character not found"}, 404
+            return JSONResponse(status_code=404, content={"error": "Character not found"})
 
         character_name = character.get('name', 'Assistant')
 
@@ -1619,14 +1632,22 @@ async def chat_with_document(
         # Add time-aware context for the persona
         try:
             from .core.reminder_service import reminder_service
+            from datetime import datetime
             time_context = reminder_service.get_context_for_chat(
                 db=db,
                 user_id=current_user.id,
                 persona_name=character.get('name', 'Assistant')
             )
 
+            # Always include explicit current date to help LLM with time awareness
+            current_date = datetime.now()
+            date_str = current_date.strftime('%B %d, %Y')  # e.g., "December 19, 2025"
+            year = current_date.year
+
+            time_prompt = f"\n\n**IMPORTANT - CURRENT DATE**: Today is {date_str}. The year is {year}, NOT {year - 1}."
             if time_context:
-                system_prompt += f"\n\nCurrent time and context:\n{time_context}"
+                time_prompt += f"\n{time_context}"
+            system_prompt += time_prompt
 
         except Exception as e:
             logger.warning(f"Failed to get time context for chat: {e}")

@@ -256,6 +256,7 @@ async def get_clerk_session_claims(request: Request) -> Optional[Dict[str, Any]]
             session_token = auth_header[7:]
 
     if not session_token:
+        logger.warning(f"[AUTH] No session token for {request.method} {request.url.path} - cookies: {list(request.cookies.keys())}")
         return None
 
     jwks_client = _get_jwks_client()

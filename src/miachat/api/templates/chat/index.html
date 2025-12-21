@@ -199,6 +199,22 @@
             margin-left: var(--space-2);
         }
 
+        .llm-banner-dismiss {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-left: var(--space-3);
+            opacity: 0.7;
+            padding: 0 var(--space-1);
+            line-height: 1;
+        }
+
+        .llm-banner-dismiss:hover {
+            opacity: 1;
+        }
+
         /* Messages Area */
         .chat-messages {
             flex: 1;
@@ -702,7 +718,8 @@
             <!-- LLM Info Banner (shown when using system default LLM) -->
             <div class="llm-info-banner" id="llmInfoBanner">
                 <span id="llmInfoText">Using system default AI</span>
-                <a href="/settings" title="Change AI settings">Settings</a>
+                <a id="llmBannerLink" href="/settings" title="Configure model">Configure</a>
+                <button id="llmBannerDismiss" class="llm-banner-dismiss" title="Keep default" aria-label="Dismiss">&times;</button>
             </div>
 
             <div class="chat-messages" id="chatContainer">
@@ -843,6 +860,9 @@
             // Show edit persona link
             updateEditPersonaLink(characterId);
 
+            // Hide the LLM banner until we get a chat response with LLM info
+            resetLLMBannerDismiss();
+
             enableChat();
             clearChat();
             // Use personalized greeting instead of generic one
@@ -864,6 +884,25 @@
                 editLink.style.display = 'none';
             }
         }
+
+        // LLM Banner dismiss handler
+        function dismissLLMBanner() {
+            const llmBanner = document.getElementById('llmInfoBanner');
+            llmBanner.classList.remove('show', 'warning');
+            // Remember dismissal for this character
+            if (currentCharacterId) {
+                localStorage.setItem(`llmBannerDismissed_${currentCharacterId}`, 'true');
+            }
+        }
+
+        // Reset dismissed state when character changes (handled in selectPersona)
+        function resetLLMBannerDismiss() {
+            const llmBanner = document.getElementById('llmInfoBanner');
+            llmBanner.classList.remove('show', 'warning');
+        }
+
+        // Attach dismiss handler
+        document.getElementById('llmBannerDismiss').addEventListener('click', dismissLLMBanner);
 
         function enableChat() {
             document.getElementById('messageInput').disabled = false;
@@ -1075,12 +1114,38 @@
                         // Show LLM info banner if using default LLM
                         const llmBanner = document.getElementById('llmInfoBanner');
                         const llmText = document.getElementById('llmInfoText');
-                        if (data.using_default_llm && data.llm_message) {
+                        const llmLink = document.getElementById('llmBannerLink');
+                        const llmDismiss = document.getElementById('llmBannerDismiss');
+
+                        // Check if user dismissed the banner for this character
+                        const dismissedKey = `llmBannerDismissed_${currentCharacterId}`;
+                        const wasDismissed = localStorage.getItem(dismissedKey) === 'true';
+
+                        if (data.using_default_llm && data.llm_message && !wasDismissed) {
                             llmText.textContent = data.llm_message;
+                            // Only link to persona edit if we have a valid character ID
+                            if (currentCharacterId) {
+                                llmLink.href = `/persona/edit/${currentCharacterId}`;
+                                llmLink.textContent = 'Configure';
+                                llmLink.style.display = 'inline';
+                            } else {
+                                llmLink.href = '/settings';
+                                llmLink.textContent = 'Settings';
+                                llmLink.style.display = 'inline';
+                            }
+                            llmDismiss.style.display = 'inline';
                             llmBanner.classList.add('show', 'warning');
                         } else if (data.llm_provider && data.llm_model) {
                             // Show current LLM info (non-warning)
                             llmText.textContent = `Using ${data.llm_provider}/${data.llm_model}`;
+                            if (currentCharacterId) {
+                                llmLink.href = `/persona/edit/${currentCharacterId}`;
+                                llmLink.textContent = 'Edit';
+                                llmLink.style.display = 'inline';
+                            } else {
+                                llmLink.style.display = 'none';
+                            }
+                            llmDismiss.style.display = 'none';
                             llmBanner.classList.remove('warning');
                             llmBanner.classList.add('show');
                         }

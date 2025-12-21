@@ -385,7 +385,7 @@ class SettingsService:
                         "using_default": True,
                         "provider": system_status['provider'],
                         "model": system_status['model'],
-                        "message": f"Character's {provider} is not available. Using system default: {system_status['provider']}/{system_status['model']}",
+                        "message": f"Character's {provider} model unavailable. Using default ({system_status['provider']}/{system_status['model']}). Click the gear icon to configure.",
                         "character_provider_unavailable": provider
                     }
                 else:
@@ -399,13 +399,22 @@ class SettingsService:
         else:
             # No character config, use system default
             system_status = self.check_llm_status(user_id, db)
-            return {
-                "available": system_status['available'],
-                "using_default": True,
-                "provider": system_status.get('provider'),
-                "model": system_status.get('model'),
-                "message": system_status['message'] if not system_status['available'] else f"Using system default: {system_status['provider']}/{system_status['model']}"
-            }
+            if system_status['available']:
+                return {
+                    "available": True,
+                    "using_default": True,
+                    "provider": system_status.get('provider'),
+                    "model": system_status.get('model'),
+                    "message": f"Using default model ({system_status['provider']}/{system_status['model']}). Click the gear icon to set a custom model for this persona."
+                }
+            else:
+                return {
+                    "available": False,
+                    "using_default": True,
+                    "provider": system_status.get('provider'),
+                    "model": system_status.get('model'),
+                    "message": system_status['message']
+                }
 
     def _check_provider_available(
         self,
@@ -421,10 +430,22 @@ class SettingsService:
 
         if provider == "ollama":
             ollama_url = config.get('api_url') or (user_settings.ollama_url if user_settings else None) or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+            model = config.get('model', '')
             try:
                 response = requests.get(f"{ollama_url}/api/tags", timeout=5)
-                return response.ok
-            except:
+                if not response.ok:
+                    return False
+                # Check if the specific model exists
+                if model:
+                    available_models = response.json().get('models', [])
+                    model_names = [m.get('name', '') for m in available_models]
+                    # Check for exact match only
+                    if model not in model_names:
+                        logger.warning(f"Ollama model '{model}' not found. Available: {model_names[:5]}...")
+                        return False
+                return True
+            except Exception as e:
+                logger.warning(f"Error checking Ollama availability: {e}")
                 return False
 
         elif provider == "openai":
