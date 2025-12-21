@@ -160,4 +160,4 @@ documents/*.txt
 *.db.backup*
 
 # Cookies/session files
-cookies.txt 
+cookies.txt cookies.txt
