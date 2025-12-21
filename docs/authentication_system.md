@@ -1,41 +1,57 @@
-# MiaChat Authentication System
+# MinouChat Authentication System
 
 ## Overview
 
-The MiaChat authentication system provides secure user registration, login, and session management. It's built using FastAPI and integrates with SQLAlchemy ORM for database operations.
+MinouChat uses **Clerk** for authentication, providing secure user management with social login support (Google SSO). This replaced the previous bcrypt/JWT-based system for better security and easier maintenance.
+
+**Last Updated**: December 2025
+
+---
 
 ## Features
 
-### ✅ Completed Features
+### Authentication Methods
+- Email/password authentication
+- Google SSO (OAuth 2.0)
+- Other social providers (configurable in Clerk dashboard)
 
-1. **User Registration**
-   - Username and email validation
-   - Password hashing with bcrypt
-   - Duplicate username/email prevention
-   - Automatic login after registration
+### Session Management
+- JWT tokens with 60-second TTL (Clerk default)
+- Proactive session refresh every 45 seconds
+- Automatic retry on 401 with fresh token
+- Bearer token priority over cookies
 
-2. **User Authentication**
-   - Login with username or email
-   - Secure password verification
-   - Session-based authentication for web pages
-   - JWT token authentication for API clients
+### User Management
+- Automatic user sync from Clerk
+- Profile information (name, email, avatar)
+- Database user record linked via `clerk_id`
 
-3. **Session Management**
-   - FastAPI session middleware integration
-   - Database-backed user sessions
-   - Configurable session expiration
-   - Automatic session cleanup
+---
 
-4. **Route Protection**
-   - FastAPI dependency injection for authentication
-   - Automatic redirects for unauthenticated users
-   - Template context injection for user data
+## Architecture
 
-5. **User Interface**
-   - Modern login/register forms
-   - Responsive navigation with user status
-   - User dashboard with logout functionality
-   - Bootstrap-based responsive design
+```
+Browser                    Backend                     Clerk
+   │                          │                          │
+   │  1. Sign in via Clerk    │                          │
+   │ ────────────────────────────────────────────────>   │
+   │                          │                          │
+   │  2. JWT token (60s TTL)  │                          │
+   │ <────────────────────────────────────────────────   │
+   │                          │                          │
+   │  3. API request + Bearer │                          │
+   │ ───────────────────────> │                          │
+   │                          │  4. Verify JWT (JWKS)    │
+   │                          │ ───────────────────────> │
+   │                          │                          │
+   │                          │  5. Claims (sub, email)  │
+   │                          │ <─────────────────────── │
+   │                          │                          │
+   │  6. Response             │                          │
+   │ <─────────────────────── │                          │
+```
+
+---
 
 ## Database Schema
 
@@ -43,200 +59,213 @@ The MiaChat authentication system provides secure user registration, login, and 
 ```sql
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
+    clerk_id TEXT UNIQUE NOT NULL,      -- Clerk user ID (user_xxx)
+    username TEXT NOT NULL,
+    email TEXT,
+    avatar_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT 1
 );
 ```
 
+---
+
 ## API Endpoints
 
-### Web Authentication Routes
-- `GET /auth/login` - Login page
-- `POST /auth/login` - Login form submission (session-based)
-- `GET /auth/register` - Registration page
-- `POST /auth/register` - Registration form submission
-- `POST /auth/logout` - Logout user
-
-### API Authentication Routes (JWT-based)
-- `POST /auth/api/login` - API login (returns JWT tokens)
-- `POST /auth/api/refresh` - Refresh JWT access token
-- `GET /auth/api/me` - Get current user info (JWT protected)
-- `GET /auth/api/check` - Check authentication status
+### Authentication Routes
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/login` | GET | Clerk sign-in page |
+| `/auth/register` | GET | Clerk sign-up page |
+| `/auth/logout` | GET | Logout and clear session |
+| `/auth/sync` | POST | Sync Clerk user to database |
 
 ### Protected Routes
-- `GET /` - Main dashboard (requires authentication)
-- `GET /chat` - Chat interface (requires authentication)
-- `GET /characters` - Character management (requires authentication)
-- `GET /settings` - User settings (requires authentication)
-- `GET /config` - Configuration page (requires authentication)
-- `GET /personality` - Personality management (requires authentication)
+All routes except landing page require authentication:
+- `/dashboard` - User dashboard
+- `/chat` - Chat interface
+- `/personas` - Character management
+- `/settings` - User settings
+- `/documents` - Document management
+
+---
 
 ## Core Functions
 
-### User Management
+### Backend (clerk_auth.py)
+
 ```python
-from src.miachat.api.core.auth import register_user, authenticate_user, get_current_user_from_session
+from src.miachat.api.core.clerk_auth import (
+    require_clerk_auth,
+    get_current_user_from_session,
+    get_clerk_session_claims,
+)
 
-# Register a new user
-user = await register_user(user_data, db)
-
-# Authenticate a user
-user = await authenticate_user(username, password, db)
-
-# Get current authenticated user from session
-current_user = await get_current_user_from_session(request, db)
-```
-
-### Session Management
-```python
-from src.miachat.api.core.auth import login_user_session, logout_user_session
-
-# Login user and create session
-await login_user_session(user, request)
-
-# Logout user
-await logout_user_session(request)
-```
-
-### Route Protection
-```python
-from fastapi import Depends
-from src.miachat.api.core.auth import require_session_auth
-
+# Require authentication (FastAPI dependency)
 @app.get("/protected")
-async def protected_route(request: Request, user = Depends(require_session_auth)):
+async def protected_route(user = Depends(require_clerk_auth)):
     return {"message": f"Hello {user.username}"}
+
+# Optional authentication
+@app.get("/optional")
+async def optional_auth(request: Request, db = Depends(get_db)):
+    user = await get_current_user_from_session(request, db)
+    if user:
+        return {"logged_in": True, "user": user.username}
+    return {"logged_in": False}
 ```
 
-## Security Features
+### Frontend (authFetch)
 
-1. **Password Security**
-   - Passwords are hashed using bcrypt
-   - Secure password verification
-   - Minimum password length validation
-
-2. **Session Security**
-   - FastAPI session middleware with secure cookies
-   - Database-backed user sessions
-   - Automatic cleanup of expired sessions
-   - CSRF protection ready
-
-3. **JWT Token Security**
-   - Secure JWT tokens for API authentication
-   - Configurable token expiration
-   - Refresh token mechanism
-   - Token validation and verification
-
-4. **Input Validation**
-   - Username/email uniqueness validation
-   - Email format validation using Pydantic
-   - Password strength requirements
-   - SQL injection prevention through SQLAlchemy ORM
-
-## Usage Examples
-
-### Protecting Web Routes
-```python
-from fastapi import Depends, Request
-from src.miachat.api.core.auth import get_current_user_from_session
-
-@app.get("/dashboard")
-async def dashboard(request: Request, db = Depends(get_db)):
-    current_user = await get_current_user_from_session(request, db)
-    if not current_user:
-        return RedirectResponse(url="/auth/login", status_code=302)
-    
-    return await render_template(request, "dashboard", user=current_user)
-```
-
-### Template Access
-```html
-{% if user %}
-    <p>Welcome, {{ user.username }}!</p>
-    <a href="#" onclick="logout()">Logout</a>
-{% else %}
-    <a href="/auth/login">Login</a>
-    <a href="/auth/register">Register</a>
-{% endif %}
-```
-
-### API Authentication
 ```javascript
-// Login and get JWT tokens
-fetch('/auth/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        username: 'user',
-        password: 'password'
-    })
-})
-.then(response => response.json())
-.then(data => {
-    if (data.success) {
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-    }
-});
+// Authenticated fetch with automatic token refresh
+async function authFetch(url, options = {}) {
+    await clerkReadyPromise;
 
-// Use JWT token for API calls
-fetch('/auth/api/me', {
-    headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    // Get fresh token from Clerk SDK
+    const token = await window.Clerk.session?.getToken();
+    if (token) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = `Bearer ${token}`;
     }
-})
-.then(response => response.json())
-.then(data => console.log('User info:', data));
+
+    const response = await fetch(url, options);
+
+    // Retry on 401 with fresh token
+    if (response.status === 401 && !options._retried) {
+        await window.Clerk.session?.touch();
+        return authFetch(url, { ...options, _retried: true });
+    }
+
+    return response;
+}
 ```
+
+---
+
+## Token Handling
+
+### The 60-Second Challenge
+
+Clerk uses short-lived JWT tokens (60-second TTL) for security. This requires:
+
+1. **Proactive Refresh**: Session touch every 45 seconds
+2. **Retry Logic**: Automatic retry on 401 with fresh token
+3. **Bearer Priority**: Backend prefers Bearer token over stale cookies
+
+### Implementation
+
+```javascript
+// Proactive refresh (frontend)
+setInterval(async () => {
+    if (window.Clerk?.session) {
+        await window.Clerk.session.touch();
+    }
+}, 45000);  // Every 45 seconds
+```
+
+```python
+# Backend token verification with leeway
+claims = jwt.decode(
+    session_token,
+    signing_key.key,
+    algorithms=["RS256"],
+    leeway=30  # 30 seconds tolerance
+)
+```
+
+---
 
 ## Configuration
 
-The authentication system uses the following FastAPI configuration:
+### Environment Variables
 
-```python
-# Session middleware configuration
-app.add_middleware(
-    SessionMiddleware,
-    secret_key="your-secret-key-here"  # Change in production
-)
-
-# JWT configuration
-SECRET_KEY = "your-secret-key-here-change-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+```bash
+# Required
+CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 ```
 
-## Testing
+### Clerk Dashboard Settings
 
-The authentication system has been tested with:
-- ✅ User registration
-- ✅ User authentication (session-based)
-- ✅ JWT token authentication
-- ✅ Password validation
-- ✅ Session management
-- ✅ Route protection
-- ✅ Database operations
-- ✅ Template rendering with user context
+1. **Allowed Origins**: `http://localhost:8080`, your production domain
+2. **Redirect URLs**:
+   - Sign-in: `/dashboard`
+   - Sign-up: `/dashboard`
+3. **Social Connections**: Enable Google OAuth
 
-## Getting Started
+---
 
-1. **Start the application**: `python run.py`
-2. **Visit**: `http://localhost:8080`
-3. **Register a new account** at `/auth/register`
-4. **Login** at `/auth/login`
-5. **Access protected pages** when authenticated
+## Security Features
 
-## Architecture
+### JWT Verification
+- JWKS-based signature verification
+- Token expiry validation with 30s leeway
+- Issuer and audience validation
 
-The authentication system follows FastAPI best practices:
+### Request Security
+- Bearer token takes priority over cookies
+- Fresh tokens required for sensitive operations
+- Automatic session invalidation on logout
 
-- **Dependency Injection**: Uses FastAPI's dependency injection for database sessions and authentication
-- **Session Middleware**: Leverages Starlette's session middleware for web authentication
-- **JWT Tokens**: Provides JWT-based authentication for API clients
-- **SQLAlchemy ORM**: Uses SQLAlchemy for database operations
-- **Pydantic Models**: Uses Pydantic for data validation and serialization 
+### Error Handling
+- Specific error codes: `token_expired`, `invalid_token`, `no_session`
+- `X-Auth-Error` header for frontend handling
+- Graceful redirect to login on auth failure
+
+---
+
+## Troubleshooting
+
+### 401 Errors After ~60 Seconds
+
+**Cause**: Clerk's 60-second token TTL expired.
+
+**Solution**: Ensure proactive refresh is running:
+```javascript
+// Check browser console for:
+"Session refreshed proactively"  // Every 45s
+```
+
+### 403 Forbidden from Clerk API
+
+**Cause**: Missing User-Agent header in backend API calls.
+
+**Solution**: Include User-Agent in Clerk API requests:
+```python
+headers = {
+    "Authorization": f"Bearer {CLERK_SECRET_KEY}",
+    "User-Agent": "MinouChat/1.0",
+}
+```
+
+### User Shows Generated Username
+
+**Cause**: Clerk API call failed during user sync.
+
+**Fix**:
+```bash
+docker exec minouchat-app python3 -c "
+import sqlite3
+conn = sqlite3.connect('/app/data/memories.db')
+conn.execute(\"UPDATE users SET username='RealName' WHERE clerk_id='user_xxx'\")
+conn.commit()
+"
+```
+
+---
+
+## Migration from Old Auth
+
+The previous system used:
+- bcrypt password hashing
+- Custom JWT tokens
+- Session middleware
+
+All functionality has been migrated to Clerk. The old `auth.py` functions remain for backward compatibility but delegate to `clerk_auth.py`.
+
+---
+
+*For Clerk setup instructions, see [CLERK_SETUP.md](CLERK_SETUP.md)*
+*For general troubleshooting, see [CLAUDE.md](../CLAUDE.md)*
