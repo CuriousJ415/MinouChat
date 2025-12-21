@@ -73,16 +73,21 @@
     <script>
         window.addEventListener('load', async function() {
             try {
+                // Clear the server-side session cookie
+                await fetch('/auth/logout', { method: 'POST' });
+
                 // Wait for Clerk to be available
                 await window.Clerk.load();
 
-                // Sign out the user
+                // Sign out the user from Clerk
                 await window.Clerk.signOut();
 
                 // Redirect to login page
                 window.location.href = '/auth/login';
             } catch (error) {
                 console.error('Logout error:', error);
+                // Try to clear cookie even on error
+                await fetch('/auth/logout', { method: 'POST' }).catch(() => {});
                 // Still redirect to login even if there's an error
                 window.location.href = '/auth/login';
             }

@@ -238,21 +238,168 @@ class SettingsService:
             return []
     
     def test_provider_connection(self, provider: str, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test connection to an LLM provider"""
+        """
+        Test connection to an LLM provider.
+
+        Actually tests the connection by making a lightweight API call.
+
+        Args:
+            provider: Provider name (ollama, openai, anthropic, openrouter)
+            config: Configuration including api_key, api_url, model
+
+        Returns:
+            Dict with success status and message
+        """
+        import requests
+
         try:
-            # This would integrate with the LLM client to test connections
-            # For now, return a mock response
+            if provider == "ollama":
+                # Test Ollama by checking the /api/tags endpoint
+                ollama_url = config.get("api_url") or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+                response = requests.get(f"{ollama_url}/api/tags", timeout=10)
+                if response.ok:
+                    models = response.json().get("models", [])
+                    model_names = [m.get("name", "") for m in models]
+                    requested_model = config.get("model", "")
+                    if requested_model and requested_model not in model_names:
+                        return {
+                            "success": False,
+                            "message": f"Ollama is running but model '{requested_model}' not found. Available: {', '.join(model_names[:5])}",
+                            "provider": provider,
+                            "available_models": model_names
+                        }
+                    return {
+                        "success": True,
+                        "message": f"Ollama connection successful. {len(models)} models available.",
+                        "provider": provider,
+                        "model": config.get("model", "default")
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"Ollama returned status {response.status_code}",
+                        "provider": provider
+                    }
+
+            elif provider == "openai":
+                api_key = config.get("api_key")
+                if not api_key:
+                    return {
+                        "success": False,
+                        "message": "OpenAI API key is required",
+                        "provider": provider
+                    }
+                # Test by listing models (lightweight call)
+                response = requests.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=10
+                )
+                if response.ok:
+                    return {
+                        "success": True,
+                        "message": "OpenAI connection successful",
+                        "provider": provider,
+                        "model": config.get("model", "gpt-4")
+                    }
+                else:
+                    error_detail = response.json().get("error", {}).get("message", response.text)
+                    return {
+                        "success": False,
+                        "message": f"OpenAI API error: {error_detail}",
+                        "provider": provider
+                    }
+
+            elif provider == "anthropic":
+                api_key = config.get("api_key")
+                if not api_key:
+                    return {
+                        "success": False,
+                        "message": "Anthropic API key is required",
+                        "provider": provider
+                    }
+                # Test with a minimal message call
+                response = requests.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": config.get("model", "claude-3-haiku-20240307"),
+                        "max_tokens": 1,
+                        "messages": [{"role": "user", "content": "Hi"}]
+                    },
+                    timeout=15
+                )
+                if response.ok:
+                    return {
+                        "success": True,
+                        "message": "Anthropic connection successful",
+                        "provider": provider,
+                        "model": config.get("model", "claude-3-opus")
+                    }
+                else:
+                    error_detail = response.json().get("error", {}).get("message", response.text)
+                    return {
+                        "success": False,
+                        "message": f"Anthropic API error: {error_detail}",
+                        "provider": provider
+                    }
+
+            elif provider == "openrouter":
+                api_key = config.get("api_key")
+                if not api_key:
+                    return {
+                        "success": False,
+                        "message": "OpenRouter API key is required",
+                        "provider": provider
+                    }
+                # Test by fetching available models
+                response = requests.get(
+                    "https://openrouter.ai/api/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=10
+                )
+                if response.ok:
+                    return {
+                        "success": True,
+                        "message": "OpenRouter connection successful",
+                        "provider": provider,
+                        "model": config.get("model", "openai/gpt-4")
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"OpenRouter API error: {response.status_code}",
+                        "provider": provider
+                    }
+
+            else:
+                return {
+                    "success": False,
+                    "message": f"Unknown provider: {provider}",
+                    "provider": provider
+                }
+
+        except requests.exceptions.Timeout:
             return {
-                "success": True,
-                "message": f"Connection to {provider} successful",
-                "provider": provider,
-                "model": config.get("model", "unknown")
+                "success": False,
+                "message": f"Connection to {provider} timed out",
+                "provider": provider
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                "success": False,
+                "message": f"Could not connect to {provider}. Check if the service is running.",
+                "provider": provider
             }
         except Exception as e:
             logger.error(f"Error testing connection to {provider}: {e}")
             return {
                 "success": False,
-                "message": f"Connection to {provider} failed: {str(e)}",
+                "message": f"Connection test failed: {str(e)}",
                 "provider": provider
             }
 

@@ -85,11 +85,22 @@ class ConversationService:
         row = result.fetchone()
         if row:
             self.session_cache[session_id] = row[0]
+            # Parse conversation_data - it may be a JSON string from raw SQL
+            conv_data = row[3]
+            if isinstance(conv_data, str):
+                import json
+                try:
+                    conv_data = json.loads(conv_data)
+                except (json.JSONDecodeError, TypeError):
+                    conv_data = {}
+            elif not isinstance(conv_data, dict):
+                conv_data = {}
+
             return {
                 "session_id": session_id,
                 "conversation_id": row[0],
-                "character_id": row[3].get("character_id") if isinstance(row[3], dict) else None,
-                "user_id": row[3].get("user_id") if isinstance(row[3], dict) else None,
+                "character_id": conv_data.get("character_id"),
+                "user_id": conv_data.get("user_id"),
                 "started_at": row[1].isoformat() if hasattr(row[1], 'isoformat') else row[1],
                 "ended_at": row[2].isoformat() if row[2] and hasattr(row[2], 'isoformat') else row[2],
                 "is_active": row[2] is None

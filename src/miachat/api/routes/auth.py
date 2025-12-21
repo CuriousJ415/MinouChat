@@ -58,14 +58,17 @@ async def register_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/logout")
 async def logout(request: Request):
     """
-    Logout user - Clerk handles session invalidation on the frontend.
-    This endpoint just returns success for API calls.
+    Logout user - clears the __session cookie and returns success.
+    Clerk handles session invalidation on the frontend.
     """
-    return {
+    response = JSONResponse(content={
         "success": True,
         "message": "Logout successful",
         "redirect": "/auth/login"
-    }
+    })
+    # Clear the __session cookie
+    response.delete_cookie(key="__session", path="/")
+    return response
 
 
 @router.get("/logout", response_class=HTMLResponse)
@@ -104,9 +107,90 @@ async def clerk_webhook(request: Request, db: Session = Depends(get_db)):
     - user.created: Create local user record
     - user.updated: Update local user record
     - user.deleted: Optionally remove local user data
+
+    Security:
+    - Verifies Svix webhook signature before processing
+    - Rejects requests with missing or invalid signatures
     """
+    import hashlib
+    import hmac
+    import time as time_module
+
     # Get webhook secret for verification
     webhook_secret = os.getenv("CLERK_WEBHOOK_SECRET", "")
+    if not webhook_secret:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Webhook secret not configured"}
+        )
+
+    # Get Svix headers for signature verification
+    svix_id = request.headers.get("svix-id")
+    svix_timestamp = request.headers.get("svix-timestamp")
+    svix_signature = request.headers.get("svix-signature")
+
+    if not all([svix_id, svix_timestamp, svix_signature]):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Missing webhook signature headers"}
+        )
+
+    # Validate timestamp to prevent replay attacks (5 minute tolerance)
+    try:
+        timestamp = int(svix_timestamp)
+        current_time = int(time_module.time())
+        if abs(current_time - timestamp) > 300:  # 5 minutes
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Webhook timestamp expired"}
+            )
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid timestamp format"}
+        )
+
+    # Get raw body for signature verification
+    body = await request.body()
+
+    # Verify signature (Svix uses whsec_ prefixed secrets)
+    secret = webhook_secret
+    if secret.startswith("whsec_"):
+        secret = secret[6:]  # Remove whsec_ prefix
+
+    try:
+        import base64
+        secret_bytes = base64.b64decode(secret)
+    except Exception:
+        # If not base64, use as-is (for testing)
+        secret_bytes = secret.encode()
+
+    # Construct signed payload
+    signed_payload = f"{svix_id}.{svix_timestamp}.{body.decode()}"
+
+    # Calculate expected signature
+    expected_signature = hmac.new(
+        secret_bytes,
+        signed_payload.encode(),
+        hashlib.sha256
+    ).digest()
+    expected_signature_b64 = base64.b64encode(expected_signature).decode()
+
+    # Svix signature header format: "v1,<base64_signature> v1,<another_sig>"
+    signatures = svix_signature.split(" ")
+    signature_valid = False
+    for sig in signatures:
+        if sig.startswith("v1,"):
+            sig_value = sig[3:]  # Remove "v1," prefix
+            if hmac.compare_digest(sig_value, expected_signature_b64):
+                signature_valid = True
+                break
+
+    if not signature_valid:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid webhook signature"}
+        )
 
     try:
         payload = await request.json()
@@ -189,18 +273,38 @@ async def sync_session(request: Request, db: Session = Depends(get_db)):
     Sync Clerk session from frontend to server.
 
     The client sends the Clerk session token via Authorization header.
-    Server verifies and creates a user session.
+    Server verifies, creates a user session, and sets the __session cookie
+    for subsequent requests.
     """
     current_user = await get_current_user_from_session(request, db)
     if current_user:
-        return {
+        # Extract the token from Authorization header to set as cookie
+        auth_header = request.headers.get("Authorization", "")
+        session_token = None
+        if auth_header.startswith("Bearer "):
+            session_token = auth_header[7:]
+
+        response = JSONResponse(content={
             "success": True,
             "authenticated": True,
             "user": {
                 "id": current_user.id,
                 "username": current_user.username
             }
-        }
+        })
+
+        # Set the __session cookie so subsequent requests are authenticated
+        if session_token:
+            response.set_cookie(
+                key="__session",
+                value=session_token,
+                httponly=True,
+                secure=request.url.scheme == "https",
+                samesite="lax",
+                max_age=60 * 60 * 24 * 7  # 7 days
+            )
+
+        return response
 
     return JSONResponse(
         status_code=401,
