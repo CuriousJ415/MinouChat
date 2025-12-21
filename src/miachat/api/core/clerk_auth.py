@@ -248,22 +248,37 @@ async def get_clerk_session_claims(request: Request) -> Optional[Dict[str, Any]]
         - Validates token expiration
         - Falls back to unverified decode only in development if JWKS unavailable
     """
-    # Get session token from cookie or Authorization header
-    session_token = request.cookies.get("__session")
+    # Get session token from Authorization header first (preferred), then cookie
+    # Bearer token is explicitly set by frontend and is likely fresher than cookie
+    session_token = None
+    token_source = None
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        session_token = auth_header[7:]
+        token_source = "bearer"
+
+    # Fall back to cookie if no Bearer token
     if not session_token:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            session_token = auth_header[7:]
+        session_token = request.cookies.get("__session")
+        token_source = "cookie"
 
     if not session_token:
         logger.warning(f"[AUTH] No session token for {request.method} {request.url.path} - cookies: {list(request.cookies.keys())}")
         return None
 
+    logger.info(f"[AUTH] Token received from {token_source} for {request.url.path}, length={len(session_token)}")
+
     jwks_client = _get_jwks_client()
+    logger.info(f"[AUTH] JWKS client available: {jwks_client is not None}")
+
+    # Check if we're in production mode
+    is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
     try:
         if jwks_client:
             # Production: Verify signature with JWKS
+            logger.warning(f"[AUTH] Token from {token_source} for {request.url.path}, verifying...")
             signing_key = jwks_client.get_signing_key_from_jwt(session_token)
             claims = jwt.decode(
                 session_token,
@@ -273,33 +288,47 @@ async def get_clerk_session_claims(request: Request) -> Optional[Dict[str, Any]]
                     "verify_signature": True,
                     "verify_exp": True,
                     "verify_iat": True,
-                }
+                },
+                # Allow 30 seconds of clock skew tolerance
+                leeway=30
             )
+            logger.warning(f"[AUTH] JWT verified for {request.url.path}, sub={claims.get('sub', 'N/A')}")
             return claims
         else:
-            # Development fallback: Log warning and decode without verification
-            # This should only happen if Clerk is misconfigured
-            logger.warning(
-                "JWKS client unavailable - decoding token without signature verification. "
-                "This is insecure and should only be used in development!"
-            )
-            claims = jwt.decode(
-                session_token,
-                options={"verify_signature": False}
-            )
-            return claims
+            # JWKS client unavailable
+            if is_production:
+                # SECURITY: Never skip verification in production
+                logger.error(
+                    "JWKS client unavailable in production - rejecting authentication. "
+                    "Check CLERK_PUBLISHABLE_KEY configuration."
+                )
+                return None
+            else:
+                # Development fallback only: Log warning and decode without verification
+                logger.warning(
+                    "JWKS client unavailable - decoding token without signature verification. "
+                    "This is insecure and only allowed in development mode!"
+                )
+                claims = jwt.decode(
+                    session_token,
+                    options={"verify_signature": False}
+                )
+                return claims
 
     except jwt.ExpiredSignatureError:
-        logger.debug("Clerk token expired")
+        logger.warning(f"[AUTH] Clerk token expired for {request.url.path}")
+        # Store error type in request state for better error responses
+        request.state.auth_error = "token_expired"
         return None
     except jwt.InvalidTokenError as e:
-        logger.debug(f"Invalid Clerk token: {e}")
+        logger.warning(f"[AUTH] Invalid Clerk token for {request.url.path}: {type(e).__name__}: {e}")
+        request.state.auth_error = "invalid_token"
         return None
     except PyJWKClientError as e:
-        logger.error(f"JWKS client error: {e}")
+        logger.error(f"[AUTH] JWKS client error for {request.url.path}: {e}")
         return None
     except Exception as e:
-        logger.error(f"Unexpected error verifying Clerk token: {e}")
+        logger.error(f"[AUTH] Unexpected error verifying Clerk token for {request.url.path}: {type(e).__name__}: {e}")
         return None
 
 
@@ -487,10 +516,17 @@ async def require_clerk_auth(
     """
     user = await get_current_user_from_session(request, db)
     if user is None:
+        # Get specific error type if available
+        auth_error = getattr(request.state, 'auth_error', 'no_session')
+        detail = {
+            "error": "Authentication required",
+            "error_code": auth_error,
+            "message": "Token expired - please refresh" if auth_error == "token_expired" else "Please log in"
+        }
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-            headers={"Location": "/auth/login"}
+            detail=detail,
+            headers={"Location": "/auth/login", "X-Auth-Error": auth_error}
         )
     return user
 

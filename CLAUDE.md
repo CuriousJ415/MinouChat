@@ -228,6 +228,37 @@ conn.close()
 "
 ```
 
+### Clerk Token Expiry (401 errors after ~60 seconds)
+
+**Problem:** API calls return 401 after the user has been on a page for ~60 seconds.
+
+**Cause:** Clerk uses short-lived JWT tokens (60-second TTL) by design. This is a security feature, not a bug.
+
+**Why 60 seconds?** Clerk's security model:
+- Limits exposure window if a token is stolen
+- Enables stateless verification (no database lookups)
+- Expects their SDK to handle automatic refresh
+
+**Industry comparison:**
+| Provider | Token TTL |
+|----------|-----------|
+| Clerk | 60s (aggressive) |
+| Auth0 | 24h (configurable) |
+| Firebase/Supabase | 1 hour |
+
+**Our solution (implemented in `chat/index.html`):**
+1. **Proactive refresh:** `session.touch()` runs every 45 seconds to keep tokens fresh
+2. **Retry on 401:** `authFetch()` automatically retries with a fresh token on 401
+3. **Graceful fallback:** Redirects to login if retry also fails
+
+**Key code locations:**
+- `src/miachat/api/templates/chat/index.html` - `authFetch()` and `startTokenRefresh()`
+- `src/miachat/api/core/clerk_auth.py` - 30-second leeway, error codes in response
+
+**Future considerations:**
+- If Clerk's 60s TTL causes issues, consider switching to session-based auth or Auth0 (configurable TTL)
+- The current solution works well for active sessions but requires Clerk SDK on every authenticated page
+
 ### OpenRouter 404 Errors
 
 **Problem:** Character configured with OpenRouter model returns 404 error.

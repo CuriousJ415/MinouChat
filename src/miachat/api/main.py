@@ -18,7 +18,7 @@ from .core.llm_client import llm_client
 from sqlalchemy.orm import Session
 from ..database.config import get_db
 from ..database.models import Base
-from .core.clerk_auth import require_session_auth, get_current_user_from_session
+from .core.clerk_auth import require_session_auth, get_current_user_from_session, get_clerk_publishable_key, is_clerk_configured
 from .core.settings_service import settings_service
 from .core.style_overrides import get_style_overrides
 from .core.conversation_service import conversation_service
@@ -86,12 +86,55 @@ class RateLimiter:
 
     Tracks request counts per IP address within a sliding time window.
     Production deployments should use Redis-backed rate limiting.
+
+    Includes automatic cleanup to prevent memory exhaustion from many unique IPs.
     """
 
-    def __init__(self, requests_per_window: int = 10, window_seconds: int = 60):
+    def __init__(self, requests_per_window: int = 10, window_seconds: int = 60, max_entries: int = 10000):
         self.requests_per_window = requests_per_window
         self.window_seconds = window_seconds
-        self.request_counts: Dict[str, List[float]] = defaultdict(list)
+        self.max_entries = max_entries
+        self.request_counts: Dict[str, List[float]] = {}
+        self._last_cleanup = time.time()
+
+    def _cleanup_stale_entries(self) -> None:
+        """
+        Remove expired entries and evict oldest if over max_entries.
+        Called periodically to prevent memory leaks.
+        """
+        now = time.time()
+        # Only cleanup every 60 seconds to reduce overhead
+        if now - self._last_cleanup < 60:
+            return
+
+        self._last_cleanup = now
+        window_start = now - self.window_seconds
+
+        # Remove expired timestamps and empty entries
+        self.request_counts = {
+            ip: [ts for ts in timestamps if ts > window_start]
+            for ip, timestamps in self.request_counts.items()
+        }
+        # Remove entries with no valid timestamps
+        self.request_counts = {
+            ip: timestamps
+            for ip, timestamps in self.request_counts.items()
+            if timestamps
+        }
+
+        # Evict oldest entries if over limit
+        if len(self.request_counts) > self.max_entries:
+            # Sort by most recent timestamp (keep most active IPs)
+            sorted_ips = sorted(
+                self.request_counts.keys(),
+                key=lambda ip: max(self.request_counts[ip]) if self.request_counts[ip] else 0
+            )
+            # Remove oldest entries
+            entries_to_remove = len(self.request_counts) - self.max_entries
+            for ip in sorted_ips[:entries_to_remove]:
+                del self.request_counts[ip]
+
+            logger.info(f"Rate limiter cleanup: removed {entries_to_remove} stale entries")
 
     def is_allowed(self, identifier: str) -> bool:
         """
@@ -106,7 +149,14 @@ class RateLimiter:
         now = time.time()
         window_start = now - self.window_seconds
 
-        # Clean old entries
+        # Periodic cleanup
+        self._cleanup_stale_entries()
+
+        # Initialize if new identifier
+        if identifier not in self.request_counts:
+            self.request_counts[identifier] = []
+
+        # Clean old entries for this identifier
         self.request_counts[identifier] = [
             ts for ts in self.request_counts[identifier]
             if ts > window_start
@@ -122,7 +172,7 @@ class RateLimiter:
 
     def get_retry_after(self, identifier: str) -> int:
         """Get seconds until rate limit resets for identifier."""
-        if not self.request_counts[identifier]:
+        if identifier not in self.request_counts or not self.request_counts[identifier]:
             return 0
         oldest = min(self.request_counts[identifier])
         retry_after = int(oldest + self.window_seconds - time.time())
@@ -222,6 +272,61 @@ def _resolve_model_config(character_model_config: Optional[Dict[str, Any]], user
     return config
 
 
+def _clean_dialogue_formatting(response: str, character_name: str) -> str:
+    """Remove dialogue script formatting from LLM responses.
+
+    Ensures responses are direct conversation rather than script-style output
+    with character labels or multi-turn dialogue.
+
+    Args:
+        response: Raw LLM response
+        character_name: Character name for pattern matching
+
+    Returns:
+        Cleaned response text
+    """
+    import re
+
+    if not response or not response.strip():
+        return response
+
+    original = response
+    cleaned = response
+
+    # Remove leading character label (e.g., "Name: Hello" -> "Hello")
+    cleaned = re.sub(
+        rf'^{re.escape(character_name)}\s*:\s*',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    # Remove multi-turn dialogue patterns - keep only the first response
+    # Matches patterns like "\n\nUser:" or "\n\nName:" that indicate script continuation
+    dialogue_split = re.split(
+        r'\n{2,}(?:User|Me|You|Human|\w+)\s*:',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    if len(dialogue_split) > 1:
+        cleaned = dialogue_split[0]
+
+    # Remove trailing incomplete dialogue labels
+    cleaned = re.sub(
+        rf'\n+{re.escape(character_name)}\s*:\s*$',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    cleaned = cleaned.strip()
+
+    if cleaned != original.strip():
+        logger.debug(f"Cleaned dialogue formatting from response")
+
+    return cleaned if cleaned else original
+
+
 # --- Fixed trait and comm style keys ---
 FIXED_TRAITS = [
     'Empathy',
@@ -242,6 +347,34 @@ FIXED_COMM_STYLES = [
     'Empathy',
     'Humor'
 ]
+
+
+def normalize_trait_values(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Normalize trait and communication style values.
+
+    - String values (e.g., "warm", "casual") are kept as-is
+    - Numeric values > 1.0 are normalized to 0-1 scale (assumes 0-10 input)
+    - Numeric values <= 1.0 are kept as floats
+
+    Args:
+        d: Dictionary of trait/style name to value
+
+    Returns:
+        Normalized dictionary or None if input is None/empty
+    """
+    if not d:
+        return d
+    norm = {}
+    for k, v in d.items():
+        if isinstance(v, str):
+            norm[k] = v
+        elif isinstance(v, (int, float)) and v > 1.0:
+            norm[k] = float(v) / 10.0
+        else:
+            norm[k] = float(v) if isinstance(v, (int, float)) else v
+    return norm
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -463,11 +596,13 @@ async def chat_page(request: Request, db = Depends(get_db)):
     categories = character_manager.get_categories()
     active_persona = None  # No active persona by default
     
-    return await render_template(request, "chat/index", 
-                                personas=characters, 
+    return await render_template(request, "chat/index",
+                                personas=characters,
                                 categories=categories,
                                 active_persona=active_persona,
-                                user=current_user)
+                                user=current_user,
+                                clerk_publishable_key=get_clerk_publishable_key(),
+                                clerk_configured=is_clerk_configured())
 
 @app.get("/characters")
 async def characters_page(request: Request, db = Depends(get_db)):
@@ -673,16 +808,16 @@ async def import_example_character(example_id: str, request: Request, db = Depen
         # Get current user
         current_user = await get_current_user_from_session(request, db)
         if not current_user:
-            return {"error": "Authentication required"}, 401
-        
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
         # Get request body for custom name
         body = await request.json() if request.method == "POST" else {}
         new_name = body.get("name")
-        
+
         # Import the example character
         character = character_manager.import_example_character(example_id, new_name)
         if not character:
-            return {"error": "Example character not found or import failed"}, 404
+            return JSONResponse(status_code=404, content={"error": "Example character not found or import failed"})
 
         return {
             "success": True,
@@ -693,7 +828,7 @@ async def import_example_character(example_id: str, request: Request, db = Depen
         
     except Exception as e:
         logger.error(f"Error importing example character: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/characters")
 async def list_characters():
@@ -705,7 +840,7 @@ async def get_character(character_id: str):
     """Get a specific character card."""
     character = character_manager.get_character(character_id)
     if not character:
-        return {"error": "Character not found"}, 404
+        return JSONResponse(status_code=404, content={"error": "Character not found"})
     return character
 
 @app.post("/api/characters")
@@ -713,25 +848,11 @@ async def create_character(request: CharacterCreateRequest):
     """Create a new character card."""
     character_data = request.dict()
 
-    # Normalize traits and communication_style
-    def normalize_dict(d):
-        if not d:
-            return d
-        norm = {}
-        for k, v in d.items():
-            # If value is a string (e.g., "warm", "casual"), keep it as-is
-            if isinstance(v, str):
-                norm[k] = v
-            # If numeric and > 1.0, normalize to 0-1 scale
-            elif isinstance(v, (int, float)) and v > 1.0:
-                norm[k] = float(v) / 10.0
-            else:
-                norm[k] = float(v) if isinstance(v, (int, float)) else v
-        return norm
+    # Normalize traits and communication_style using shared helper
     if 'traits' in character_data:
-        character_data['traits'] = normalize_dict(character_data['traits'])
+        character_data['traits'] = normalize_trait_values(character_data['traits'])
     if 'communication_style' in character_data:
-        character_data['communication_style'] = normalize_dict(character_data['communication_style'])
+        character_data['communication_style'] = normalize_trait_values(character_data['communication_style'])
 
     # Handle different data formats for model config
     if 'llm_model_config' in character_data and character_data['llm_model_config']:
@@ -757,7 +878,7 @@ async def create_character(request: CharacterCreateRequest):
 
     character = character_manager.create_character(character_data)
     if not character:
-        return {"error": "Failed to create character"}, 400
+        return JSONResponse(status_code=400, content={"error": "Failed to create character"})
 
     return {
         "character": character,
@@ -770,32 +891,18 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
     try:
         character = character_manager.get_character(character_id)
         if not character:
-            return {"error": "Character not found"}, 404
+            return JSONResponse(status_code=404, content={"error": "Character not found"})
         update_data = {k: v for k, v in request.dict().items() if v is not None}
-        # Normalize traits and communication_style
-        def normalize_dict(d):
-            if not d:
-                return d
-            norm = {}
-            for k, v in d.items():
-                # If value is a string (e.g., "warm", "casual"), keep it as-is
-                if isinstance(v, str):
-                    norm[k] = v
-                # If numeric and > 1.0, normalize to 0-1 scale
-                elif isinstance(v, (int, float)) and v > 1.0:
-                    norm[k] = float(v) / 10.0
-                else:
-                    norm[k] = float(v) if isinstance(v, (int, float)) else v
-            return norm
+        # Normalize traits and communication_style using shared helper
         if 'traits' in update_data:
-            update_data['traits'] = normalize_dict(update_data['traits'])
+            update_data['traits'] = normalize_trait_values(update_data['traits'])
         if 'communication_style' in update_data:
-            update_data['communication_style'] = normalize_dict(update_data['communication_style'])
+            update_data['communication_style'] = normalize_trait_values(update_data['communication_style'])
         if 'llm_config' in update_data:
             update_data['model_config'] = update_data.pop('llm_config')
         updated_character = character_manager.update_character(character_id, update_data)
         if not updated_character:
-            return {"error": "Failed to update character"}, 400
+            return JSONResponse(status_code=400, content={"error": "Failed to update character"})
 
         return {
             "message": "Character updated successfully",
@@ -804,7 +911,7 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
         }
     except Exception as e:
         logger.error(f"Error updating character: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/api/characters/{character_id}")
 async def delete_character(character_id: str, db = Depends(get_db)):
@@ -812,7 +919,7 @@ async def delete_character(character_id: str, db = Depends(get_db)):
     # Delete the character file
     success = character_manager.delete_character(character_id)
     if not success:
-        return {"error": "Character not found"}, 404
+        return JSONResponse(status_code=404, content={"error": "Character not found"})
 
     # Delete all conversations and memories for this character
     try:
@@ -921,15 +1028,15 @@ async def get_conversation_history_endpoint(session_id: str, request: Request, d
         # Get current user
         current_user = await get_current_user_from_session(request, db)
         if not current_user:
-            return {"error": "Authentication required"}, 401
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
 
         session = conversation_service.get_session(session_id, db)
         if not session:
-            return {"error": "Session not found"}, 404
+            return JSONResponse(status_code=404, content={"error": "Session not found"})
 
         # Check if user owns this session
         if str(session.get("user_id")) != str(current_user.id):
-            return {"error": "Access denied"}, 403
+            return JSONResponse(status_code=403, content={"error": "Access denied"})
 
         history = conversation_service.get_conversation_history(session_id, limit=50, db=db)
 
@@ -944,7 +1051,7 @@ async def get_conversation_history_endpoint(session_id: str, request: Request, d
 
     except Exception as e:
         logger.error(f"Error getting conversation history: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/conversations/recent")
 async def get_recent_conversations(request: Request, limit: int = 5, db = Depends(get_db)):
@@ -1134,6 +1241,12 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
 
         # Add system prompt (always)
         system_prompt_text = character.get('system_prompt') or character.get('persona', 'You are a helpful AI assistant.')
+
+        # Add response formatting guidelines to ensure direct, conversational responses
+        character_name = character.get('name', 'Assistant')
+        system_prompt_text += f"""
+
+RESPONSE FORMAT: Respond directly in first person as {character_name}. Do not use dialogue labels, character names followed by colons, or script formatting. Provide only your single response to the user."""
 
         # Add style overrides (only for styles that differ from category defaults)
         try:
@@ -1337,6 +1450,9 @@ You should be proactive about offering to create documents when it would be help
             model_config=model_config
         )
 
+        # Clean any dialogue script formatting from the response
+        response = _clean_dialogue_formatting(response, character_name)
+
         # Save messages to database
         conversation_service.save_message(session_id, "user", request.message, db)
         conversation_service.save_message(session_id, "assistant", response, db)
@@ -1346,16 +1462,42 @@ You should be proactive about offering to create documents when it would be help
             # Only extract from substantive exchanges (message > 20 chars)
             if len(request.message) >= 20:
                 import asyncio
+
+                # Create a background task with its own database session
+                # to avoid using the request's session which will be closed
+                async def background_fact_extraction(
+                    user_message: str,
+                    assistant_response: str,
+                    user_id: int,
+                    character_id: str,
+                    conversation_id: str
+                ):
+                    """Run fact extraction with a dedicated database session."""
+                    from ..database.config import db_config
+                    bg_db = db_config.get_session()
+                    try:
+                        await fact_extraction_service.extract_facts_from_message(
+                            user_message=user_message,
+                            assistant_response=assistant_response,
+                            user_id=user_id,
+                            character_id=character_id,
+                            conversation_id=conversation_id,
+                            message_id=None,
+                            db=bg_db
+                        )
+                    except Exception as ex:
+                        logger.warning(f"Background fact extraction failed: {ex}")
+                    finally:
+                        bg_db.close()
+
                 # Run fact extraction in background (non-blocking)
                 asyncio.create_task(
-                    fact_extraction_service.extract_facts_from_message(
+                    background_fact_extraction(
                         user_message=request.message,
                         assistant_response=response,
                         user_id=current_user.id,
                         character_id=request.character_id,
-                        conversation_id=session_id,
-                        message_id=None,  # No specific message ID for now
-                        db=db
+                        conversation_id=session_id
                     )
                 )
                 logger.debug(f"Triggered fact extraction for conversation {session_id}")
@@ -1496,7 +1638,7 @@ async def chat_with_document(
         # Get current user
         current_user = await get_current_user_from_session(request_obj, db)
         if not current_user:
-            return {"error": "Authentication required"}, 401
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
 
         # Process uploaded document if present
         uploaded_document = None
@@ -1545,7 +1687,7 @@ async def chat_with_document(
                     # Don't fail the entire request if assignment fails
             else:
                 logger.error(f"Document upload failed: {upload_result.get('error')}")
-                return {"error": f"Document upload failed: {upload_result.get('error')}"}, 400
+                return JSONResponse(status_code=400, content={"error": f"Document upload failed: {upload_result.get('error')}"})
 
         # Create ChatRequest object for reuse of existing logic
         chat_request = ChatRequest(
@@ -1558,7 +1700,7 @@ async def chat_with_document(
         # Get character
         character = character_manager.get_character(chat_request.character_id)
         if not character:
-            return {"error": "Character not found"}, 404
+            return JSONResponse(status_code=404, content={"error": "Character not found"})
 
         # Handle session management (same as original chat endpoint)
         session_id = chat_request.session_id
@@ -1799,7 +1941,7 @@ You should be proactive about offering to create documents when it would be help
 
     except Exception as e:
         logger.error(f"Error in chat with document: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/suggest_system_prompt")
 async def suggest_system_prompt(request: Request, db: Session = Depends(get_db)):
@@ -1922,8 +2064,8 @@ async def get_llm_settings(request: Request, db = Depends(get_db)):
     """Get current LLM settings for the authenticated user."""
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
-        return {"error": "Authentication required"}, 401
-    
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
     config = settings_service.get_llm_config(current_user.id, db)
     
     # Create a secure copy without sensitive data for return
@@ -1939,15 +2081,15 @@ async def update_llm_settings(request: LLMConfigRequest, request_obj: Request, d
     """Update LLM settings for the authenticated user."""
     current_user = await get_current_user_from_session(request_obj, db)
     if not current_user:
-        return {"error": "Authentication required"}, 401
-    
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
     config = request.dict()
     success = settings_service.update_llm_config(current_user.id, db, config)
-    
+
     if success:
         return {"success": True, "message": "Settings updated successfully"}
     else:
-        return {"success": False, "error": "Failed to update settings"}, 400
+        return JSONResponse(status_code=400, content={"success": False, "error": "Failed to update settings"})
 
 @app.get("/api/settings/llm/models")
 async def get_llm_models(provider: str):
@@ -2061,7 +2203,7 @@ async def get_user_settings(request: Request, db = Depends(get_db)):
     """Get all user settings for the authenticated user."""
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
-        return {"error": "Authentication required"}, 401
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
 
     settings = settings_service.get_user_settings(current_user.id, db)
     if not settings:
@@ -2081,15 +2223,15 @@ async def update_user_settings(request: Request, db = Depends(get_db)):
     """Update user settings for the authenticated user."""
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
-        return {"error": "Authentication required"}, 401
-    
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
     data = await request.json()
     settings = settings_service.update_user_settings(current_user.id, db, **data)
-    
+
     if settings:
         return {"success": True, "message": "Settings updated successfully"}
     else:
-        return {"success": False, "error": "Failed to update settings"}, 400
+        return JSONResponse(status_code=400, content={"success": False, "error": "Failed to update settings"})
 
 if __name__ == "__main__":
     import uvicorn

@@ -778,7 +778,129 @@
 
     <script src="{{ url_for('static', path='js/theme.js') }}"></script>
 
+    {% if clerk_configured %}
+    <!-- Clerk SDK for session token management -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    {% endif %}
+
     <script>
+        // Wait for Clerk to be ready
+        let clerkReady = false;
+        let clerkReadyPromise = new Promise((resolve) => {
+            if (window.Clerk) {
+                window.Clerk.load().then(() => {
+                    clerkReady = true;
+                    resolve();
+                }).catch(() => resolve());
+            } else {
+                // Wait for Clerk script to load
+                const checkClerk = setInterval(() => {
+                    if (window.Clerk) {
+                        clearInterval(checkClerk);
+                        window.Clerk.load().then(() => {
+                            clerkReady = true;
+                            resolve();
+                        }).catch(() => resolve());
+                    }
+                }, 100);
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    clearInterval(checkClerk);
+                    resolve();
+                }, 5000);
+            }
+        });
+
+        // Get fresh token from Clerk
+        async function getFreshToken() {
+            if (window.Clerk && window.Clerk.session) {
+                try {
+                    // Force refresh to get a new token
+                    return await window.Clerk.session.getToken();
+                } catch (e) {
+                    console.warn('Could not get Clerk token:', e);
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // Authenticated fetch helper - refreshes token if needed and retries on 401
+        async function authFetch(url, options = {}, retried = false) {
+            // Wait for Clerk to be ready (with timeout)
+            await Promise.race([clerkReadyPromise, new Promise(r => setTimeout(r, 2000))]);
+
+            // Get a fresh token from Clerk if available
+            const token = await getFreshToken();
+            if (token) {
+                options.headers = options.headers || {};
+                options.headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(url, options);
+
+            // If 401 and we haven't retried yet, get a fresh token and retry
+            if (response.status === 401 && !retried) {
+                // Check if token was specifically expired
+                const authError = response.headers.get('X-Auth-Error');
+                console.log('Got 401, error type:', authError, '- refreshing token and retrying...');
+
+                // Touch the session to ensure token refresh
+                if (window.Clerk && window.Clerk.session) {
+                    try {
+                        await window.Clerk.session.touch();
+                    } catch (e) {
+                        console.warn('Session touch failed:', e);
+                        // If touch fails, session might be invalid - redirect to login
+                        if (authError !== 'token_expired') {
+                            window.location.href = '/auth/login';
+                            return response;
+                        }
+                    }
+                }
+                // Retry with fresh token
+                return authFetch(url, { ...options, headers: {} }, true);
+            }
+
+            // If still 401 after retry, redirect to login
+            if (response.status === 401 && retried) {
+                console.error('Authentication failed after retry, redirecting to login');
+                window.location.href = '/auth/login';
+            }
+
+            return response;
+        }
+
+        // Proactive token refresh - keep the session alive
+        let tokenRefreshInterval = null;
+        function startTokenRefresh() {
+            if (tokenRefreshInterval) return;
+            // Refresh every 45 seconds (Clerk tokens expire at 60s)
+            tokenRefreshInterval = setInterval(async () => {
+                if (window.Clerk && window.Clerk.session) {
+                    try {
+                        await window.Clerk.session.touch();
+                        console.log('Session refreshed proactively');
+                    } catch (e) {
+                        console.warn('Proactive session refresh failed:', e);
+                    }
+                }
+            }, 45000);
+        }
+
+        // Start proactive refresh when Clerk is ready
+        clerkReadyPromise.then(() => {
+            if (window.Clerk && window.Clerk.session) {
+                startTokenRefresh();
+            }
+        });
+
         // Initialize Lucide
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -801,7 +923,7 @@
 
         // Initialize if character_id present
         if (currentCharacterId) {
-            fetch(`/api/characters/${currentCharacterId}`)
+            authFetch(`/api/characters/${currentCharacterId}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data && !data.error) {
@@ -828,7 +950,7 @@
         // Fetch and display a personalized greeting
         async function showPersonalizedGreeting(characterId, fallbackName) {
             try {
-                const response = await fetch(`/api/characters/${characterId}/greeting`);
+                const response = await authFetch(`/api/characters/${characterId}/greeting`);
                 if (response.ok) {
                     const data = await response.json();
                     addMessage('assistant', data.greeting);
@@ -946,10 +1068,10 @@
             chatHistory = [];
         }
 
-        function loadExistingConversation() {
+        async function loadExistingConversation() {
             if (!currentSessionId) return;
 
-            fetch(`/api/conversations/${currentSessionId}/history`)
+            authFetch(`/api/conversations/${currentSessionId}/history`)
                 .then(r => r.json())
                 .then(data => {
                     if (data && !data.error && data.character_id === currentCharacterId) {
@@ -1101,7 +1223,7 @@
                     })
                 };
 
-            fetch(endpoint, options)
+            authFetch(endpoint, options)
                 .then(r => r.json())
                 .then(data => {
                     removeTypingIndicator();
@@ -1220,7 +1342,7 @@
             container.innerHTML = '<p class="text-muted text-center"><span class="spinner spinner-sm"></span> Loading...</p>';
 
             try {
-                const r = await fetch(`/api/documents/characters/${currentCharacterId}/documents`);
+                const r = await authFetch(`/api/documents/characters/${currentCharacterId}/documents`);
                 const data = await r.json();
 
                 if (r.ok && data.documents?.length) {

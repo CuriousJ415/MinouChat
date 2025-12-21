@@ -504,14 +504,41 @@
         async function syncAndContinue() {
             const signInEl = document.getElementById('clerk-sign-in');
             try {
-                // Get the session token from Clerk
-                const token = await window.Clerk.session.getToken();
-                if (!token) {
-                    console.error('No session token available');
-                    showSyncError('Session expired. Please sign in again.');
-                    return;
+                // Force Clerk to refresh the session if needed
+                // This handles the case where OAuth callback provides a short-lived token
+                if (window.Clerk.session) {
+                    try {
+                        // Touch the session to ensure token is fresh
+                        await window.Clerk.session.touch();
+                    } catch (e) {
+                        console.log('Session touch skipped:', e.message);
+                    }
                 }
 
+                // Get a fresh session token from Clerk
+                // Pass skipCache option to force a fresh token
+                const token = await window.Clerk.session?.getToken();
+                if (!token) {
+                    console.error('No session token available');
+                    // Try to get token again after a brief delay
+                    await new Promise(r => setTimeout(r, 500));
+                    const retryToken = await window.Clerk.session?.getToken();
+                    if (!retryToken) {
+                        showSyncError('Session expired. Please sign in again.');
+                        return;
+                    }
+                    return syncWithToken(retryToken);
+                }
+
+                return syncWithToken(token);
+            } catch (error) {
+                console.error('Sync error:', error);
+                showSyncError('Connection error. Please try again.');
+            }
+        }
+
+        async function syncWithToken(token) {
+            try {
                 // Sync with server
                 const response = await fetch('/auth/sync', {
                     method: 'POST',
@@ -524,11 +551,31 @@
                 if (response.ok) {
                     window.location.href = '/dashboard';
                 } else {
-                    console.error('Sync failed:', await response.text());
+                    const text = await response.text();
+                    console.error('Sync failed:', text);
+                    // If auth failed, try once more with a fresh token
+                    if (response.status === 401) {
+                        console.log('Retrying with fresh token...');
+                        await new Promise(r => setTimeout(r, 1000));
+                        const freshToken = await window.Clerk.session?.getToken();
+                        if (freshToken && freshToken !== token) {
+                            const retryResponse = await fetch('/auth/sync', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${freshToken}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            if (retryResponse.ok) {
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                        }
+                    }
                     showSyncError('Authentication failed. Please try again.');
                 }
             } catch (error) {
-                console.error('Sync error:', error);
+                console.error('Sync request error:', error);
                 showSyncError('Connection error. Please try again.');
             }
         }
