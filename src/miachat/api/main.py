@@ -1658,10 +1658,21 @@ You should be proactive about offering to create documents when it would be help
                     character_id: str,
                     conversation_id: str
                 ):
-                    """Run fact extraction with a dedicated database session."""
+                    """Run fact deletion check and extraction with a dedicated database session."""
                     from ..database.config import db_config
                     bg_db = db_config.get_session()
                     try:
+                        # First, check if user wants to delete/correct a fact
+                        deleted_facts = await fact_extraction_service.delete_facts_from_message(
+                            user_message=user_message,
+                            user_id=user_id,
+                            character_id=character_id,
+                            db=bg_db
+                        )
+                        if deleted_facts:
+                            logger.info(f"Deleted {len(deleted_facts)} facts via chat correction")
+
+                        # Then extract new facts
                         await fact_extraction_service.extract_facts_from_message(
                             user_message=user_message,
                             assistant_response=assistant_response,
@@ -1699,12 +1710,22 @@ You should be proactive about offering to create documents when it would be help
             if category.lower() in ['assistant', 'coach'] and len(request.message) >= 10:
                 from .core.sidebar_extraction_service import sidebar_extraction_service
 
+                # Get recent conversation context for "add this to todo" style requests
+                conversation_context = []
+                if enhanced_context:
+                    recent = enhanced_context.get('recent_interactions', [])
+                    conversation_context = [
+                        {'role': msg.get('role', 'user'), 'content': msg.get('content', '')}
+                        for msg in recent[-6:]  # Last 6 messages
+                    ]
+
                 extractions = await sidebar_extraction_service.process_message(
                     message=request.message,
                     user_id=current_user.id,
                     character_id=request.character_id,
                     category=category,
-                    db=db
+                    db=db,
+                    conversation_context=conversation_context
                 )
 
                 # Only include if something was extracted

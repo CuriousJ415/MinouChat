@@ -849,7 +849,7 @@ class EnhancedContextService:
         # ============================================
         if user_facts:
             facts_content = []
-            facts_content.append("[What you know about the user - use naturally in conversation]")
+            facts_content.append("[Background info about user - reference ONLY when directly relevant to what they're asking. Do NOT bring up unsolicited or repeatedly. If user says something isn't true, believe them immediately and stop referencing it.]")
 
             # Sort facts by recency and confidence
             sorted_facts = sorted(

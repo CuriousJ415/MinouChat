@@ -1168,9 +1168,14 @@
                             <i data-lucide="check-square" style="width: 16px; height: 16px;"></i>
                             Todo List
                         </h4>
-                        <button class="btn btn-ghost btn-sm" onclick="addTodoInline()" title="Add todo">
-                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
-                        </button>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-ghost btn-sm" onclick="exportTodos()" title="Export/Print">
+                                <i data-lucide="printer" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-sm" onclick="addTodoInline()" title="Add todo">
+                                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="todo-list" id="todoList">
                         <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
@@ -2009,6 +2014,31 @@
             }
         }
 
+        function exportTodos() {
+            if (!currentTodos || currentTodos.length === 0) {
+                showToast('No todos to export', 'error');
+                return;
+            }
+
+            // Build simple text content
+            const personaName = document.getElementById('currentPersonaName')?.textContent || 'Todo';
+            let text = personaName + ' Todo List\n';
+            text += new Date().toLocaleDateString() + '\n\n';
+
+            currentTodos.forEach(function(todo) {
+                const check = todo.is_completed ? '[x]' : '[ ]';
+                text += check + ' ' + todo.text + '\n';
+            });
+
+            // Download as text file
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'todo-list.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
         // ===== Life Areas Functions =====
         async function loadLifeAreas(characterId) {
             try {
@@ -2521,12 +2551,12 @@
                                 let toastMsg = '';
                                 if (todoCount > 0) {
                                     toastMsg = `Added ${todoCount} todo${todoCount > 1 ? 's' : ''} to your list`;
-                                    loadTodos(); // Refresh sidebar
+                                    if (currentCharacterId) loadTodos(currentCharacterId); // Refresh sidebar
                                 }
                                 if (lifeAreaCount > 0) {
                                     if (toastMsg) toastMsg += ' | ';
                                     toastMsg += `Updated ${lifeAreaCount} life area${lifeAreaCount > 1 ? 's' : ''}`;
-                                    loadLifeAreas(); // Refresh sidebar
+                                    if (currentCharacterId) loadLifeAreas(currentCharacterId); // Refresh sidebar
                                 }
 
                                 // Simple toast (reusing LLM banner temporarily)

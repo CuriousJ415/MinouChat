@@ -32,6 +32,38 @@ FACT_TYPES = {
     'other': 'Other notable facts'
 }
 
+# Patterns for detecting fact deletion/correction intent
+FACT_DELETION_PATTERNS = [
+    r'\b(forget|remove|delete|erase|clear)\b.*(that|about|memory|fact)',
+    r'\bthat\'?s?\s+(not|isn\'?t)\s+(true|right|correct|accurate)',
+    r'\bi\s+(wasn\'?t|didn\'?t|never|don\'?t)\b',
+    r'\b(stop|quit)\s+(thinking|saying|mentioning|bringing up)',
+    r'\b(you\'?re|that\'?s)\s+wrong\s+about',
+    r'\bno,?\s+i\s+(didn\'?t|wasn\'?t|never|don\'?t)',
+    r'\bactually,?\s+(i|that)\s+(didn\'?t|wasn\'?t|never)',
+    r'\bplease\s+(forget|stop|remove)',
+]
+
+# Prompt for fact deletion - identifies which facts to remove
+FACT_DELETION_PROMPT = """You are a fact management system. The user wants to correct or remove incorrect information you have about them.
+
+KNOWN FACTS ABOUT USER:
+{known_facts}
+
+USER'S CORRECTION: "{user_message}"
+
+TASK: Identify which facts should be DELETED based on the user's correction.
+
+Return a JSON array of fact IDs to delete. Example: [5, 12]
+If no facts match, return: []
+
+RULES:
+- Only delete facts the user explicitly says are wrong
+- Match the user's correction to specific facts above
+- Return fact IDs only, nothing else
+
+JSON ARRAY:"""
+
 # Prompt for fact extraction - optimized for consistent JSON output
 # Note: Double braces {{ }} are used to escape literal braces in .format() strings
 FACT_EXTRACTION_PROMPT = """You are a fact extraction system. Analyze this conversation and extract personal facts about the user.
@@ -354,6 +386,144 @@ class FactExtractionService:
 
         return True
 
+    def should_check_deletion(self, message: str) -> bool:
+        """Check if message might contain a fact correction/deletion request."""
+        message_lower = message.lower()
+        for pattern in FACT_DELETION_PATTERNS:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                return True
+        return False
+
+    async def delete_facts_from_message(
+        self,
+        user_message: str,
+        user_id: int,
+        character_id: str,
+        db: Session
+    ) -> List[Dict[str, Any]]:
+        """
+        Use LLM to identify and delete facts the user says are incorrect.
+
+        Args:
+            user_message: The user's message containing the correction
+            user_id: User ID
+            character_id: Character ID
+            db: Database session
+
+        Returns:
+            List of deleted facts
+        """
+        if not self.should_check_deletion(user_message):
+            return []
+
+        try:
+            # Get current facts for this user/character
+            facts = self.get_user_facts(user_id, character_id, db, use_cache=False)
+
+            if not facts:
+                logger.debug("No facts to delete")
+                return []
+
+            # Format facts for the prompt
+            facts_list = "\n".join([
+                f"ID {f['id']}: {f['fact_key']} = {f['fact_value']}"
+                for f in facts
+            ])
+
+            prompt = FACT_DELETION_PROMPT.format(
+                known_facts=facts_list,
+                user_message=user_message[:500]
+            )
+
+            # Use LLM to identify which facts to delete
+            messages = [{"role": "user", "content": prompt}]
+            model_config = {
+                'provider': 'ollama',
+                'model': 'llama3.1:latest',
+                'temperature': 0.0,
+                'max_tokens': 100,
+            }
+
+            response = llm_client.generate_response_with_config(
+                messages=messages,
+                system_prompt="You identify facts to delete and return JSON arrays only.",
+                model_config=model_config
+            )
+
+            logger.debug(f"Fact deletion raw response: {response}")
+
+            # Parse the response to get fact IDs
+            fact_ids = self._parse_deletion_response(response)
+
+            if not fact_ids:
+                return []
+
+            # Delete the identified facts
+            deleted_facts = []
+            for fact_id in fact_ids:
+                # Find the fact details before deleting
+                fact_info = next((f for f in facts if f['id'] == fact_id), None)
+                if fact_info and self.delete_fact(fact_id, user_id, db):
+                    deleted_facts.append(fact_info)
+                    logger.info(f"Deleted fact via chat: {fact_info['fact_key']} = {fact_info['fact_value']}")
+
+            return deleted_facts
+
+        except Exception as e:
+            logger.error(f"Error deleting facts from message: {e}")
+            return []
+
+    def _parse_deletion_response(self, response: str) -> List[int]:
+        """Parse LLM response to extract fact IDs to delete."""
+        if not response:
+            return []
+
+        try:
+            response = response.strip()
+
+            # Handle empty responses
+            if response in ['[]', '[ ]', 'null', 'None', '']:
+                return []
+
+            # Try direct JSON parse
+            if response.startswith('['):
+                bracket_count = 0
+                end_idx = 0
+                for i, char in enumerate(response):
+                    if char == '[':
+                        bracket_count += 1
+                    elif char == ']':
+                        bracket_count -= 1
+                        if bracket_count == 0:
+                            end_idx = i + 1
+                            break
+                if end_idx > 0:
+                    ids = json.loads(response[:end_idx])
+                    return [int(i) for i in ids if isinstance(i, (int, float))]
+
+            # Try to find array in markdown
+            code_match = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])\s*```', response)
+            if code_match:
+                ids = json.loads(code_match.group(1))
+                return [int(i) for i in ids if isinstance(i, (int, float))]
+
+            # Try to find any array
+            array_match = re.search(r'\[[\d,\s]*\]', response)
+            if array_match:
+                ids = json.loads(array_match.group(0))
+                return [int(i) for i in ids if isinstance(i, (int, float))]
+
+            # Try to find individual numbers
+            numbers = re.findall(r'\b(\d+)\b', response)
+            if numbers and len(numbers) <= 5:  # Safety limit
+                return [int(n) for n in numbers]
+
+            return []
+
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Failed to parse deletion IDs: {e}")
+            return []
+
     def create_fact(
         self,
         user_id: int,
@@ -436,7 +606,7 @@ class FactExtractionService:
         if not facts:
             return ""
 
-        lines = ["[What you know about the user - use naturally in conversation]"]
+        lines = ["[Background info about user - reference ONLY when directly relevant. Do NOT bring up unsolicited. If user contradicts, believe them.]"]
 
         for fact in facts:
             # Format: "- user_name: Jason" or "- favorite_color: blue"

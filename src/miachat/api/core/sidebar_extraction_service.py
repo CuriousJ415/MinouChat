@@ -32,6 +32,15 @@ class SidebarExtractionService:
         r'\bi should\b',
         r'\bi have to\b',
         r'\bi\'?ve got to\b',
+        r'\badd\s+(this|these|that|those)\s+to\s+(my\s+)?(?:to.?do|task|list)',  # "add this to my todo"
+        r'\bplease\s+add\s+(this|these|that|those|it)\b',  # "please add this/these"
+        r'\bput\s+(this|these|that|those)\s+on\s+(my\s+)?(?:to.?do|task|list)',  # "put this on my list"
+        r'\bcan you add\b.*(?:to.?do|task|list)',  # "can you add X to my todo"
+    ]
+
+    # Patterns that indicate reference to previous context
+    CONTEXT_REFERENCE_PATTERNS = [
+        r'\b(this|these|that|those|it)\b',
     ]
 
     # Trigger phrases for life area extraction
@@ -75,12 +84,21 @@ class SidebarExtractionService:
                 return True
         return False
 
+    def _references_context(self, message: str) -> bool:
+        """Check if message references previous conversation context."""
+        message_lower = message.lower()
+        for pattern in self.CONTEXT_REFERENCE_PATTERNS:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                return True
+        return False
+
     async def extract_todos(
         self,
         message: str,
         user_id: int,
         character_id: str,
-        db: Session
+        db: Session,
+        conversation_context: Optional[List[Dict[str, str]]] = None
     ) -> List[Dict[str, Any]]:
         """Extract todo items from a message using LLM.
 
@@ -89,6 +107,7 @@ class SidebarExtractionService:
             user_id: User ID for saving todos
             character_id: Character ID for context
             db: Database session
+            conversation_context: Recent conversation messages for context
 
         Returns:
             List of created todo items
@@ -99,25 +118,56 @@ class SidebarExtractionService:
         try:
             llm = self._get_llm_client()
 
-            extraction_prompt = f"""Extract any todo items or tasks from this message.
-Return a JSON array of objects with:
-- "text": The task description (brief, actionable)
-- "priority": 1 (high), 2 (medium), or 3 (low) based on urgency
+            # Check if message references previous context
+            needs_context = self._references_context(message)
 
-Only extract clear, actionable tasks. If no tasks found, return empty array [].
+            # Build context string from recent messages
+            context_str = ""
+            if needs_context and conversation_context:
+                recent_user_messages = [
+                    msg['content'] for msg in conversation_context
+                    if msg.get('role') == 'user' and msg.get('content') != message
+                ][-3:]  # Last 3 user messages
+                if recent_user_messages:
+                    context_str = "\n\nPREVIOUS USER MESSAGES (extract tasks from these):\n" + "\n".join(
+                        f"- \"{msg}\"" for msg in recent_user_messages
+                    )
 
-Message: "{message}"
+            # Build a more explicit prompt when context is needed
+            if needs_context and context_str:
+                extraction_prompt = f"""The user said: "{message}"
 
-Return only valid JSON array, nothing else."""
+This means they want to add tasks to their todo list from their previous messages.
+{context_str}
 
-            result = await llm.chat(
+Extract the ACTUAL TASKS from the previous messages above. Do NOT extract "this", "these", "those" - extract what they actually need to do.
+
+Return a JSON array. Example format:
+[{{"text": "Buy groceries from Costco", "priority": 2}}, {{"text": "Pick up dry cleaning", "priority": 3}}]
+
+Rules:
+- Extract specific, actionable tasks from the context above
+- Each task should be a clear action item
+- priority: 1=urgent, 2=normal, 3=low
+- If no tasks found, return []
+
+Return ONLY the JSON array, nothing else."""
+            else:
+                extraction_prompt = f"""Extract todo items from this message:
+"{message}"
+
+Return a JSON array of tasks. Example: [{{"text": "Buy milk", "priority": 2}}]
+priority: 1=urgent, 2=normal, 3=low
+
+Return ONLY the JSON array, nothing else."""
+
+            # LLMClient.generate_response is synchronous
+            response_text = llm.generate_response(
                 messages=[{"role": "user", "content": extraction_prompt}],
-                model="llama3.1:8b",  # Use fast local model
+                model="llama3.1:latest",  # Use better model for context understanding
                 temperature=0.1,
-                max_tokens=500
-            )
-
-            response_text = result.get('response', '').strip()
+                max_tokens=800
+            ).strip()
 
             # Try to extract JSON from response
             todos_data = self._parse_json_array(response_text)
@@ -184,14 +234,13 @@ Message: "{message}"
 
 Return only valid JSON array, nothing else."""
 
-            result = await llm.chat(
+            # LLMClient.generate_response is synchronous
+            response_text = llm.generate_response(
                 messages=[{"role": "user", "content": extraction_prompt}],
                 model="llama3.1:8b",  # Use fast local model
                 temperature=0.1,
                 max_tokens=300
-            )
-
-            response_text = result.get('response', '').strip()
+            ).strip()
 
             # Try to extract JSON from response
             ratings_data = self._parse_json_array(response_text)
@@ -267,7 +316,8 @@ Return only valid JSON array, nothing else."""
         user_id: int,
         character_id: str,
         category: str,
-        db: Session
+        db: Session,
+        conversation_context: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """Process a message for sidebar extractions based on character category.
 
@@ -277,6 +327,7 @@ Return only valid JSON array, nothing else."""
             character_id: Character ID
             category: Character category ('Coach', 'Assistant', etc.)
             db: Database session
+            conversation_context: Recent conversation messages for context
 
         Returns:
             Dictionary with extracted items
@@ -289,7 +340,7 @@ Return only valid JSON array, nothing else."""
         # Extract todos for Assistant category
         if category and category.lower() == 'assistant':
             extractions['todos'] = await self.extract_todos(
-                message, user_id, character_id, db
+                message, user_id, character_id, db, conversation_context
             )
 
         # Extract life areas for Coach category
