@@ -48,6 +48,13 @@
         font-size: var(--text-lg);
         font-weight: var(--font-semibold);
         flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .persona-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
 
     .persona-info {
@@ -171,7 +178,11 @@
         <div class="persona-card" data-persona-id="{{ persona.id }}">
             <div class="persona-header">
                 <div class="persona-avatar">
+                    {% if persona.avatar_url %}
+                    <img src="{{ persona.avatar_url }}?t={{ persona.updated_at|default('') }}" alt="{{ persona.name }}">
+                    {% else %}
                     {{ persona.name[0]|upper }}
+                    {% endif %}
                 </div>
                 <div class="persona-info">
                     <div class="persona-name">{{ persona.name }}</div>
