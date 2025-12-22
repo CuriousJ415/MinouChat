@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .todo_service import todo_service
 from .life_area_service import life_area_service
+from .tracking_service import tracking_service
 from .llm_client import LLMClient
 from ...database.models import LIFE_AREAS
 
@@ -59,6 +60,45 @@ class SidebarExtractionService:
         r'\b\d+\s*(?:out\s+of\s+10|/10)\s*(?:for|on)\s+\w+',
     ]
 
+    # Trigger phrases for goal extraction
+    GOAL_TRIGGERS = [
+        r'\blet\'?s\s+set\s+a\s+goal\b',
+        r'\bi\s+want\s+to\s+(?:start|begin)\s+(?:a\s+)?goal\b',
+        r'\bmy\s+goal\s+is\s+to\b',
+        r'\bhelp\s+me\s+(?:set|track|create)\s+(?:a\s+)?goal\b',
+        # Flexible number patterns with optional currency/units
+        r'\bi\s+want\s+to\s+(?:lose|gain|save|read|run|write|exercise|earn|make|finish|complete)\s+[\$£€]?\d+',
+        r'\bi\s+want\s+to\s+save\s+(?:money|up|for)\b',  # "I want to save money", "I want to save up"
+        r'\bi\s+want\s+to\s+lose\s+(?:weight|some)\b',  # "I want to lose weight"
+        r'\bby\s+(?:the\s+end\s+of|next)\s+(?:month|week|year)',
+        r'\bi\'?m\s+going\s+to\s+achieve\b',
+        r'\bset\s+(?:a\s+)?goal\s+(?:to|for)\b',
+        r'\b(?:set|make|add)\s+(?:this|that|it)\s+(?:as\s+)?(?:a\s+|my\s+)?goal\b',
+        r'\badd\s+(?:this|that|it)\s+to\s+(?:my\s+)?goals?\b',
+        r'\b(?:create|make|set)\s+(?:a\s+)?goal\b',
+        r'\btrack\s+(?:this|that|it)\s+as\s+a\s+goal\b',
+        r'\b(?:every|each)\s+day\s+for\s+\d+\s+(?:days?|weeks?)\b',
+        r'\bfor\s+(?:the\s+)?next\s+\d+\s+(?:days?|weeks?|months?)\b',
+        r'\bgoal\s+to\s+\w+',  # "goal to write", "goal to save"
+        r'\bplease\s+(?:make|create|set|add)\s+(?:a\s+)?goal\b',
+        r'\bnew\s+goal\b',  # "new goal"
+        r'\bgoal\s*:\s*\w+',  # "goal: save money"
+        r'\bgoal\b.*\d+',  # any message with "goal" and a number
+    ]
+
+    # Trigger phrases for habit extraction
+    HABIT_TRIGGERS = [
+        r'\bi\s+want\s+to\s+(?:start|build|develop)\s+(?:a\s+)?habit\b',
+        r'\bhelp\s+me\s+(?:track|create|start)\s+(?:a\s+)?habit\b',
+        r'\bi\s+want\s+to\s+do\s+.+\s+every\s+day\b',
+        r'\bdaily\s+(?:habit|practice|routine)\b',
+        r'\bweekly\s+(?:habit|practice|routine)\b',
+        r'\bi\s+want\s+to\s+make\s+.+\s+a\s+habit\b',
+        r'\bi\s+should\s+.+\s+every\s+(?:day|morning|evening|night)\b',
+        r'\btrack\s+(?:my\s+)?(?:daily|weekly)\b',
+        r'\bstart\s+(?:a\s+)?(?:daily|weekly)\s+\w+\s+habit\b',
+    ]
+
     def __init__(self):
         self.llm_client = None
 
@@ -80,6 +120,23 @@ class SidebarExtractionService:
         """Check if message might contain life area ratings."""
         message_lower = message.lower()
         for pattern in self.LIFE_AREA_TRIGGERS:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                return True
+        return False
+
+    def should_extract_goals(self, message: str) -> bool:
+        """Check if message might contain goal statements."""
+        message_lower = message.lower()
+        for pattern in self.GOAL_TRIGGERS:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                logger.info(f"Goal trigger matched: '{pattern}'")
+                return True
+        return False
+
+    def should_extract_habits(self, message: str) -> bool:
+        """Check if message might contain habit statements."""
+        message_lower = message.lower()
+        for pattern in self.HABIT_TRIGGERS:
             if re.search(pattern, message_lower, re.IGNORECASE):
                 return True
         return False
@@ -278,6 +335,205 @@ Return only valid JSON array, nothing else."""
             logger.error(f"Error extracting life areas: {str(e)}")
             return []
 
+    async def extract_goals(
+        self,
+        message: str,
+        user_id: int,
+        character_id: str,
+        db: Session,
+        conversation_context: Optional[List[Dict[str, str]]] = None
+    ) -> List[Dict[str, Any]]:
+        """Extract goal statements from a message using LLM.
+
+        Args:
+            message: User message to extract from
+            user_id: User ID for saving goals
+            character_id: Character ID for context
+            db: Database session
+            conversation_context: Recent conversation messages for context
+
+        Returns:
+            List of created goal items
+        """
+        if not self.should_extract_goals(message):
+            return []
+
+        try:
+            llm = self._get_llm_client()
+
+            # Check if message references previous context (this, that, it)
+            needs_context = self._references_context(message)
+
+            # Build context string from recent messages
+            context_str = ""
+            if needs_context and conversation_context:
+                recent_messages = [
+                    f"- {msg.get('role', 'user')}: \"{msg.get('content', '')}\""
+                    for msg in conversation_context[-6:]
+                    if msg.get('content') and msg.get('content') != message
+                ]
+                if recent_messages:
+                    context_str = "\n\nPREVIOUS CONVERSATION (extract the goal from this context):\n" + "\n".join(recent_messages)
+
+            if needs_context and context_str:
+                extraction_prompt = f"""The user said: "{message}"
+
+This means they want to create a goal based on something mentioned in the previous conversation.
+{context_str}
+
+Extract the ACTUAL GOAL from the context above. Do NOT extract "this", "that", "it" - extract the specific goal they discussed.
+
+Return a JSON array of goals. Example:
+[{{"title": "Write a short essay every day for 10 days", "description": "Daily writing practice", "target_value": 10, "unit": "days", "category": "personal", "priority": 2, "goal_type": "completion"}}]
+
+Rules:
+- title: Clear, actionable goal statement (required)
+- description: Brief explanation (optional)
+- target_value: Numeric target if mentioned (optional)
+- unit: Unit of measurement (optional)
+- goal_type: "completion" for daily/repeated tasks (X days, X times), "numeric" for measurable amounts ($, lbs, miles)
+- category: health, career, finance, personal, education, relationships (optional)
+- priority: 1=high, 2=medium, 3=low (default 2)
+- If no goals found, return []
+
+Return ONLY the JSON array, nothing else."""
+            else:
+                extraction_prompt = f"""Extract goal information from this message:
+"{message}"
+
+Return a JSON array of goals. Example for numeric goal:
+[{{"title": "Save $5000 for vacation", "target_value": 5000, "unit": "$", "category": "finance", "goal_type": "numeric"}}]
+
+Example for completion goal (daily tasks):
+[{{"title": "Write daily for 10 days", "target_value": 10, "unit": "days", "category": "personal", "goal_type": "completion"}}]
+
+Rules:
+- title: Clear, actionable goal statement (required)
+- description: Brief explanation (optional)
+- target_value: Numeric target if mentioned (optional)
+- unit: Unit of measurement ($, lbs, miles, days, times, etc.) (optional)
+- goal_type: "completion" for daily/repeated tasks (X days, X times, every day for X), "numeric" for measurable amounts ($, lbs, miles)
+- category: health, career, finance, personal, education, relationships (optional)
+- priority: 1=high, 2=medium, 3=low (default 2)
+- If no goals found, return []
+
+Return ONLY the JSON array, nothing else."""
+
+            response_text = llm.generate_response(
+                messages=[{"role": "user", "content": extraction_prompt}],
+                model="llama3.1:latest",
+                temperature=0.1,
+                max_tokens=500
+            ).strip()
+
+            goals_data = self._parse_json_array(response_text)
+
+            if not goals_data:
+                return []
+
+            created_goals = []
+            for goal_data in goals_data:
+                if not goal_data.get('title'):
+                    continue
+
+                goal = tracking_service.create_goal(
+                    user_id=user_id,
+                    character_id=character_id,
+                    title=goal_data['title'][:200],
+                    description=goal_data.get('description'),
+                    target_value=goal_data.get('target_value'),
+                    unit=goal_data.get('unit'),
+                    category=goal_data.get('category'),
+                    priority=min(max(goal_data.get('priority', 2), 1), 3),
+                    db=db
+                )
+                created_goals.append(goal)
+                logger.info(f"Extracted goal: {goal_data['title'][:50]}...")
+
+            return created_goals
+
+        except Exception as e:
+            logger.error(f"Error extracting goals: {str(e)}")
+            return []
+
+    async def extract_habits(
+        self,
+        message: str,
+        user_id: int,
+        character_id: str,
+        db: Session,
+        conversation_context: Optional[List[Dict[str, str]]] = None
+    ) -> List[Dict[str, Any]]:
+        """Extract habit statements from a message using LLM.
+
+        Args:
+            message: User message to extract from
+            user_id: User ID for saving habits
+            character_id: Character ID for context
+            db: Database session
+            conversation_context: Recent conversation messages for context
+
+        Returns:
+            List of created habit items
+        """
+        if not self.should_extract_habits(message):
+            return []
+
+        try:
+            llm = self._get_llm_client()
+
+            extraction_prompt = f"""Extract habit information from this message:
+"{message}"
+
+Return a JSON array of habits. Example:
+[{{"title": "Meditate for 10 minutes", "description": "Morning mindfulness practice", "frequency": "daily", "target_per_period": 1}}]
+
+Rules:
+- title: Clear, actionable habit name (required)
+- description: Brief explanation (optional)
+- frequency: "daily" or "weekly" (default "daily")
+- frequency_days: For weekly, array like ["mon", "wed", "fri"] (optional)
+- target_per_period: Times per day/week to do it (default 1)
+- If no habits found, return []
+
+Return ONLY the JSON array, nothing else."""
+
+            response_text = llm.generate_response(
+                messages=[{"role": "user", "content": extraction_prompt}],
+                model="llama3.1:latest",
+                temperature=0.1,
+                max_tokens=500
+            ).strip()
+
+            habits_data = self._parse_json_array(response_text)
+
+            if not habits_data:
+                return []
+
+            created_habits = []
+            for habit_data in habits_data:
+                if not habit_data.get('title'):
+                    continue
+
+                habit = tracking_service.create_habit(
+                    user_id=user_id,
+                    character_id=character_id,
+                    title=habit_data['title'][:200],
+                    description=habit_data.get('description'),
+                    frequency=habit_data.get('frequency', 'daily'),
+                    frequency_days=habit_data.get('frequency_days'),
+                    target_per_period=habit_data.get('target_per_period', 1),
+                    db=db
+                )
+                created_habits.append(habit)
+                logger.info(f"Extracted habit: {habit_data['title'][:50]}...")
+
+            return created_habits
+
+        except Exception as e:
+            logger.error(f"Error extracting habits: {str(e)}")
+            return []
+
     def _parse_json_array(self, text: str) -> Optional[List[Dict]]:
         """Parse JSON array from text, handling markdown code blocks."""
         # Try direct parse first
@@ -334,8 +590,12 @@ Return only valid JSON array, nothing else."""
         """
         extractions = {
             'todos': [],
-            'life_areas': []
+            'life_areas': [],
+            'goals': [],
+            'habits': []
         }
+
+        logger.info(f"Processing message for extractions. Category: {category}")
 
         # Extract todos for Assistant category
         if category and category.lower() == 'assistant':
@@ -347,6 +607,15 @@ Return only valid JSON array, nothing else."""
         if category and category.lower() == 'coach':
             extractions['life_areas'] = await self.extract_life_areas(
                 message, user_id, character_id, db
+            )
+
+        # Extract goals and habits for Coach and Assistant categories
+        if category and category.lower() in ('coach', 'assistant'):
+            extractions['goals'] = await self.extract_goals(
+                message, user_id, character_id, db, conversation_context
+            )
+            extractions['habits'] = await self.extract_habits(
+                message, user_id, character_id, db, conversation_context
             )
 
         return extractions

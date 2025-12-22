@@ -589,6 +589,8 @@ class ChatResponse(BaseModel):
     llm_message: Optional[str] = None  # Info message about LLM being used
     # Sidebar document extractions
     sidebar_extractions: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    # Interactive tracking cards for display in chat
+    tracking_cards: Optional[List[Dict[str, Any]]] = None
 
 class CharacterCreateRequest(BaseModel):
     name: str
@@ -1741,10 +1743,13 @@ You should be proactive about offering to create documents when it would be help
                 )
 
                 # Only include if something was extracted
-                if extractions.get('todos') or extractions.get('life_areas'):
+                if (extractions.get('todos') or extractions.get('life_areas') or
+                    extractions.get('goals') or extractions.get('habits')):
                     sidebar_extractions = extractions
                     logger.info(f"Sidebar extractions: {len(extractions.get('todos', []))} todos, "
-                              f"{len(extractions.get('life_areas', []))} life areas")
+                              f"{len(extractions.get('life_areas', []))} life areas, "
+                              f"{len(extractions.get('goals', []))} goals, "
+                              f"{len(extractions.get('habits', []))} habits")
         except Exception as e:
             # Don't fail the chat if sidebar extraction fails
             logger.warning(f"Sidebar extraction hook failed: {e}")
@@ -1770,7 +1775,50 @@ You should be proactive about offering to create documents when it would be help
         })
         
         logger.info(f"Generated response for {character['name']}: {response[:100]}...")
-        
+
+        # Build tracking cards from sidebar extractions
+        tracking_cards = None
+        if sidebar_extractions:
+            tracking_cards = []
+            for goal in sidebar_extractions.get('goals', []):
+                progress = 0
+                if goal.get('target_value') and goal.get('current_value'):
+                    progress = min(100, int((goal['current_value'] / goal['target_value']) * 100))
+                # Detect completion-based goals (daily check-in style)
+                unit = (goal.get('unit') or '').lower()
+                completion_units = ['days', 'day', 'times', 'sessions', 'workouts', 'entries', 'essays']
+                goal_type = 'completion' if unit in completion_units else 'numeric'
+                tracking_cards.append({
+                    'type': 'goal',
+                    'id': goal.get('id'),
+                    'title': goal.get('title', ''),
+                    'target_value': goal.get('target_value'),
+                    'unit': goal.get('unit'),
+                    'current_value': goal.get('current_value', 0),
+                    'progress': progress,
+                    'goal_type': goal_type
+                })
+            for habit in sidebar_extractions.get('habits', []):
+                tracking_cards.append({
+                    'type': 'habit',
+                    'id': habit.get('id'),
+                    'title': habit.get('title', ''),
+                    'frequency': habit.get('frequency', 'daily'),
+                    'streak': habit.get('current_streak', 0),
+                    'completed_today': habit.get('completed_today', False)
+                })
+            for todo in sidebar_extractions.get('todos', []):
+                tracking_cards.append({
+                    'type': 'todo',
+                    'id': todo.get('id'),
+                    'text': todo.get('text', ''),
+                    'priority': todo.get('priority', 2),
+                    'is_completed': todo.get('is_completed', False)
+                })
+            # Don't return empty list
+            if not tracking_cards:
+                tracking_cards = None
+
         return ChatResponse(
             response=response,
             character_name=character['name'],
@@ -1788,7 +1836,9 @@ You should be proactive about offering to create documents when it would be help
             using_default_llm=using_default_llm,
             llm_message=llm_message,
             # Sidebar document extractions
-            sidebar_extractions=sidebar_extractions
+            sidebar_extractions=sidebar_extractions,
+            # Interactive tracking cards
+            tracking_cards=tracking_cards
         )
         
     except Exception as e:

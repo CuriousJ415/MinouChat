@@ -397,9 +397,62 @@
         .goal-meta {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-top: var(--space-1);
             font-size: var(--text-xs);
             color: var(--text-muted);
+        }
+
+        .goal-item.completed {
+            opacity: 0.6;
+        }
+
+        .goal-item.completed .goal-progress-fill {
+            background: var(--pop-success);
+        }
+
+        .goal-delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px;
+            opacity: 0;
+            transition: opacity var(--transition-fast), color var(--transition-fast);
+        }
+
+        .goal-item:hover .goal-delete-btn {
+            opacity: 1;
+        }
+
+        .goal-delete-btn:hover {
+            color: var(--pop-danger);
+        }
+
+        .sidebar-goal-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            font-size: var(--text-xs);
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar-goal-btn:hover:not(:disabled) {
+            background: var(--pop-primary);
+            border-color: var(--pop-primary);
+            color: white;
+        }
+
+        .sidebar-goal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         /* Habits List Styles */
@@ -1041,6 +1094,158 @@
 
         .message.user .message-sender {
             text-align: right;
+        }
+
+        /* Tracking Cards in Chat */
+        .tracking-cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+            max-width: 400px;
+        }
+
+        .tracking-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            transition: border-color var(--transition-fast);
+        }
+
+        .tracking-card:hover {
+            border-color: var(--border-strong);
+        }
+
+        .tracking-card-goal {
+            border-left: 3px solid var(--pop-primary);
+        }
+
+        .tracking-card-habit {
+            border-left: 3px solid var(--pop-success);
+        }
+
+        .tracking-card-todo {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .tracking-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-2);
+        }
+
+        .tracking-card-type {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tracking-card-dismiss {
+            padding: var(--space-1);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity var(--transition-fast), color var(--transition-fast);
+        }
+
+        .tracking-card:hover .tracking-card-dismiss {
+            opacity: 1;
+        }
+
+        .tracking-card-dismiss:hover {
+            color: var(--pop-danger);
+        }
+
+        .tracking-card-title {
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+            line-height: 1.4;
+        }
+
+        .tracking-card-progress {
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            margin-bottom: var(--space-1);
+            overflow: hidden;
+        }
+
+        .tracking-card-progress-bar {
+            height: 100%;
+            background: var(--pop-primary);
+            transition: width var(--transition-normal);
+        }
+
+        .tracking-card-progress-text {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            margin-bottom: var(--space-2);
+        }
+
+        .tracking-card-streak {
+            font-size: var(--text-xs);
+            color: #f59e0b;
+            margin-bottom: var(--space-2);
+        }
+
+        .tracking-card-actions {
+            display: flex;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+
+        .tracking-card-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+            padding: var(--space-1) var(--space-2);
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .tracking-card-btn:hover {
+            background: var(--pop-primary);
+            border-color: var(--pop-primary);
+            color: white;
+        }
+
+        .tracking-card-btn.completed {
+            background: var(--pop-success);
+            border-color: var(--pop-success);
+            color: white;
+        }
+
+        .tracking-card-btn-secondary {
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+        .tracking-card-btn-secondary:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--border-strong);
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .tracking-cards-container {
+                max-width: 100%;
+            }
         }
 
         /* Chat Input */
@@ -1898,7 +2103,181 @@
         // Initialize Lucide
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Event delegation for tracking card actions
+            document.getElementById('chatContainer').addEventListener('click', async (e) => {
+                const actionBtn = e.target.closest('[data-action]');
+                if (!actionBtn) return;
+
+                const action = actionBtn.dataset.action;
+                const type = actionBtn.dataset.type;
+                const id = actionBtn.dataset.id;
+
+                try {
+                    switch (action) {
+                        case 'complete-todo':
+                            await handleToggleTodo(id, actionBtn);
+                            break;
+                        case 'complete-habit':
+                            await handleCompleteHabit(id, actionBtn);
+                            break;
+                        case 'log-progress':
+                            await handleLogGoalProgress(id, actionBtn);
+                            break;
+                        case 'check-in-goal':
+                            await handleCheckInGoal(id, actionBtn);
+                            break;
+                        case 'view-in-sidebar':
+                            handleViewInSidebar(type);
+                            break;
+                        case 'dismiss':
+                            actionBtn.closest('.tracking-card').remove();
+                            break;
+                    }
+                } catch (error) {
+                    console.error('Tracking card action failed:', error);
+                }
+            });
         });
+
+        // Tracking card action handlers
+        async function handleToggleTodo(todoId, btn) {
+            const response = await authFetch(`/api/tracking/todos/${todoId}/toggle`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                const card = btn.closest('.tracking-card');
+                if (card) {
+                    card.classList.add('completed');
+                    btn.innerHTML = '<i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> Done';
+                    btn.classList.add('completed');
+                    btn.disabled = true;
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+                if (currentCharacterId) loadTodos(currentCharacterId);
+            }
+        }
+
+        async function handleCompleteHabit(habitId, btn) {
+            const response = await authFetch(`/api/tracking/habits/${habitId}/complete`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const card = btn.closest('.tracking-card');
+                if (card) {
+                    btn.innerHTML = '<i data-lucide="check" style="width: 14px; height: 14px;"></i> Done Today';
+                    btn.classList.add('completed');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                    // Update streak display
+                    if (data.current_streak > 0) {
+                        let streakEl = card.querySelector('.tracking-card-streak');
+                        if (!streakEl) {
+                            streakEl = document.createElement('div');
+                            streakEl.className = 'tracking-card-streak';
+                            card.querySelector('.tracking-card-title').after(streakEl);
+                        }
+                        streakEl.textContent = `🔥 ${data.current_streak} day streak`;
+                    }
+                }
+                if (currentCharacterId) loadHabits(currentCharacterId);
+            }
+        }
+
+        async function handleLogGoalProgress(goalId, btn) {
+            const value = prompt('Enter progress value:');
+            if (!value) return;
+
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                alert('Please enter a valid number');
+                return;
+            }
+
+            const response = await authFetch(`/api/tracking/goals/${goalId}/progress`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value_change: numValue })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                updateGoalCardProgress(btn, data);
+                if (currentCharacterId) loadGoals(currentCharacterId);
+            }
+        }
+
+        async function handleCheckInGoal(goalId, btn) {
+            // Simple +1 check-in for completion-based goals
+            const response = await authFetch(`/api/tracking/goals/${goalId}/progress`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value_change: 1 })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                updateGoalCardProgress(btn, data);
+
+                // Show brief success feedback
+                btn.innerHTML = '<i data-lucide="check" style="width: 14px; height: 14px;"></i> Checked In!';
+                btn.classList.add('completed');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                // Reset button after delay
+                setTimeout(() => {
+                    btn.innerHTML = '<i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> Check In (+1)';
+                    btn.classList.remove('completed');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }, 2000);
+
+                if (currentCharacterId) loadGoals(currentCharacterId);
+            }
+        }
+
+        function updateGoalCardProgress(btn, data) {
+            const card = btn.closest('.tracking-card');
+            if (card) {
+                const progressBar = card.querySelector('.tracking-card-progress-bar');
+                const progressText = card.querySelector('.tracking-card-progress-text');
+                const progress = data.target_value ? Math.min(100, Math.round((data.current_value / data.target_value) * 100)) : 0;
+
+                if (progressBar) {
+                    progressBar.style.width = `${progress}%`;
+                }
+                if (progressText) {
+                    progressText.textContent = `${Math.floor(data.current_value || 0)}${data.target_value ? ` / ${data.target_value}` : ''} ${data.unit || ''} (${progress}%)`;
+                }
+
+                // Check if goal is complete
+                if (data.target_value && data.current_value >= data.target_value) {
+                    card.classList.add('completed');
+                }
+            }
+        }
+
+        function handleViewInSidebar(type) {
+            const sectionMap = {
+                'goal': 'goalsSection',
+                'habit': 'habitsSection',
+                'todo': 'todoSection'
+            };
+
+            const section = document.getElementById(sectionMap[type]);
+            if (section) {
+                // Expand section if collapsed
+                const header = section.querySelector('.collapsible-header');
+                if (header && header.classList.contains('collapsed')) {
+                    header.click();
+                }
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Brief highlight
+                section.style.boxShadow = '0 0 0 2px var(--pop-primary)';
+                setTimeout(() => section.style.boxShadow = '', 1500);
+            }
+        }
 
         // State
         let currentCharacterId = new URLSearchParams(window.location.search).get('character_id');
@@ -2194,6 +2573,105 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Tracking card rendering functions
+        function renderTrackingCards(cards) {
+            if (!cards || cards.length === 0) return '';
+
+            return `
+                <div class="tracking-cards-container">
+                    ${cards.map(card => renderSingleCard(card)).join('')}
+                </div>
+            `;
+        }
+
+        function renderSingleCard(card) {
+            const typeIcons = {
+                goal: 'target',
+                habit: 'repeat',
+                todo: 'check-square'
+            };
+
+            const typeLabels = {
+                goal: 'Goal',
+                habit: 'Habit',
+                todo: 'Todo'
+            };
+
+            let progressHtml = '';
+            let actionsHtml = '';
+
+            if (card.type === 'goal') {
+                const progress = card.progress || 0;
+                const isCompletion = card.goal_type === 'completion';
+
+                progressHtml = `
+                    <div class="tracking-card-progress">
+                        <div class="tracking-card-progress-bar" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="tracking-card-progress-text">
+                        ${Math.floor(card.current_value || 0)}${card.target_value ? ` / ${card.target_value}` : ''} ${card.unit || ''} (${progress}%)
+                    </div>
+                `;
+
+                if (isCompletion) {
+                    // Daily check-in style button
+                    actionsHtml = `
+                        <button class="tracking-card-btn" data-action="check-in-goal" data-type="goal" data-id="${card.id}">
+                            <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+                            Check In (+1)
+                        </button>
+                    `;
+                } else {
+                    // Numeric progress entry
+                    actionsHtml = `
+                        <button class="tracking-card-btn" data-action="log-progress" data-type="goal" data-id="${card.id}">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                            Log Progress
+                        </button>
+                    `;
+                }
+            } else if (card.type === 'habit') {
+                progressHtml = card.streak > 0 ? `<div class="tracking-card-streak">🔥 ${card.streak} day streak</div>` : '';
+                actionsHtml = `
+                    <button class="tracking-card-btn ${card.completed_today ? 'completed' : ''}"
+                            data-action="complete-habit" data-type="habit" data-id="${card.id}">
+                        <i data-lucide="${card.completed_today ? 'check' : 'circle'}" style="width: 14px; height: 14px;"></i>
+                        ${card.completed_today ? 'Done Today' : 'Mark Done'}
+                    </button>
+                `;
+            } else if (card.type === 'todo') {
+                actionsHtml = `
+                    <button class="tracking-card-btn" data-action="complete-todo" data-type="todo" data-id="${card.id}">
+                        <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                        Complete
+                    </button>
+                `;
+            }
+
+            return `
+                <div class="tracking-card tracking-card-${card.type}" data-card-id="${card.id}" data-card-type="${card.type}">
+                    <div class="tracking-card-header">
+                        <div class="tracking-card-type">
+                            <i data-lucide="${typeIcons[card.type]}" style="width: 14px; height: 14px;"></i>
+                            ${typeLabels[card.type]}
+                        </div>
+                        <button class="tracking-card-dismiss" data-action="dismiss" data-id="${card.id}" title="Dismiss">
+                            <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+                        </button>
+                    </div>
+                    <div class="tracking-card-title">${escapeHtml(card.title || card.text || '')}</div>
+                    ${progressHtml}
+                    <div class="tracking-card-actions">
+                        ${actionsHtml}
+                        <button class="tracking-card-btn tracking-card-btn-secondary" data-action="view-in-sidebar" data-type="${card.type}">
+                            <i data-lucide="sidebar" style="width: 14px; height: 14px;"></i>
+                            View in Sidebar
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         // Update the edit persona link with the current character ID
@@ -2680,26 +3158,92 @@
 
             container.innerHTML = currentGoals.map(goal => {
                 const progress = goal.progress_percentage || 0;
+                const unit = (goal.unit || '').toLowerCase();
+                const completionUnits = ['days', 'day', 'times', 'sessions', 'workouts', 'entries', 'essays'];
+                const isCompletion = completionUnits.includes(unit);
                 const progressText = goal.target_value
-                    ? `${goal.current_value || 0}/${goal.target_value} ${goal.unit || ''}`
+                    ? `${Math.floor(goal.current_value || 0)} / ${goal.target_value} ${goal.unit || ''}`
                     : `${Math.round(progress)}%`;
-                const dueDate = goal.target_date ? new Date(goal.target_date).toLocaleDateString() : '';
+                const isComplete = goal.status === 'completed' || (goal.target_value && goal.current_value >= goal.target_value);
+
+                const actionButton = isCompletion
+                    ? `<button class="sidebar-goal-btn" onclick="event.stopPropagation(); checkInGoal(${goal.id})" ${isComplete ? 'disabled' : ''}>
+                           <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> +1
+                       </button>`
+                    : `<button class="sidebar-goal-btn" onclick="event.stopPropagation(); logGoalProgress(${goal.id})" ${isComplete ? 'disabled' : ''}>
+                           <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Log
+                       </button>`;
 
                 return `
-                    <div class="goal-item" onclick="showGoalDetails(${goal.id})">
+                    <div class="goal-item ${isComplete ? 'completed' : ''}" data-goal-id="${goal.id}">
                         <div class="goal-header">
                             <span class="goal-title">${escapeHtml(goal.title)}</span>
+                            <button class="goal-delete-btn" onclick="event.stopPropagation(); deleteGoal(${goal.id})" title="Delete">
+                                <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+                            </button>
                         </div>
                         <div class="goal-progress-bar">
                             <div class="goal-progress-fill" style="width: ${Math.min(100, progress)}%"></div>
                         </div>
                         <div class="goal-meta">
-                            <span>${progressText}</span>
-                            ${dueDate ? `<span>Due: ${dueDate}</span>` : ''}
+                            <span>${progressText} (${Math.round(progress)}%)</span>
+                            ${actionButton}
                         </div>
                     </div>
                 `;
             }).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function checkInGoal(goalId) {
+            try {
+                const response = await authFetch(`/api/tracking/goals/${goalId}/progress`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value_change: 1 })
+                });
+                if (response.ok) {
+                    await loadGoals(currentCharacterId);
+                }
+            } catch (e) {
+                console.error('Check-in failed:', e);
+            }
+        }
+
+        async function logGoalProgress(goalId) {
+            const value = prompt('Enter progress to add:');
+            if (!value) return;
+
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                alert('Please enter a valid number');
+                return;
+            }
+
+            try {
+                const response = await authFetch(`/api/tracking/goals/${goalId}/progress`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value_change: numValue })
+                });
+                if (response.ok) {
+                    await loadGoals(currentCharacterId);
+                }
+            } catch (e) {
+                console.error('Log progress failed:', e);
+            }
+        }
+
+        async function deleteGoal(goalId) {
+            if (!confirm('Delete this goal?')) return;
+
+            try {
+                await authFetch(`/api/tracking/goals/${goalId}`, { method: 'DELETE' });
+                await loadGoals(currentCharacterId);
+            } catch (e) {
+                console.error('Delete failed:', e);
+            }
         }
 
         function showAddGoalModal() {
@@ -2731,43 +3275,6 @@
             }
         }
 
-        async function showGoalDetails(goalId) {
-            const goal = currentGoals.find(g => g.id === goalId);
-            if (!goal) return;
-
-            const action = prompt(
-                `${goal.title}\nProgress: ${goal.current_value || 0}/${goal.target_value || '?'} ${goal.unit || ''}\n\n` +
-                `Enter progress to add (e.g., +5), or type "complete" to mark done, "delete" to remove:`
-            );
-
-            if (!action) return;
-
-            if (action.toLowerCase() === 'delete') {
-                await deleteGoal(goalId);
-            } else if (action.toLowerCase() === 'complete') {
-                await updateGoal(goalId, { status: 'completed' });
-            } else {
-                const value = parseFloat(action.replace('+', ''));
-                if (!isNaN(value)) {
-                    await logGoalProgress(goalId, value);
-                }
-            }
-        }
-
-        async function logGoalProgress(goalId, value) {
-            try {
-                await authFetch(`/api/tracking/goals/${goalId}/progress`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ value_change: value })
-                });
-                await loadGoals(currentCharacterId);
-                showToast('Progress updated!', 'success');
-            } catch (e) {
-                showToast('Failed to update progress', 'error');
-            }
-        }
-
         async function updateGoal(goalId, updates) {
             try {
                 await authFetch(`/api/tracking/goals/${goalId}`, {
@@ -2779,16 +3286,6 @@
                 showToast('Goal updated!', 'success');
             } catch (e) {
                 showToast('Failed to update goal', 'error');
-            }
-        }
-
-        async function deleteGoal(goalId) {
-            try {
-                await authFetch(`/api/tracking/goals/${goalId}`, { method: 'DELETE' });
-                await loadGoals(currentCharacterId);
-                showToast('Goal deleted', 'success');
-            } catch (e) {
-                showToast('Failed to delete goal', 'error');
             }
         }
 
@@ -3353,29 +3850,48 @@
                             content += `<div class="document-analysis"><strong>Sources:</strong><div style="margin-top: var(--space-2);">${renderSources(data.sources)}</div></div>`;
                         }
 
+                        // Add tracking cards if present
+                        if (data.tracking_cards?.length > 0) {
+                            content += renderTrackingCards(data.tracking_cards);
+                        }
+
                         addMessage('assistant', content);
 
-                        // Handle sidebar extractions (todos, life areas)
+                        // Refresh Lucide icons for any new tracking cards
+                        if (data.tracking_cards?.length > 0 && typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+
+                        // Handle sidebar extractions (todos, life areas, goals, habits)
                         if (data.sidebar_extractions) {
                             const extractions = data.sidebar_extractions;
                             const todoCount = extractions.todos?.length || 0;
                             const lifeAreaCount = extractions.life_areas?.length || 0;
+                            const goalCount = extractions.goals?.length || 0;
+                            const habitCount = extractions.habits?.length || 0;
 
-                            if (todoCount > 0 || lifeAreaCount > 0) {
+                            if (todoCount > 0 || lifeAreaCount > 0 || goalCount > 0 || habitCount > 0) {
                                 // Show toast notification
-                                let toastMsg = '';
+                                let toastParts = [];
                                 if (todoCount > 0) {
-                                    toastMsg = `Added ${todoCount} todo${todoCount > 1 ? 's' : ''} to your list`;
+                                    toastParts.push(`${todoCount} todo${todoCount > 1 ? 's' : ''}`);
                                     if (currentCharacterId) loadTodos(currentCharacterId); // Refresh sidebar
                                 }
+                                if (goalCount > 0) {
+                                    toastParts.push(`${goalCount} goal${goalCount > 1 ? 's' : ''}`);
+                                    if (currentCharacterId) loadGoals(currentCharacterId); // Refresh sidebar
+                                }
+                                if (habitCount > 0) {
+                                    toastParts.push(`${habitCount} habit${habitCount > 1 ? 's' : ''}`);
+                                    if (currentCharacterId) loadHabits(currentCharacterId); // Refresh sidebar
+                                }
                                 if (lifeAreaCount > 0) {
-                                    if (toastMsg) toastMsg += ' | ';
-                                    toastMsg += `Updated ${lifeAreaCount} life area${lifeAreaCount > 1 ? 's' : ''}`;
+                                    toastParts.push(`${lifeAreaCount} life area${lifeAreaCount > 1 ? 's' : ''}`);
                                     if (currentCharacterId) loadLifeAreas(currentCharacterId); // Refresh sidebar
                                 }
 
                                 // Simple toast (reusing LLM banner temporarily)
-                                console.log('Sidebar extraction:', toastMsg);
+                                console.log('Sidebar extraction: Added', toastParts.join(', '));
                             }
                         }
 

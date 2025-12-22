@@ -11,8 +11,8 @@ Phased feature rollout to improve chat experience and enable persona capabilitie
 | 1 | Chat History Library | ✅ COMPLETE |
 | 2a | Export Functionality | ✅ COMPLETE |
 | 2b | Per-Persona Tracking | ✅ COMPLETE |
-| 3 | Interactive Documents | 🔜 NEXT |
-| 4 | Web Search (DuckDuckGo) | Planned |
+| 3 | Interactive Documents | ✅ COMPLETE |
+| 4 | Web Search (DuckDuckGo) | 🔜 NEXT |
 | 5 | Google Calendar + Reminders | Planned |
 
 ---
@@ -49,6 +49,19 @@ Phased feature rollout to improve chat experience and enable persona capabilitie
   - `src/miachat/database/models.py` - New tracking models
   - `src/miachat/api/core/enhanced_context_service.py` - Tracking context injection
   - `src/miachat/api/templates/chat/index.html` - Sidebar UI panels
+
+### Phase 3: Interactive Documents ✅
+- Persona auto-extracts goals and habits from chat messages using LLM
+- Interactive tracking cards displayed in chat messages
+- Cards show progress (goals), streaks (habits), or completion status (todos)
+- Card actions: Complete todo, Mark habit done, Log goal progress, View in sidebar
+- Real-time sidebar refresh after card actions
+- Trigger patterns for goal extraction (e.g., "I want to save $5000", "let's set a goal")
+- Trigger patterns for habit extraction (e.g., "I want to start a habit of meditating daily")
+- Files modified:
+  - `src/miachat/api/core/sidebar_extraction_service.py` - Goal/habit trigger patterns and LLM extraction
+  - `src/miachat/api/main.py` - tracking_cards field in ChatResponse
+  - `src/miachat/api/templates/chat/index.html` - Card CSS, rendering functions, event handlers
 
 ---
 
