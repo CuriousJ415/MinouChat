@@ -24,6 +24,11 @@
     "repeat_penalty": 1.1,
     "top_k": 40
   },
+  "capabilities": {
+    "web_search": false,
+    "calendar_access": false,
+    "goal_tracking": false
+  },
   "id": "0eee63a4-11f4-47de-a0fd-8a10786ae412",
   "avatar_url": "/avatars/0eee63a4-11f4-47de-a0fd-8a10786ae412.png",
   "updated_at": "2025-12-22T19:13:28.667202+00:00"

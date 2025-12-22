@@ -24,5 +24,10 @@
     "repeat_penalty": 1.1,
     "top_k": 40
   },
+  "capabilities": {
+    "web_search": false,
+    "calendar_access": false,
+    "goal_tracking": false
+  },
   "id": "792fa3fe-d257-4e99-96f3-99cd879d2027"
 }

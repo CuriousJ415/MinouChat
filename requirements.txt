@@ -27,3 +27,4 @@ numpy==1.24.3
 reportlab==4.0.7
 pytz==2023.3
 clerk-backend-api>=1.0.0
+ddgs>=9.0.0

@@ -25,6 +25,11 @@
     "repeat_penalty": 1.1,
     "max_tokens": 2048
   },
+  "capabilities": {
+    "web_search": true,
+    "calendar_access": true,
+    "goal_tracking": true
+  },
   "id": "7f737240-dfb8-4545-9886-a2b6a0e6c8b3",
   "hide_category": false,
   "updated_at": "2025-12-22T19:14:13.556396+00:00",

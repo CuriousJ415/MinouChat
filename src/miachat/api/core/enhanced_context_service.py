@@ -25,6 +25,7 @@ from .fact_extraction_service import fact_extraction_service
 from .user_profile_service import user_profile_service
 from .security.prompt_sanitizer import prompt_sanitizer
 from .tracking_service import tracking_service
+from .web_search_service import web_search_service
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,10 @@ class EnhancedContextService:
             'setting': 0.08,      # 8% for world/location/time
             'tracking': 0.10,     # 10% for goals, todos, habits
             'user_facts': 0.10,   # 10% for learned user facts
-            'backstory': 0.12,    # 12% for character backstory
-            'conversation': 0.25, # 25% for recent conversation
-            'documents': 0.25     # 25% for document RAG
+            'backstory': 0.10,    # 10% for character backstory
+            'conversation': 0.22, # 22% for recent conversation
+            'documents': 0.20,    # 20% for document RAG
+            'web_search': 0.10    # 10% for web search results
         }
 
         # Document reference patterns for natural language parsing
@@ -84,6 +86,7 @@ class EnhancedContextService:
         comprehensive_analysis: bool = False,
         enable_reasoning: bool = True,
         force_document_ids: Optional[List[str]] = None,
+        force_search: bool = False,
         db: Session = None
     ) -> Dict[str, Any]:
         """Get enhanced context with intelligent synthesis and reasoning.
@@ -98,6 +101,7 @@ class EnhancedContextService:
             comprehensive_analysis: If True, retrieves ALL chunks for complete analysis
             enable_reasoning: Whether to generate reasoning chains
             force_document_ids: Optional list of document IDs to always include (for session persistence)
+            force_search: If True, always perform web search (bypasses intent detection)
             db: Database session
 
         Returns:
@@ -119,6 +123,8 @@ class EnhancedContextService:
                 'tracking_context': '',  # Goals, todos, habits
                 'backstory_context': [],
                 'user_facts': [],
+                'web_search_results': [],  # Web search results if capability enabled
+                'web_search_context': '',  # Formatted web search context
                 'context_summary': '',
                 'reasoning_chain': [],
                 'conflicts_detected': [],
@@ -256,6 +262,64 @@ class EnhancedContextService:
                             'thought': f"Retrieved {len(user_facts)} known facts about user"
                         })
 
+            # Web search if force_search=True or (character has capability and search intent detected)
+            if character_id:
+                try:
+                    from .character_manager import character_manager
+                    character = character_manager.get_character(character_id)
+                    logger.debug(f"Web search check - character_id={character_id}, character found={character is not None}")
+
+                    if character:
+                        has_capability = web_search_service.check_capability(character)
+                        logger.debug(f"Web search capability check: {has_capability}, capabilities={character.get('capabilities', {})}")
+
+                        # Determine if we should search
+                        should_search = False
+                        search_query = user_message
+                        search_type = 'web'
+
+                        if force_search and has_capability:
+                            # User explicitly requested search via button
+                            should_search = True
+                            logger.warning(f"[SEARCH] Force search enabled - searching for: '{user_message[:50]}...'")
+                        elif has_capability:
+                            # Check if message implies search intent (auto-detection fallback)
+                            search_intent = web_search_service.detect_search_intent(user_message)
+                            logger.debug(f"Search intent: should_search={search_intent.should_search}, type={search_intent.intent_type}")
+                            if search_intent.should_search:
+                                should_search = True
+                                search_query = search_intent.query or user_message
+                                search_type = search_intent.intent_type or 'web'
+
+                        if should_search:
+                            # Perform the search
+                            if search_type == 'current_events':
+                                results = web_search_service.search_news(
+                                    query=search_query,
+                                    max_results=5,
+                                    timelimit='w'
+                                )
+                            else:
+                                results = web_search_service.search(
+                                    query=search_query,
+                                    max_results=5
+                                )
+
+                            if results:
+                                # Convert SearchResult objects to dicts for serialization
+                                context['web_search_results'] = [r.to_dict() for r in results]
+                                context['web_search_context'] = web_search_service.format_results_for_context(
+                                    results, search_query, max_chars=int(self.max_context_length * self.context_budget['web_search'])
+                                )
+                                if enable_reasoning:
+                                    context['reasoning_chain'].append({
+                                        'step': 'web_search',
+                                        'thought': f"Performed web search for '{search_query}' - found {len(results)} results"
+                                    })
+                                logger.warning(f"[SEARCH] Web search SUCCESS: {len(results)} results for '{search_query[:30]}...'")
+                except Exception as e:
+                    logger.warning(f"Web search failed: {e}", exc_info=True)
+
             # Detect conflicts between sources
             if enable_reasoning:
                 conflicts = self._detect_conflicts(
@@ -283,7 +347,8 @@ class EnhancedContextService:
                 setting_context=context.get('setting_context', ''),
                 tracking_context=context.get('tracking_context', ''),
                 backstory_context=context.get('backstory_context', []),
-                user_facts=context.get('user_facts', [])
+                user_facts=context.get('user_facts', []),
+                web_search_context=context.get('web_search_context', '')
             )
 
             # Final reasoning step
@@ -906,7 +971,8 @@ class EnhancedContextService:
         setting_context: str = '',
         tracking_context: str = '',
         backstory_context: Optional[List[str]] = None,
-        user_facts: Optional[List[Dict[str, Any]]] = None
+        user_facts: Optional[List[Dict[str, Any]]] = None,
+        web_search_context: str = ''
     ) -> str:
         """Create an intelligent context summary for the LLM with smart budget allocation.
 
@@ -922,6 +988,7 @@ class EnhancedContextService:
             tracking_context: User's goals, todos, and habits
             backstory_context: Relevant backstory chunks
             user_facts: Known facts about the user
+            web_search_context: Formatted web search results
 
         Returns:
             Formatted context string
@@ -1096,7 +1163,15 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 8: Conflict Warnings (if any)
+        # SECTION 8: Web Search Results (if available)
+        # ============================================
+        if web_search_context:
+            # Web search context is already formatted by web_search_service
+            context_parts.append(web_search_context)
+            context_parts.append("")
+
+        # ============================================
+        # SECTION 9: Conflict Warnings (if any)
         # ============================================
         if conflicts:
             context_parts.append("Note: Potential information conflicts detected:")

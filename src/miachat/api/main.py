@@ -547,6 +547,9 @@ app.include_router(tracking_router)
 from .routes.feature_preferences import router as feature_preferences_router
 app.include_router(feature_preferences_router)
 
+from .routes.web_search import router as web_search_router
+app.include_router(web_search_router)
+
 # Import new services for chat integration
 from .core.token_service import token_service
 from .core.world_info_service import world_info_service
@@ -570,6 +573,7 @@ class ChatRequest(BaseModel):
     character_id: str
     session_id: Optional[str] = None  # Optional session ID for continuing conversations
     use_documents: bool = True  # Whether to include document context (RAG)
+    search: bool = False  # Whether to perform web search before responding
 
 class ChatResponse(BaseModel):
     response: str
@@ -591,6 +595,8 @@ class ChatResponse(BaseModel):
     sidebar_extractions: Optional[Dict[str, List[Dict[str, Any]]]] = None
     # Interactive tracking cards for display in chat
     tracking_cards: Optional[List[Dict[str, Any]]] = None
+    # Web search results (clickable sources)
+    web_search_results: Optional[List[Dict[str, Any]]] = None
 
 class CharacterCreateRequest(BaseModel):
     name: str
@@ -1311,6 +1317,9 @@ async def get_tags():
 @app.post("/api/chat")
 async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db)):
     """Send a message to a character and get a response with conversation memory."""
+    # DEBUG: Log incoming request
+    logger.warning(f"[CHAT DEBUG] Received request: message='{request.message[:30]}...', search={request.search}, use_documents={request.use_documents}")
+
     try:
         # Get current user
         current_user = await get_current_user_from_session(request_obj, db)
@@ -1354,6 +1363,10 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             # Import Enhanced Context Service
             from .core.enhanced_context_service import enhanced_context_service
 
+            # Log search flag
+            if request.search:
+                logger.warning(f"[SEARCH] Web search requested for message: '{request.message[:50]}...'")
+
             # Detect if this is a comprehensive document analysis request
             comprehensive_analysis = _should_use_comprehensive_analysis(request.message)
 
@@ -1373,6 +1386,7 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
                 comprehensive_analysis=comprehensive_analysis,
                 enable_reasoning=True,  # Enable reasoning for transparency
                 force_document_ids=session_document_ids if session_document_ids else None,
+                force_search=request.search,  # User explicitly requested web search
                 db=db
             )
 
@@ -1838,7 +1852,9 @@ You should be proactive about offering to create documents when it would be help
             # Sidebar document extractions
             sidebar_extractions=sidebar_extractions,
             # Interactive tracking cards
-            tracking_cards=tracking_cards
+            tracking_cards=tracking_cards,
+            # Web search results for clickable sources
+            web_search_results=enhanced_context.get('web_search_results')
         )
         
     except Exception as e:

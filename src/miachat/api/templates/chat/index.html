@@ -1086,6 +1086,138 @@
             border-bottom-left-radius: var(--radius-sm);
         }
 
+        /* Links in chat messages */
+        .message-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+            word-break: break-all;
+        }
+
+        .message-content a:hover {
+            color: #2563eb;
+        }
+
+        .message.user .message-content a {
+            color: #93c5fd;
+        }
+
+        .message.user .message-content a:hover {
+            color: #bfdbfe;
+        }
+
+        /* Web Search Sources */
+        .search-sources {
+            margin: var(--space-2) 0 var(--space-4) 0;
+            padding: var(--space-3);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .sources-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            margin-bottom: var(--space-2);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sources-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+        }
+
+        .search-source-link {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            color: var(--text-primary);
+            font-size: var(--text-sm);
+            transition: all 0.15s ease;
+            max-width: 250px;
+        }
+
+        .search-source-link:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .source-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .source-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .source-domain {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        /* Search Offer Button */
+        .search-offer {
+            margin: var(--space-2) 0;
+        }
+
+        .search-offer-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: var(--text-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+
+        .search-offer-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+        }
+
+        .search-offer-btn:disabled {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        .search-offer-btn .spin {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         .message-sender {
             font-size: var(--text-xs);
             color: var(--text-muted);
@@ -1345,6 +1477,120 @@
         .send-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        /* Web Search Button - small, subtle, blue */
+        .search-btn {
+            padding: var(--space-2);
+            background: transparent;
+            color: #3b82f6;
+            border: 1px solid #3b82f6;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            transition: all 0.15s ease;
+        }
+
+        .search-btn:hover:not(:disabled) {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: #2563eb;
+            color: #2563eb;
+        }
+
+        .search-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .search-btn.visible {
+            display: flex;
+        }
+
+        .search-btn.searching {
+            background: rgba(59, 130, 246, 0.15);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* Web Search Results Panel */
+        .web-search-results {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-2);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+
+        .web-search-results.visible {
+            display: block;
+        }
+
+        .web-search-results-header {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .web-search-results-header h4 {
+            margin: 0;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
+
+        .web-search-result {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .web-search-result:last-child {
+            border-bottom: none;
+        }
+
+        .web-search-result-title {
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+
+        .web-search-result-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .web-search-result-title a:hover {
+            text-decoration: underline;
+        }
+
+        .web-search-result-snippet {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .web-search-result-source {
+            font-size: var(--text-xs);
+            color: var(--accent-color);
+            margin-top: var(--space-1);
         }
 
         /* Document Panel */
@@ -1947,13 +2193,27 @@
                 <div id="uploadedFileInfo"></div>
 
                 <!-- Chat Input -->
-                <form id="chatForm">
+                <form id="chatForm" style="position: relative;">
+                    <!-- Web Search Results Panel -->
+                    <div class="web-search-results" id="webSearchResults">
+                        <div class="web-search-results-header">
+                            <h4><i data-lucide="globe" style="width: 14px; height: 14px; display: inline;"></i> Web Search Results</h4>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="closeWebSearchResults()">
+                                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
+                        <div id="webSearchResultsList"></div>
+                    </div>
+
                     <div class="chat-input-wrapper">
                         <input type="text" class="chat-input" id="messageInput"
                                placeholder="Type your message..." disabled autocomplete="off">
                         <button type="submit" class="send-btn" disabled>
                             <i data-lucide="send" style="width: 18px; height: 18px;"></i>
                             Send
+                        </button>
+                        <button type="button" class="search-btn" id="webSearchBtn" title="Search web first, then respond">
+                            <i data-lucide="search" style="width: 14px; height: 14px;"></i>
                         </button>
                     </div>
                 </form>
@@ -2103,6 +2363,15 @@
         // Initialize Lucide
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Attach search button click handler
+            const searchBtn = document.getElementById('webSearchBtn');
+            if (searchBtn) {
+                searchBtn.onclick = function(e) {
+                    e.preventDefault();
+                    performWebSearch();
+                };
+            }
 
             // Event delegation for tracking card actions
             document.getElementById('chatContainer').addEventListener('click', async (e) => {
@@ -2311,6 +2580,9 @@
                         // Update sidebar documents (todos for Assistant, life areas for Coach)
                         updateSidebarDocuments(data.category);
 
+                        // Check web search capability from character data
+                        checkWebSearchCapability(data);
+
                         enableChat();
 
                         // Set dropdown to this character
@@ -2355,6 +2627,139 @@
             }
         });
 
+        // Web search state
+        let webSearchEnabled = false;
+        let webSearchResults = [];
+
+        // Check if character has web search capability from character data
+        function checkWebSearchCapability(characterData) {
+            // Check capabilities.web_search from character data
+            const capabilities = characterData?.capabilities || {};
+            webSearchEnabled = capabilities.web_search === true;
+            updateWebSearchButton();
+            console.log('Web search capability:', webSearchEnabled, 'from capabilities:', capabilities);
+        }
+
+        // Update web search button visibility
+        function updateWebSearchButton() {
+            const searchBtn = document.getElementById('webSearchBtn');
+            if (webSearchEnabled) {
+                searchBtn.classList.add('visible');
+            } else {
+                searchBtn.classList.remove('visible');
+            }
+        }
+
+        // Perform web search - submits message with search flag to include web results in LLM context
+        async function performWebSearch() {
+            console.log('[Search] performWebSearch called');
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message) {
+                showToast('Enter a message first', 'warning');
+                return;
+            }
+
+            if (!currentCharacterId) {
+                showToast('Select a persona first', 'warning');
+                return;
+            }
+
+            const searchBtn = document.getElementById('webSearchBtn');
+            const sendBtn = document.querySelector('.send-btn');
+            searchBtn.classList.add('searching');
+            searchBtn.disabled = true;
+            sendBtn.disabled = true;
+
+            // Show user message immediately
+            addMessage('user', message);
+            messageInput.value = '';
+            addTypingIndicator();
+
+            const requestBody = {
+                message: message,
+                character_id: currentCharacterId,
+                session_id: currentSessionId,
+                use_documents: true,
+                search: true  // Flag to trigger web search
+            };
+            console.log('[Search] Sending request with body:', requestBody);
+
+            try {
+                const response = await authFetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                removeTypingIndicator();
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || error.detail || 'Request failed');
+                }
+
+                const data = await response.json();
+
+                if (data.response) {
+                    currentSessionId = data.session_id;
+                    localStorage.setItem('currentSessionId', currentSessionId);
+                    addMessage('assistant', data.response);
+
+                    // Display web search sources if available
+                    if (data.web_search_results && data.web_search_results.length > 0) {
+                        addSearchSources(data.web_search_results);
+                    }
+
+                    // Refresh conversation history
+                    if (currentCharacterId) {
+                        loadConversationHistory(currentCharacterId);
+                    }
+                } else if (data.error) {
+                    showToast(data.error, 'error');
+                }
+
+            } catch (e) {
+                removeTypingIndicator();
+                console.error('Search chat error:', e);
+                showToast(e.message || 'Search failed', 'error');
+            } finally {
+                searchBtn.classList.remove('searching');
+                searchBtn.disabled = false;
+                sendBtn.disabled = false;
+            }
+        }
+
+        // Display web search results
+        function displayWebSearchResults(data) {
+            const resultsPanel = document.getElementById('webSearchResults');
+            const resultsList = document.getElementById('webSearchResultsList');
+
+            if (!data.results || data.results.length === 0) {
+                resultsList.innerHTML = '<div class="web-search-result"><p class="text-muted">No results found</p></div>';
+            } else {
+                resultsList.innerHTML = data.results.map(result => `
+                    <div class="web-search-result">
+                        <div class="web-search-result-title">
+                            <a href="${result.url}" target="_blank" rel="noopener noreferrer">${result.title}</a>
+                        </div>
+                        <div class="web-search-result-snippet">${result.snippet}</div>
+                        <div class="web-search-result-source">${result.source}</div>
+                    </div>
+                `).join('');
+            }
+
+            resultsPanel.classList.add('visible');
+            lucide.createIcons();
+        }
+
+        // Close web search results panel
+        function closeWebSearchResults() {
+            document.getElementById('webSearchResults').classList.remove('visible');
+            webSearchResults = [];
+        }
+
         function selectPersona(name, characterId, category) {
             currentPersona = name;
             currentCharacterId = characterId;
@@ -2377,6 +2782,23 @@
 
             // Load conversation history for this persona
             loadConversationHistory(characterId);
+
+            // Fetch character data to check web search capability
+            authFetch(`/api/characters/${characterId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && !data.error) {
+                        checkWebSearchCapability(data);
+                    }
+                })
+                .catch(e => {
+                    console.error('Error fetching character for capability check:', e);
+                    webSearchEnabled = false;
+                    updateWebSearchButton();
+                });
+
+            // Close any open web search results
+            closeWebSearchResults();
 
             enableChat();
             clearChat();
@@ -2710,13 +3132,158 @@
             setTimeout(() => document.getElementById('messageInput').focus(), 100);
         }
 
+        // Convert URLs in text to clickable links
+        function linkifyUrls(text) {
+            // Match URLs starting with http:// or https://
+            const urlRegex = /(https?:\/\/[^\s<>"')\]]+)/g;
+            return text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        }
+
+        // Phrases that indicate the LLM couldn't answer and search might help
+        const SEARCH_SUGGESTION_PHRASES = [
+            "i don't have access to real-time",
+            "i don't have real-time",
+            "i can't access current",
+            "i cannot access current",
+            "i suggest checking online",
+            "check online resources",
+            "checking online resources",
+            "i don't have specific data",
+            "i don't have current data",
+            "i don't have direct access",
+            "my knowledge cutoff",
+            "my training data",
+            "for the most up-to-date",
+            "for up-to-date information",
+            "for current information",
+            "for the latest information",
+            "i recommend searching",
+            "you might want to search",
+            "a quick search",
+            "would you like me to conduct a web search",
+            "would you like me to search",
+            "would you like me to look up",
+            "conduct a web search",
+            "look up relevant articles",
+            "find reliable sources",
+            "help you find reliable sources"
+        ];
+
+        // Check if response suggests user should search
+        function shouldOfferSearch(responseText) {
+            const lowerResponse = responseText.toLowerCase();
+            return SEARCH_SUGGESTION_PHRASES.some(phrase => lowerResponse.includes(phrase));
+        }
+
+        // Add a "Search for this?" button after the response
+        function addSearchOfferButton(originalQuestion) {
+            const container = document.getElementById('chatContainer');
+            const offerDiv = document.createElement('div');
+            offerDiv.className = 'search-offer';
+            offerDiv.innerHTML = `
+                <button class="search-offer-btn" onclick="performSearchFromOffer(this, '${originalQuestion.replace(/'/g, "\\'")}')">
+                    <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                    Search for this?
+                </button>
+            `;
+            container.appendChild(offerDiv);
+            container.scrollTop = container.scrollHeight;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // Perform search when user clicks the offer button
+        async function performSearchFromOffer(btn, question) {
+            // Disable button and show loading
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width: 14px; height: 14px;"></i> Searching...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Remove the offer button container
+            const offerDiv = btn.closest('.search-offer');
+
+            try {
+                addTypingIndicator();
+
+                const response = await authFetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: question,
+                        character_id: currentCharacterId,
+                        session_id: currentSessionId,
+                        use_documents: true,
+                        search: true
+                    })
+                });
+
+                removeTypingIndicator();
+                offerDiv.remove();
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.response) {
+                        currentSessionId = data.session_id;
+                        localStorage.setItem('currentSessionId', currentSessionId);
+                        addMessage('assistant', data.response);
+
+                        if (data.web_search_results && data.web_search_results.length > 0) {
+                            addSearchSources(data.web_search_results);
+                        }
+
+                        if (currentCharacterId) {
+                            loadConversationHistory(currentCharacterId);
+                        }
+                    }
+                } else {
+                    showToast('Search failed', 'error');
+                    offerDiv.remove();
+                }
+            } catch (e) {
+                removeTypingIndicator();
+                console.error('Search from offer failed:', e);
+                showToast('Search failed', 'error');
+                offerDiv.remove();
+            }
+        }
+
+        // Add web search sources as clickable links
+        function addSearchSources(results) {
+            const container = document.getElementById('chatContainer');
+            const sourcesDiv = document.createElement('div');
+            sourcesDiv.className = 'search-sources';
+
+            const sourcesHtml = results.map((result, i) => `
+                <a href="${result.url}" target="_blank" rel="noopener noreferrer" class="search-source-link" title="${result.snippet || result.title}">
+                    <span class="source-number">${i + 1}</span>
+                    <span class="source-title">${result.title}</span>
+                    <span class="source-domain">${result.source}</span>
+                </a>
+            `).join('');
+
+            sourcesDiv.innerHTML = `
+                <div class="sources-header">
+                    <i data-lucide="globe" style="width: 12px; height: 12px;"></i>
+                    Sources
+                </div>
+                <div class="sources-list">${sourcesHtml}</div>
+            `;
+
+            container.appendChild(sourcesDiv);
+            container.scrollTop = container.scrollHeight;
+
+            // Re-initialize Lucide icons
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
         function addMessage(sender, content) {
             const container = document.getElementById('chatContainer');
             const msg = document.createElement('div');
             msg.className = `message ${sender}`;
+            // Convert URLs to clickable links in the content
+            const linkedContent = linkifyUrls(content);
             msg.innerHTML = `
                 <div class="message-sender">${sender === 'user' ? 'You' : currentPersona}</div>
-                <div class="message-content">${content}</div>
+                <div class="message-content">${linkedContent}</div>
             `;
             container.appendChild(msg);
             container.scrollTop = container.scrollHeight;
@@ -3856,6 +4423,11 @@
                         }
 
                         addMessage('assistant', content);
+
+                        // Offer search if LLM couldn't answer and character has search capability
+                        if (webSearchEnabled && shouldOfferSearch(data.response)) {
+                            addSearchOfferButton(message);
+                        }
 
                         // Refresh Lucide icons for any new tracking cards
                         if (data.tracking_cards?.length > 0 && typeof lucide !== 'undefined') {

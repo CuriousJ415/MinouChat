@@ -41,6 +41,11 @@
     "repeat_penalty": 1.1,
     "max_tokens": 2048
   },
+  "capabilities": {
+    "web_search": false,
+    "calendar_access": false,
+    "goal_tracking": false
+  },
   "id": "96998652-b80b-4377-8da0-b44807d87a6f",
   "setting": {
     "world": "Modern Day Earth",
