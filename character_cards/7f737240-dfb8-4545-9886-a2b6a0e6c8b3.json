@@ -10,19 +10,23 @@
   "traits": null,
   "communication_style": {
     "warmth": "warm",
-    "formality": "casual"
+    "formality": "casual",
+    "directness": "balanced",
+    "humor": "minimal"
   },
   "llm_config": null,
   "llm_model_config": null,
   "model_config": {
-    "provider": null,
-    "model": null,
+    "provider": "ollama",
+    "model": "deepseek-r1:14b",
     "temperature": 0.7,
     "top_p": 0.9,
+    "top_k": 40,
     "repeat_penalty": 1.1,
-    "top_k": 40
+    "max_tokens": 2048
   },
   "id": "7f737240-dfb8-4545-9886-a2b6a0e6c8b3",
   "hide_category": false,
-  "updated_at": "2025-12-22T03:27:07.157184+00:00"
+  "updated_at": "2025-12-22T19:14:13.556396+00:00",
+  "avatar_url": "/avatars/7f737240-dfb8-4545-9886-a2b6a0e6c8b3.png"
 }
