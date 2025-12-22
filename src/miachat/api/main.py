@@ -17,7 +17,7 @@ from .core.character_manager import character_manager
 from .core.llm_client import llm_client
 from sqlalchemy.orm import Session
 from ..database.config import get_db
-from ..database.models import Base
+from ..database.models import Base, Conversation, Message
 from .core.clerk_auth import require_session_auth, get_current_user_from_session, get_clerk_publishable_key, is_clerk_configured
 from .core.settings_service import settings_service
 from .core.style_overrides import get_style_overrides
@@ -441,6 +441,10 @@ app.include_router(reset_router)
 # Artifact routes
 from .routes.artifacts import router as artifacts_router
 app.include_router(artifacts_router, prefix="/api/artifacts", tags=["artifacts"])
+
+# Export routes (PDF, DOCX, Markdown, Text)
+from .routes.export import router as export_router
+app.include_router(export_router)
 
 # Reminder routes
 from .routes.reminders import router as reminders_router
@@ -1053,6 +1057,83 @@ async def get_conversation_history_endpoint(session_id: str, request: Request, d
         logger.error(f"Error getting conversation history: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/conversations/character/{character_id}")
+async def get_conversations_for_character(
+    character_id: str,
+    request: Request,
+    db = Depends(get_db)
+):
+    """Get all conversations for a specific character, grouped by date.
+
+    Returns conversations grouped as: today, yesterday, previous_7_days, older.
+    Each conversation includes a title (auto-generated from first message if not set).
+    """
+    try:
+        # Get current user from session
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
+        # Verify character exists
+        character = character_manager.get_character(character_id)
+        if not character:
+            return JSONResponse(status_code=404, content={"error": "Character not found"})
+
+        # Get grouped conversations
+        groups = conversation_service.get_conversations_for_character_grouped(
+            character_id=character_id,
+            user_id=current_user.id,
+            db=db
+        )
+
+        # Count total
+        total = sum(len(convs) for convs in groups.values())
+
+        return {
+            "character_id": character_id,
+            "character_name": character.get("name"),
+            "groups": groups,
+            "total_count": total
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting conversations for character: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.delete("/api/conversations/{session_id}")
+async def delete_conversation_endpoint(
+    session_id: str,
+    request: Request,
+    db = Depends(get_db)
+):
+    """Delete a conversation by session ID.
+
+    Verifies ownership before deletion. Returns success or error.
+    """
+    try:
+        # Get current user from session
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
+        # Delete the conversation (with ownership check)
+        success = conversation_service.delete_conversation_by_session(
+            session_id=session_id,
+            user_id=current_user.id,
+            db=db
+        )
+
+        if success:
+            return {"success": True, "message": "Conversation deleted"}
+        else:
+            return JSONResponse(status_code=404, content={"error": "Conversation not found or access denied"})
+
+    except Exception as e:
+        logger.error(f"Error deleting conversation: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/conversations/recent")
 async def get_recent_conversations(request: Request, limit: int = 5, db = Depends(get_db)):
     """Get recent conversations for the current user to display on dashboard."""
@@ -1456,6 +1537,23 @@ You should be proactive about offering to create documents when it would be help
         # Save messages to database
         conversation_service.save_message(session_id, "user", request.message, db)
         conversation_service.save_message(session_id, "assistant", response, db)
+
+        # Generate title for new conversations (after first exchange)
+        try:
+            session_data = conversation_service.get_session(session_id, db)
+            if session_data:
+                conv_id = session_data.get("conversation_id")
+                if conv_id:
+                    # Check if conversation needs a title (only on first exchange)
+                    conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
+                    msg_count = db.query(Message).filter(Message.conversation_id == conv_id).count()
+                    # Generate title if this is the first exchange (2 messages) and no custom title set
+                    if conv and msg_count == 2 and (not conv.title or conv.title.startswith("Session with")):
+                        # Use character's model config for title generation
+                        conversation_service.generate_title_async(conv_id, model_config)
+                        logger.debug(f"Triggered async title generation for conversation {conv_id}")
+        except Exception as e:
+            logger.warning(f"Title generation trigger failed: {e}")
 
         # Fact extraction hook - automatically learn facts from conversation
         try:
@@ -1906,6 +2004,19 @@ You should be proactive about offering to create documents when it would be help
         # Save messages to database
         conversation_service.save_message(session_id, "user", chat_request.message, db)
         conversation_service.save_message(session_id, "assistant", response, db)
+
+        # Generate title for new conversations (after first exchange)
+        try:
+            session_data = conversation_service.get_session(session_id, db)
+            if session_data:
+                conv_id = session_data.get("conversation_id")
+                if conv_id:
+                    conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
+                    msg_count = db.query(Message).filter(Message.conversation_id == conv_id).count()
+                    if conv and msg_count == 2 and (not conv.title or conv.title.startswith("Session with")):
+                        conversation_service.generate_title_async(conv_id, model_config)
+        except Exception as e:
+            logger.warning(f"Title generation trigger failed: {e}")
 
         # Update character usage
         character_manager.update_character(chat_request.character_id, {

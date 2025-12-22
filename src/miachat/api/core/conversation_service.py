@@ -368,5 +368,348 @@ class ConversationService:
 
         return conversations
 
+    def get_conversations_for_character_grouped(
+        self,
+        character_id: str,
+        user_id: int,
+        db: Session
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Get conversations for a character grouped by date (Today, Yesterday, Previous 7 Days, Older).
+
+        Args:
+            character_id: Character ID to filter by
+            user_id: User ID to filter by
+            db: Database session
+
+        Returns:
+            Dict with date group keys and lists of conversation dicts
+        """
+        from datetime import date, timedelta
+
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        week_ago = today - timedelta(days=7)
+
+        # Query conversations with first message for title
+        result = db.execute(
+            text("""
+                SELECT
+                    c.id,
+                    c.started_at,
+                    c.ended_at,
+                    json_extract(c.conversation_data, '$.session_id') as session_id,
+                    c.title,
+                    (SELECT content FROM messages WHERE conversation_id = c.id AND role = 'user' ORDER BY timestamp ASC LIMIT 1) as first_message,
+                    (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
+                    (SELECT MAX(timestamp) FROM messages WHERE conversation_id = c.id) as last_activity
+                FROM conversations c
+                WHERE json_extract(c.conversation_data, '$.character_id') = :character_id
+                  AND json_extract(c.conversation_data, '$.user_id') = :user_id
+                ORDER BY COALESCE(
+                    (SELECT MAX(timestamp) FROM messages WHERE conversation_id = c.id),
+                    c.started_at
+                ) DESC
+            """),
+            {"character_id": character_id, "user_id": str(user_id)}
+        )
+
+        groups: Dict[str, List[Dict[str, Any]]] = {
+            "today": [],
+            "yesterday": [],
+            "previous_7_days": [],
+            "older": []
+        }
+
+        for row in result:
+            conv_id = row[0]
+            started_at = row[1]
+            ended_at = row[2]
+            session_id = row[3]
+            title = row[4]
+            first_message = row[5]
+            message_count = row[6] or 0
+            last_activity = row[7]
+
+            # Skip empty conversations
+            if message_count == 0:
+                continue
+
+            # Generate title from first message if not set
+            if not title and first_message:
+                title = self._generate_title_from_message(first_message)
+            elif not title:
+                title = "New conversation"
+
+            # Parse date for grouping
+            if last_activity:
+                if hasattr(last_activity, 'date'):
+                    conv_date = last_activity.date()
+                else:
+                    # Parse from string
+                    try:
+                        from datetime import datetime as dt
+                        conv_date = dt.fromisoformat(str(last_activity).replace('Z', '+00:00')).date()
+                    except:
+                        conv_date = today
+            elif started_at:
+                if hasattr(started_at, 'date'):
+                    conv_date = started_at.date()
+                else:
+                    try:
+                        from datetime import datetime as dt
+                        conv_date = dt.fromisoformat(str(started_at).replace('Z', '+00:00')).date()
+                    except:
+                        conv_date = today
+            else:
+                conv_date = today
+
+            # Determine group
+            if conv_date == today:
+                group = "today"
+            elif conv_date == yesterday:
+                group = "yesterday"
+            elif conv_date > week_ago:
+                group = "previous_7_days"
+            else:
+                group = "older"
+
+            # Format timestamp
+            if last_activity:
+                if hasattr(last_activity, 'isoformat'):
+                    updated_at = last_activity.isoformat()
+                else:
+                    updated_at = str(last_activity)
+            elif started_at:
+                if hasattr(started_at, 'isoformat'):
+                    updated_at = started_at.isoformat()
+                else:
+                    updated_at = str(started_at)
+            else:
+                updated_at = None
+
+            conv = {
+                "id": session_id or str(conv_id),
+                "conversation_id": conv_id,
+                "title": title,
+                "message_count": message_count,
+                "updated_at": updated_at,
+                "is_active": ended_at is None
+            }
+
+            groups[group].append(conv)
+
+        return groups
+
+    def _generate_title_from_message(self, message: str, max_length: int = 40) -> str:
+        """Generate a conversation title from the first message (fallback method).
+
+        Args:
+            message: First user message
+            max_length: Maximum title length
+
+        Returns:
+            Generated title string
+        """
+        if not message:
+            return "New conversation"
+
+        # Clean up the message
+        title = message.strip()
+
+        # Remove common prefixes
+        prefixes = ["hi ", "hey ", "hello ", "can you ", "could you ", "please ", "i need ", "i want "]
+        lower = title.lower()
+        for prefix in prefixes:
+            if lower.startswith(prefix):
+                title = title[len(prefix):]
+                break
+
+        # Truncate if too long
+        if len(title) > max_length:
+            # Find a good break point
+            truncated = title[:max_length]
+            last_space = truncated.rfind(' ')
+            if last_space > max_length // 2:
+                title = truncated[:last_space] + "..."
+            else:
+                title = truncated + "..."
+
+        # Capitalize first letter
+        if title:
+            title = title[0].upper() + title[1:]
+
+        return title or "New conversation"
+
+    def generate_title_with_llm(
+        self,
+        conversation_id: int,
+        db: Session,
+        model_config: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
+        """Generate a conversation title using the LLM based on the first few messages.
+
+        Args:
+            conversation_id: Conversation ID
+            db: Database session
+            model_config: Optional LLM config (uses Ollama default if not provided)
+
+        Returns:
+            Generated title string, or None if generation failed
+        """
+        from .llm_client import llm_client
+
+        # Get the first few messages from the conversation
+        messages = db.query(Message).filter(
+            Message.conversation_id == conversation_id
+        ).order_by(Message.timestamp.asc()).limit(4).all()
+
+        if not messages:
+            return None
+
+        # Build context from messages
+        context_parts = []
+        for msg in messages:
+            role = "User" if msg.role == "user" else "Assistant"
+            # Truncate long messages
+            content = msg.content[:200] + "..." if len(msg.content) > 200 else msg.content
+            context_parts.append(f"{role}: {content}")
+
+        context = "\n".join(context_parts)
+
+        # Create the title generation prompt
+        system_prompt = """You are a title generator. Generate a very short, descriptive title (3-6 words) for a conversation.
+The title should capture the main topic or intent.
+Reply with ONLY the title, no quotes, no explanation, no punctuation at the end."""
+
+        prompt_messages = [
+            {"role": "user", "content": f"Generate a short title for this conversation:\n\n{context}"}
+        ]
+
+        # Use provided config or default to a fast model
+        if not model_config:
+            model_config = {
+                "provider": "ollama",
+                "model": "llama3.1:8b",
+                "temperature": 0.3,  # Lower temperature for more consistent titles
+                "max_tokens": 20
+            }
+
+        try:
+            title = llm_client.generate_response_with_config(
+                messages=prompt_messages,
+                system_prompt=system_prompt,
+                model_config=model_config
+            )
+
+            if title:
+                # Clean up the title
+                title = title.strip().strip('"\'').strip()
+                # Remove trailing punctuation
+                title = title.rstrip('.,!?:;')
+                # Capitalize first letter
+                if title:
+                    title = title[0].upper() + title[1:]
+                # Limit length
+                if len(title) > 60:
+                    title = title[:57] + "..."
+
+                # Update the conversation title in the database
+                conversation = db.query(Conversation).filter(
+                    Conversation.id == conversation_id
+                ).first()
+                if conversation:
+                    conversation.title = title
+                    db.commit()
+                    logger.info(f"Generated title for conversation {conversation_id}: {title}")
+
+                return title
+
+        except Exception as e:
+            logger.warning(f"Failed to generate title with LLM: {e}")
+
+        return None
+
+    def generate_title_async(
+        self,
+        conversation_id: int,
+        model_config: Optional[Dict[str, Any]] = None
+    ):
+        """Generate a conversation title asynchronously in a background thread.
+
+        Args:
+            conversation_id: Conversation ID
+            model_config: Optional LLM config
+        """
+        import threading
+        from ...database.config import db_config
+
+        def _generate():
+            # Create a new database session for this thread
+            db = db_config.get_session()
+            try:
+                self.generate_title_with_llm(conversation_id, db, model_config)
+            finally:
+                db.close()
+
+        thread = threading.Thread(target=_generate, daemon=True)
+        thread.start()
+
+    def update_conversation_title(self, conversation_id: int, title: str, db: Session) -> bool:
+        """Update a conversation's title.
+
+        Args:
+            conversation_id: Conversation ID
+            title: New title
+            db: Database session
+
+        Returns:
+            True if successful
+        """
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if not conversation:
+            return False
+
+        conversation.title = title
+        db.commit()
+        return True
+
+    def delete_conversation_by_session(self, session_id: str, user_id: int, db: Session) -> bool:
+        """Delete a conversation by session ID, verifying ownership.
+
+        Args:
+            session_id: Session ID of the conversation
+            user_id: User ID for ownership verification
+            db: Database session
+
+        Returns:
+            True if deleted, False otherwise
+        """
+        # Find conversation by session_id
+        result = db.execute(
+            text("""
+                SELECT id, json_extract(conversation_data, '$.user_id') as owner_id
+                FROM conversations
+                WHERE json_extract(conversation_data, '$.session_id') = :session_id
+            """),
+            {"session_id": session_id}
+        )
+
+        row = result.fetchone()
+        if not row:
+            logger.warning(f"Conversation not found for session {session_id}")
+            return False
+
+        conv_id = row[0]
+        owner_id = row[1]
+
+        # Verify ownership
+        if str(owner_id) != str(user_id):
+            logger.warning(f"User {user_id} tried to delete conversation owned by {owner_id}")
+            return False
+
+        # Delete conversation
+        return self.delete_conversation(conv_id, db)
+
+
 # Global conversation service instance
 conversation_service = ConversationService() 
