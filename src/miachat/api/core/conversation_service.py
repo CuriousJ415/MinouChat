@@ -116,10 +116,87 @@ class ConversationService:
             "conversation_id": conversation.id,
             "character_id": data.get("character_id"),
             "user_id": data.get("user_id"),
+            "active_document_ids": data.get("active_document_ids", []),
             "started_at": conversation.started_at.isoformat() if conversation.started_at else None,
             "ended_at": conversation.ended_at.isoformat() if conversation.ended_at else None,
             "is_active": conversation.ended_at is None
         }
+
+    def add_document_to_session(self, session_id: str, document_id: str, db: Session) -> bool:
+        """Add an active document ID to a session for context persistence.
+
+        Args:
+            session_id: Session ID
+            document_id: Document ID to add
+            db: Database session
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Get conversation by session_id
+            result = db.execute(
+                text("""
+                    SELECT id, conversation_data
+                    FROM conversations
+                    WHERE json_extract(conversation_data, '$.session_id') = :session_id
+                """),
+                {"session_id": session_id}
+            )
+
+            row = result.fetchone()
+            if not row:
+                logger.warning(f"Session {session_id} not found when adding document")
+                return False
+
+            conv_id = row[0]
+            conv_data = row[1]
+
+            # Parse conversation_data
+            if isinstance(conv_data, str):
+                import json
+                try:
+                    conv_data = json.loads(conv_data)
+                except (json.JSONDecodeError, TypeError):
+                    conv_data = {}
+            elif not isinstance(conv_data, dict):
+                conv_data = {}
+
+            # Add document ID to active documents list
+            if "active_document_ids" not in conv_data:
+                conv_data["active_document_ids"] = []
+
+            if document_id not in conv_data["active_document_ids"]:
+                conv_data["active_document_ids"].append(document_id)
+
+            # Update conversation
+            conversation = db.query(Conversation).filter(Conversation.id == conv_id).first()
+            if conversation:
+                conversation.conversation_data = conv_data
+                db.commit()
+                logger.info(f"Added document {document_id} to session {session_id}")
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Error adding document to session: {e}")
+            return False
+
+    def get_session_document_ids(self, session_id: str, db: Session) -> List[str]:
+        """Get active document IDs for a session.
+
+        Args:
+            session_id: Session ID
+            db: Database session
+
+        Returns:
+            List of document IDs
+        """
+        session = self.get_session(session_id, db)
+        if session:
+            return session.get("active_document_ids", [])
+        return []
 
     def get_conversation_history(self, session_id: str, limit: int = 20, db: Session = None) -> List[Dict[str, Any]]:
         """Get conversation history for a session."""

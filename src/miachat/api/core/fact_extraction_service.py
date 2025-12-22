@@ -42,6 +42,8 @@ FACT_DELETION_PATTERNS = [
     r'\bno,?\s+i\s+(didn\'?t|wasn\'?t|never|don\'?t)',
     r'\bactually,?\s+(i|that)\s+(didn\'?t|wasn\'?t|never)',
     r'\bplease\s+(forget|stop|remove)',
+    r'\bmy\s+\w+\s+(is\s+not|isn\'?t)\b',  # "my X isn't Y" or "my X is not Y"
+    r'\b(is\s+not|isn\'?t)\s+\w+',  # "isn't purple", "is not correct"
 ]
 
 # Prompt for fact deletion - identifies which facts to remove

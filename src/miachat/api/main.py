@@ -1349,6 +1349,11 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             # Detect if this is a comprehensive document analysis request
             comprehensive_analysis = _should_use_comprehensive_analysis(request.message)
 
+            # Get session documents for context persistence (from previous uploads)
+            session_document_ids = conversation_service.get_session_document_ids(session_id, db)
+            if session_document_ids:
+                logger.info(f"Including {len(session_document_ids)} session documents in context")
+
             # Get enhanced context with conversation history, semantic memory, and documents
             enhanced_context = enhanced_context_service.get_enhanced_context(
                 user_message=request.message,
@@ -1359,6 +1364,7 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
                 include_documents=request.use_documents,  # Include documents if requested
                 comprehensive_analysis=comprehensive_analysis,
                 enable_reasoning=True,  # Enable reasoning for transparency
+                force_document_ids=session_document_ids if session_document_ids else None,
                 db=db
             )
 
@@ -1371,10 +1377,11 @@ async def chat(request: ChatRequest, request_obj: Request, db = Depends(get_db))
             # Check if we have relevant document context
             if document_chunks:
                 # Additional relevance check for documents
+                # Session documents (forced) are always relevant, others need similarity >= 0.5
                 relevant_chunks = [chunk for chunk in document_chunks
-                                 if chunk.get('similarity_score', 0) >= 0.5]
+                                 if chunk.get('is_session_document', False) or chunk.get('similarity_score', 0) >= 0.5]
 
-                if relevant_chunks or comprehensive_analysis:
+                if relevant_chunks or comprehensive_analysis or session_document_ids:
                     document_context_used = True
                     sources = enhanced_context.get('sources', [])
                     context_summary = enhanced_context.get('context_summary', '')
@@ -1481,12 +1488,11 @@ When analyzing documents (especially Excel/CSV data), provide **clear, structure
 - Conversation exports
 - Custom documents based on user specifications
 
-**IMPORTANT: When a user requests document creation:**
-1. Acknowledge that you can help create the requested document
-2. Ask for any specific requirements or preferences if needed
-3. **DO NOT create fake attachment links or pretend to generate files directly**
-4. **ALWAYS direct them to use the "Generate" dropdown menu in the chat interface** to actually create and download the file
-5. You can provide the content outline or preview of what the document would contain, but make it clear they need to use the artifact generation UI to get the actual file
+**IMPORTANT: When a user requests content creation (speeches, summaries, outlines, etc.):**
+1. If the user has provided enough context, **JUST WRITE THE CONTENT DIRECTLY** in your response
+2. Do NOT keep asking for more details if the user has already given you: the topic/document, the audience, and the length/format
+3. Write the full content in your chat response - users can copy it or use the Generate dropdown to save as a file
+4. Only ask clarifying questions if truly essential information is missing
 
 Example response: "I can help you create that document! Based on your request, the document would include [describe content]. To generate the actual file, please click the 'Generate' button in the chat interface and select the format you prefer (Markdown, PDF, etc.)."
 
@@ -1952,6 +1958,15 @@ async def chat_with_document(
             )
             session_id = session["session_id"]
 
+        # Store uploaded document ID in session for follow-up context persistence
+        if uploaded_document:
+            conversation_service.add_document_to_session(
+                session_id=session_id,
+                document_id=uploaded_document['id'],
+                db=db
+            )
+            logger.info(f"Added document {uploaded_document['id']} to session {session_id} for context persistence")
+
         # Initialize context variables
         rag_context = None
         enhanced_prompt = None
@@ -1960,23 +1975,37 @@ async def chat_with_document(
         context_summary = None
         migration_available = False
 
-        # Enhanced message with document analysis
+        # Enhanced message with document content
         enhanced_message = chat_request.message
-        if uploaded_document and document_analysis:
-            # Add document context to the message
-            doc_context = f"\n\n[Document uploaded: {uploaded_document['original_filename']}]\n"
-            if document_analysis.get('summary'):
-                doc_context += f"Document summary: {document_analysis['summary']}\n"
-            if document_analysis.get('key_points'):
-                doc_context += f"Key points: {', '.join(document_analysis['key_points'])}\n"
+        if uploaded_document:
+            # Get the actual document content from the database
+            from ..database.models import Document as DocumentModel
+            doc = db.query(DocumentModel).filter(DocumentModel.id == uploaded_document['id']).first()
 
-            enhanced_message += doc_context
-            document_context_used = True
-            sources = [uploaded_document['original_filename']]
+            if doc and doc.text_content:
+                # Include the actual document text content (truncated if very long)
+                doc_text = doc.text_content
+                max_doc_length = 8000  # Reasonable limit for context
+                if len(doc_text) > max_doc_length:
+                    doc_text = doc_text[:max_doc_length] + "\n\n[Document truncated - full content available via follow-up questions]"
+
+                doc_context = f"\n\n[Document: {uploaded_document['original_filename']}]\n"
+                doc_context += f"{doc_text}\n"
+                doc_context += "[End of document]\n"
+
+                enhanced_message += doc_context
+                document_context_used = True
+                sources = [uploaded_document['original_filename']]
+                logger.info(f"Included {len(doc_text)} chars of document content in message")
+            else:
+                logger.warning(f"Document {uploaded_document['id']} has no text content")
 
         # Get enhanced context if document RAG is enabled
         if chat_request.use_documents:
             try:
+                # Include the just-uploaded document in forced context
+                force_doc_ids = [uploaded_document['id']] if uploaded_document else None
+
                 rag_context = enhanced_context_service.get_enhanced_context(
                     user_message=enhanced_message,
                     user_id=current_user.id,
@@ -1984,6 +2013,7 @@ async def chat_with_document(
                     character_id=chat_request.character_id,
                     include_conversation_history=True,
                     include_documents=True,
+                    force_document_ids=force_doc_ids,
                     db=db
                 )
 
@@ -2054,12 +2084,11 @@ When analyzing documents (especially Excel/CSV data), provide **clear, structure
 - Conversation exports
 - Custom documents based on user specifications
 
-**IMPORTANT: When a user requests document creation:**
-1. Acknowledge that you can help create the requested document
-2. Ask for any specific requirements or preferences if needed
-3. **DO NOT create fake attachment links or pretend to generate files directly**
-4. **ALWAYS direct them to use the "Generate" dropdown menu in the chat interface** to actually create and download the file
-5. You can provide the content outline or preview of what the document would contain, but make it clear they need to use the artifact generation UI to get the actual file
+**IMPORTANT: When a user requests content creation (speeches, summaries, outlines, etc.):**
+1. If the user has provided enough context, **JUST WRITE THE CONTENT DIRECTLY** in your response
+2. Do NOT keep asking for more details if the user has already given you: the topic/document, the audience, and the length/format
+3. Write the full content in your chat response - users can copy it or use the Generate dropdown to save as a file
+4. Only ask clarifying questions if truly essential information is missing
 
 Example response: "I can help you create that document! Based on your request, the document would include [describe content]. To generate the actual file, please click the 'Generate' button in the chat interface and select the format you prefer (Markdown, PDF, etc.)."
 

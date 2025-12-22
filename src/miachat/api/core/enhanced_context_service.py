@@ -81,6 +81,7 @@ class EnhancedContextService:
         include_documents: bool = True,
         comprehensive_analysis: bool = False,
         enable_reasoning: bool = True,
+        force_document_ids: Optional[List[str]] = None,
         db: Session = None
     ) -> Dict[str, Any]:
         """Get enhanced context with intelligent synthesis and reasoning.
@@ -94,6 +95,7 @@ class EnhancedContextService:
             include_documents: Whether to include document context
             comprehensive_analysis: If True, retrieves ALL chunks for complete analysis
             enable_reasoning: Whether to generate reasoning chains
+            force_document_ids: Optional list of document IDs to always include (for session persistence)
             db: Database session
 
         Returns:
@@ -177,7 +179,8 @@ class EnhancedContextService:
                     character_id=character_id,
                     document_references=doc_references,
                     comprehensive_analysis=comprehensive_analysis,
-                    reasoning_chain=context['reasoning_chain'] if enable_reasoning else None
+                    reasoning_chain=context['reasoning_chain'] if enable_reasoning else None,
+                    force_document_ids=force_document_ids
                 )
                 context.update(document_context)
 
@@ -378,7 +381,8 @@ class EnhancedContextService:
         character_id: Optional[str] = None,
         document_references: List[Dict[str, Any]] = None,
         comprehensive_analysis: bool = False,
-        reasoning_chain: Optional[List[Dict[str, Any]]] = None
+        reasoning_chain: Optional[List[Dict[str, Any]]] = None,
+        force_document_ids: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Get intelligent document context based on references and semantic search.
 
@@ -391,13 +395,27 @@ class EnhancedContextService:
             document_references: Parsed document references from user message
             comprehensive_analysis: Whether to do comprehensive analysis
             reasoning_chain: Optional reasoning chain to update
+            force_document_ids: Document IDs to always include (session persistence)
 
         Returns:
             Dictionary with document context
         """
         try:
-            # Start with referenced documents
+            # Start with forced documents (session persistence)
             all_chunks = []
+
+            if force_document_ids:
+                forced_chunks = self._get_chunks_by_document_ids(
+                    force_document_ids, user_id, db, reasoning_chain
+                )
+                all_chunks.extend(forced_chunks)
+                if reasoning_chain:
+                    reasoning_chain.append({
+                        'step': 'session_document_persistence',
+                        'thought': f"Including {len(forced_chunks)} chunks from {len(force_document_ids)} session documents"
+                    })
+
+            # Add referenced documents
 
             if document_references:
                 # Get documents that match the references
@@ -708,6 +726,71 @@ class EnhancedContextService:
 
         except Exception as e:
             logger.warning(f"Error getting semantic document chunks: {e}")
+            return []
+
+    def _get_chunks_by_document_ids(
+        self,
+        document_ids: List[str],
+        user_id: int,
+        db: Session,
+        reasoning_chain: Optional[List[Dict[str, Any]]] = None
+    ) -> List[Dict[str, Any]]:
+        """Get all chunks for specific document IDs (for session persistence).
+
+        Args:
+            document_ids: List of document IDs to retrieve
+            user_id: User ID for ownership verification
+            db: Database session
+            reasoning_chain: Optional reasoning chain to update
+
+        Returns:
+            List of document chunks
+        """
+        try:
+            from ...database.models import Document, DocumentChunk
+
+            chunks = []
+            for doc_id in document_ids:
+                # Get document with ownership check
+                document = db.query(Document).filter(
+                    Document.id == doc_id,
+                    Document.user_id == user_id,
+                    Document.is_processed == 1
+                ).first()
+
+                if not document:
+                    logger.warning(f"Document {doc_id} not found or not accessible for user {user_id}")
+                    continue
+
+                # Get all chunks for this document
+                doc_chunks = db.query(DocumentChunk).filter(
+                    DocumentChunk.document_id == doc_id
+                ).order_by(DocumentChunk.chunk_index).all()
+
+                for chunk in doc_chunks:
+                    chunks.append({
+                        'chunk_id': chunk.id,
+                        'document_id': chunk.document_id,
+                        'document_filename': document.original_filename,
+                        'text_content': chunk.text_content,
+                        'chunk_type': chunk.chunk_type,
+                        'chunk_index': chunk.chunk_index,
+                        'similarity_score': 1.0,  # High priority for session documents
+                        'metadata': chunk.doc_metadata or {},
+                        'document_metadata': document.doc_metadata or {},
+                        'is_session_document': True  # Flag for session persistence
+                    })
+
+            if reasoning_chain is not None:
+                reasoning_chain.append({
+                    'step': 'forced_document_retrieval',
+                    'thought': f"Retrieved {len(chunks)} chunks from {len(document_ids)} session documents"
+                })
+
+            return chunks
+
+        except Exception as e:
+            logger.warning(f"Error getting chunks by document IDs: {e}")
             return []
 
     def _detect_conflicts(

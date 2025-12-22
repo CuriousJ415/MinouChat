@@ -501,6 +501,24 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            position: relative;
+        }
+
+        .chat-main.drag-active::after {
+            content: 'Drop file here';
+            position: absolute;
+            inset: 0;
+            background: rgba(59, 130, 246, 0.1);
+            border: 3px dashed var(--pop-primary);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--pop-primary);
+            z-index: 100;
+            pointer-events: none;
         }
 
         .chat-header {
@@ -2405,6 +2423,32 @@
         fileUploadArea.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
         fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
+        // Enable drag-and-drop anywhere on the chat area
+        const chatMain = document.querySelector('.chat-main');
+        if (chatMain) {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => {
+                chatMain.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }, false);
+            });
+
+            chatMain.addEventListener('dragenter', () => {
+                chatMain.classList.add('drag-active');
+            });
+
+            chatMain.addEventListener('dragleave', (e) => {
+                // Only remove if leaving the chat area entirely
+                if (!chatMain.contains(e.relatedTarget)) {
+                    chatMain.classList.remove('drag-active');
+                }
+            });
+
+            chatMain.addEventListener('drop', e => {
+                chatMain.classList.remove('drag-active');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+        }
+
         function handleFiles(files) {
             if (files.length > 0) {
                 selectedFile = files[0];
@@ -2564,9 +2608,10 @@
                             }
                         }
 
+                        // Always hide upload zone after successful message
+                        document.getElementById('fileUploadArea').classList.remove('active');
                         if (selectedFile) {
                             removeFile();
-                            toggleFileUpload();
                         }
                     } else {
                         addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
