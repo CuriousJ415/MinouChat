@@ -100,7 +100,7 @@ async def get_goals(
 ):
     """Get all goals for a character."""
     goals = tracking_service.get_goals(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=character_id,
         db=db,
         status=status,
@@ -116,7 +116,7 @@ async def get_goal(
     db: Session = Depends(get_db)
 ):
     """Get a single goal by ID."""
-    goal = tracking_service.get_goal(goal_id, user["id"], db)
+    goal = tracking_service.get_goal(goal_id, user.id, db)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     return goal
@@ -130,7 +130,7 @@ async def create_goal(
 ):
     """Create a new goal."""
     goal = tracking_service.create_goal(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=data.character_id,
         title=data.title,
         db=db,
@@ -154,7 +154,7 @@ async def update_goal(
     """Update a goal."""
     goal = tracking_service.update_goal(
         goal_id=goal_id,
-        user_id=user["id"],
+        user_id=user.id,
         db=db,
         **data.model_dump(exclude_none=True)
     )
@@ -173,7 +173,7 @@ async def log_goal_progress(
     """Log progress on a goal."""
     goal = tracking_service.log_goal_progress(
         goal_id=goal_id,
-        user_id=user["id"],
+        user_id=user.id,
         value_change=data.value_change,
         db=db,
         note=data.note
@@ -193,7 +193,7 @@ async def get_goal_history(
     """Get progress history for a goal."""
     history = tracking_service.get_goal_progress_history(
         goal_id=goal_id,
-        user_id=user["id"],
+        user_id=user.id,
         db=db,
         limit=limit
     )
@@ -207,7 +207,7 @@ async def delete_goal(
     db: Session = Depends(get_db)
 ):
     """Delete a goal."""
-    success = tracking_service.delete_goal(goal_id, user["id"], db)
+    success = tracking_service.delete_goal(goal_id, user.id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Goal not found")
     return {"success": True}
@@ -225,7 +225,7 @@ async def get_todos(
 ):
     """Get all todos for a character."""
     todos = tracking_service.get_todos(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=character_id,
         db=db,
         include_completed=include_completed,
@@ -242,7 +242,7 @@ async def create_todo(
 ):
     """Create a new todo."""
     todo = tracking_service.create_todo(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=data.character_id,
         text=data.text,
         db=db,
@@ -263,7 +263,7 @@ async def update_todo(
     """Update a todo."""
     todo = tracking_service.update_todo(
         todo_id=todo_id,
-        user_id=user["id"],
+        user_id=user.id,
         db=db,
         **data.model_dump(exclude_none=True)
     )
@@ -279,7 +279,7 @@ async def toggle_todo(
     db: Session = Depends(get_db)
 ):
     """Toggle a todo's completion status."""
-    todo = tracking_service.toggle_todo(todo_id, user["id"], db)
+    todo = tracking_service.toggle_todo(todo_id, user.id, db)
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
     return todo
@@ -292,7 +292,7 @@ async def delete_todo(
     db: Session = Depends(get_db)
 ):
     """Delete a todo."""
-    success = tracking_service.delete_todo(todo_id, user["id"], db)
+    success = tracking_service.delete_todo(todo_id, user.id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Todo not found")
     return {"success": True}
@@ -309,7 +309,7 @@ async def get_habits(
 ):
     """Get all habits for a character."""
     habits = tracking_service.get_habits(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=character_id,
         db=db,
         active_only=active_only
@@ -324,7 +324,7 @@ async def get_habit(
     db: Session = Depends(get_db)
 ):
     """Get a single habit by ID."""
-    habit = tracking_service.get_habit(habit_id, user["id"], db)
+    habit = tracking_service.get_habit(habit_id, user.id, db)
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
     return habit
@@ -338,7 +338,7 @@ async def create_habit(
 ):
     """Create a new habit."""
     habit = tracking_service.create_habit(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=data.character_id,
         title=data.title,
         db=db,
@@ -365,7 +365,7 @@ async def update_habit(
 
     habit = tracking_service.update_habit(
         habit_id=habit_id,
-        user_id=user["id"],
+        user_id=user.id,
         db=db,
         **update_data
     )
@@ -384,7 +384,7 @@ async def complete_habit(
     """Mark a habit as completed for today."""
     habit = tracking_service.complete_habit(
         habit_id=habit_id,
-        user_id=user["id"],
+        user_id=user.id,
         db=db,
         note=data.note
     )
@@ -403,7 +403,7 @@ async def get_habit_stats(
     """Get completion stats for a habit."""
     stats = tracking_service.get_habit_stats(
         habit_id=habit_id,
-        user_id=user["id"],
+        user_id=user.id,
         db=db,
         days=days
     )
@@ -419,7 +419,7 @@ async def delete_habit(
     db: Session = Depends(get_db)
 ):
     """Delete a habit."""
-    success = tracking_service.delete_habit(habit_id, user["id"], db)
+    success = tracking_service.delete_habit(habit_id, user.id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Habit not found")
     return {"success": True}
@@ -435,7 +435,7 @@ async def get_tracking_summary(
 ):
     """Get tracking summary for sidebar badges."""
     summary = tracking_service.get_tracking_summary(
-        user_id=user["id"],
+        user_id=user.id,
         character_id=character_id,
         db=db
     )

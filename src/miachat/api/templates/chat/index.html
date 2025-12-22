@@ -121,8 +121,34 @@
         .sidebar-documents {
             padding: var(--space-3);
             border-bottom: 1px solid var(--border-subtle);
-            max-height: 280px;
+            max-height: 50vh;  /* Use viewport height for better scaling */
+            min-height: 200px;
             overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        /* Collapsible sections */
+        .sidebar-section-collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sidebar-section-collapsible .collapse-icon {
+            transition: transform var(--transition-fast);
+        }
+
+        .sidebar-section-collapsible.collapsed .collapse-icon {
+            transform: rotate(-90deg);
+        }
+
+        .sidebar-section-content {
+            overflow: hidden;
+            transition: max-height var(--transition-base);
+        }
+
+        .sidebar-section-content.collapsed {
+            max-height: 0 !important;
+            padding: 0;
         }
 
         .sidebar-section-header {
@@ -419,10 +445,37 @@
             border-radius: var(--radius-sm);
         }
 
+        .conversation-history-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .conversation-history-wrapper .sidebar-section-header {
+            padding: var(--space-2) var(--space-3);
+            border-bottom: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+        }
+
+        .history-count {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+        }
+
         .conversation-history {
             flex: 1;
             overflow-y: auto;
             padding: var(--space-2) var(--space-3);
+            max-height: none;
+        }
+
+        .conversation-history.collapsed {
+            display: none;
         }
 
         .history-group {
@@ -1228,6 +1281,28 @@
             }
         }
 
+        /* Mobile tracking optimizations */
+        @media (max-width: 768px) {
+            .sidebar-documents {
+                max-height: 40vh;
+                min-height: 150px;
+            }
+
+            .goal-item, .habit-item, .todo-item {
+                padding: var(--space-3);
+            }
+
+            .habit-check-btn {
+                width: 32px;
+                height: 32px;
+            }
+
+            /* Start with history collapsed on mobile */
+            .conversation-history-wrapper .conversation-history {
+                max-height: 30vh;
+            }
+        }
+
         /* Empty state */
         .empty-chat {
             flex: 1;
@@ -1387,11 +1462,20 @@
                 </button>
             </div>
 
-            <!-- Conversation History -->
-            <div class="conversation-history" id="conversationHistory">
-                <div class="history-empty">
-                    <i data-lucide="message-square" style="width: 32px; height: 32px;"></i>
-                    <p>Select a persona to see your chat history</p>
+            <!-- Conversation History (Collapsible) -->
+            <div class="conversation-history-wrapper">
+                <div class="sidebar-section-header sidebar-section-collapsible" onclick="toggleHistoryCollapse()">
+                    <h4>
+                        <i data-lucide="chevron-down" class="collapse-icon" style="width: 14px; height: 14px;"></i>
+                        Chat History
+                    </h4>
+                    <span class="history-count" id="historyCount"></span>
+                </div>
+                <div class="conversation-history sidebar-section-content" id="conversationHistory">
+                    <div class="history-empty">
+                        <i data-lucide="message-square" style="width: 32px; height: 32px;"></i>
+                        <p>Select a persona to see your chat history</p>
+                    </div>
                 </div>
             </div>
 
@@ -1832,6 +1916,13 @@
         // Render conversation history grouped by date
         function renderConversationHistory(groups) {
             const container = document.getElementById('conversationHistory');
+            const countBadge = document.getElementById('historyCount');
+
+            // Count total conversations
+            const totalCount = Object.values(groups).reduce((sum, g) => sum + g.length, 0);
+            if (countBadge) {
+                countBadge.textContent = totalCount > 0 ? totalCount : '';
+            }
 
             // Check if there are any conversations
             const hasConversations = Object.values(groups).some(g => g.length > 0);
@@ -2784,6 +2875,17 @@
         }
 
         // Sidebar
+        function toggleHistoryCollapse() {
+            const wrapper = document.querySelector('.conversation-history-wrapper');
+            const header = wrapper.querySelector('.sidebar-section-collapsible');
+            const content = wrapper.querySelector('.conversation-history');
+
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
         function toggleSidebar() {
             sidebarCollapsed = !sidebarCollapsed;
             const sidebar = document.getElementById('chatSidebar');
