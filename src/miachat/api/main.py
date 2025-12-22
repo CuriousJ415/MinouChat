@@ -7,6 +7,10 @@ FastAPI application with security hardening:
 - Rate limiting on authentication endpoints
 """
 
+# Load environment variables from .env file before any other imports
+from dotenv import load_dotenv
+load_dotenv()
+
 import secrets
 from fastapi import FastAPI, Request, Depends, Body, Form, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -657,7 +661,11 @@ async def chat_page(request: Request, db = Depends(get_db)):
     # Check if user is authenticated
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
-        return RedirectResponse(url="/auth/login", status_code=302)
+        # Preserve the full URL including query params for return after login
+        return_url = str(request.url.path)
+        if request.url.query:
+            return_url += f"?{request.url.query}"
+        return RedirectResponse(url=f"/auth/login?return_to={return_url}", status_code=302)
     
     characters = character_manager.list_characters()
     categories = character_manager.get_categories()
@@ -795,7 +803,7 @@ async def personas_list_page(request: Request, db = Depends(get_db)):
     # Check if user is authenticated
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
-        return RedirectResponse(url="/auth/login", status_code=302)
+        return RedirectResponse(url="/auth/login?return_to=/personas", status_code=302)
 
     personas = character_manager.list_characters()
     return await render_template(request, "persona/list", personas=personas, user=current_user)
@@ -809,7 +817,7 @@ async def persona_list_page_redirect(request: Request):
 async def create_persona_page(request: Request, db = Depends(get_db)):
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
-        return RedirectResponse(url="/auth/login", status_code=302)
+        return RedirectResponse(url="/auth/login?return_to=/persona/create", status_code=302)
     # Render the new creation wizard
     return await render_template(request, "persona/create", user=current_user)
 
@@ -819,7 +827,9 @@ async def edit_persona_page(persona_id: str, request: Request, db = Depends(get_
     current_user = await get_current_user_from_session(request, db)
     if not current_user:
         logger.warning(f"[PERSONA EDIT] No authenticated user, redirecting to login")
-        return RedirectResponse(url="/auth/login", status_code=302)
+        # Include return URL so user comes back here after login
+        return_url = f"/persona/edit/{persona_id}"
+        return RedirectResponse(url=f"/auth/login?return_to={return_url}", status_code=302)
     # Fetch the persona by id
     persona = character_manager.get_character(persona_id)
     if not persona:

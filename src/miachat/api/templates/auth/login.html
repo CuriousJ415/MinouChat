@@ -414,6 +414,10 @@
     ></script>
 
     <script>
+        // Get return URL from query params (for post-login redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnTo = urlParams.get('return_to') || '/dashboard';
+
         // Suppress browser extension message errors (common with password managers, ad blockers, etc.)
         window.addEventListener('error', function(event) {
             if (event.message && event.message.includes('message channel closed')) {
@@ -549,7 +553,7 @@
                 });
 
                 if (response.ok) {
-                    window.location.href = '/dashboard';
+                    window.location.href = returnTo;
                 } else {
                     const text = await response.text();
                     console.error('Sync failed:', text);
@@ -567,7 +571,7 @@
                                 }
                             });
                             if (retryResponse.ok) {
-                                window.location.href = '/dashboard';
+                                window.location.href = returnTo;
                                 return;
                             }
                         }
