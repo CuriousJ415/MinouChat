@@ -16,9 +16,12 @@ Supports LLM-powered document generation with category-specific templates:
 """
 
 import logging
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+import os
+import uuid
+from datetime import datetime
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -34,10 +37,15 @@ from ..core.clerk_auth import get_current_user_from_session
 from ..core.llm_client import llm_client
 from ..core.character_manager import character_manager
 from ...database.config import get_db
+from ...database.models import GeneratedDocument, Conversation
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/export", tags=["export"])
+
+# Directory for storing generated documents
+GENERATED_DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "generated_documents")
+os.makedirs(GENERATED_DOCS_DIR, exist_ok=True)
 
 
 # Request models
@@ -391,6 +399,7 @@ async def generate_document(
 
     This endpoint uses the conversation context to generate well-structured
     documents based on the persona category and selected document type.
+    The generated document is saved to the library and returned for download.
 
     Args:
         session_id: The conversation session ID
@@ -469,13 +478,67 @@ async def generate_document(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+        # Read the buffer content
+        file_content = buffer.read()
+        file_size = len(file_content)
+        buffer.seek(0)
+
+        # Store markdown content if applicable (only if already in markdown format)
+        # We avoid regenerating to save LLM calls
+        markdown_content = None
+        content_preview = None
+        if export_format == ExportFormat.MARKDOWN:
+            markdown_content = file_content.decode('utf-8')
+            content_preview = markdown_content[:500] if markdown_content else None
+        elif export_format == ExportFormat.TEXT:
+            # Text format is close enough to use for preview
+            text_content = file_content.decode('utf-8')
+            content_preview = text_content[:500] if text_content else None
+
+        # Save file to disk
+        doc_id = str(uuid.uuid4())
+        file_path = os.path.join(GENERATED_DOCS_DIR, f"{doc_id}_{filename}")
+        with open(file_path, 'wb') as f:
+            f.write(file_content)
+
+        # Get document type info for title
+        doc_info = DOCUMENT_TYPES.get(document_type)
+        doc_type_name = doc_info.name if doc_info else document_type.value
+
+        # Save to database
+        conversation_id = session.get("conversation_id")
+        generated_doc = GeneratedDocument(
+            id=doc_id,
+            user_id=current_user.id,
+            character_id=character_id,
+            conversation_id=conversation_id,
+            title=f"{doc_type_name} - {character_name}",
+            document_type=document_type.value,
+            category=character_category,
+            format=export_format.value,
+            filename=filename,
+            file_path=file_path,
+            file_size=file_size,
+            content_preview=content_preview,
+            content_markdown=markdown_content,
+            custom_instructions=request_data.custom_instructions,
+            message_count=len(messages)
+        )
+        db.add(generated_doc)
+        db.commit()
+
+        logger.info(f"Generated document saved: {doc_id} ({filename})")
+
+        # Reset buffer for streaming response
+        buffer.seek(0)
         content_type = export_service.get_content_type(export_format)
 
         return StreamingResponse(
             buffer,
             media_type=content_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "X-Document-Id": doc_id
             }
         )
 
@@ -500,3 +563,199 @@ async def list_all_document_types():
         result[category] = get_document_types_for_category(category)
 
     return {"document_types_by_category": result}
+
+
+# =========================================================================
+# Generated Documents Library Endpoints
+# =========================================================================
+
+@router.get("/library")
+async def list_generated_documents(
+    request: Request,
+    db: Session = Depends(get_db),
+    character_id: Optional[str] = Query(None, description="Filter by character ID"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    document_type: Optional[str] = Query(None, description="Filter by document type"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0)
+):
+    """List generated documents for the current user.
+
+    Args:
+        character_id: Optional filter by character
+        category: Optional filter by category (Assistant, Coach, etc.)
+        document_type: Optional filter by document type
+        limit: Maximum documents to return
+        offset: Offset for pagination
+
+    Returns:
+        List of generated documents with metadata
+    """
+    try:
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        query = db.query(GeneratedDocument).filter(
+            GeneratedDocument.user_id == current_user.id
+        )
+
+        # Apply filters
+        if character_id:
+            query = query.filter(GeneratedDocument.character_id == character_id)
+        if category:
+            query = query.filter(GeneratedDocument.category == category)
+        if document_type:
+            query = query.filter(GeneratedDocument.document_type == document_type)
+
+        # Get total count
+        total = query.count()
+
+        # Order by most recent and paginate
+        documents = query.order_by(GeneratedDocument.created_at.desc()) \
+            .offset(offset).limit(limit).all()
+
+        return {
+            "documents": [doc.to_dict() for doc in documents],
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing generated documents: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list documents")
+
+
+@router.get("/library/{document_id}")
+async def get_generated_document(
+    document_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get a specific generated document's metadata and content.
+
+    Args:
+        document_id: The document ID
+
+    Returns:
+        Document metadata including markdown content
+    """
+    try:
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        doc = db.query(GeneratedDocument).filter(
+            GeneratedDocument.id == document_id,
+            GeneratedDocument.user_id == current_user.id
+        ).first()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        result = doc.to_dict()
+        result['content_markdown'] = doc.content_markdown
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting generated document {document_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get document")
+
+
+@router.get("/library/{document_id}/download")
+async def download_generated_document(
+    document_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Download a generated document file.
+
+    Args:
+        document_id: The document ID
+
+    Returns:
+        FileResponse with the document file
+    """
+    try:
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        doc = db.query(GeneratedDocument).filter(
+            GeneratedDocument.id == document_id,
+            GeneratedDocument.user_id == current_user.id
+        ).first()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        if not os.path.exists(doc.file_path):
+            raise HTTPException(status_code=404, detail="Document file not found")
+
+        # Get content type
+        format_enum = ExportFormat(doc.format)
+        content_type = export_service.get_content_type(format_enum)
+
+        return FileResponse(
+            path=doc.file_path,
+            media_type=content_type,
+            filename=doc.filename
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading document {document_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to download document")
+
+
+@router.delete("/library/{document_id}")
+async def delete_generated_document(
+    document_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Delete a generated document.
+
+    Args:
+        document_id: The document ID
+
+    Returns:
+        Success message
+    """
+    try:
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        doc = db.query(GeneratedDocument).filter(
+            GeneratedDocument.id == document_id,
+            GeneratedDocument.user_id == current_user.id
+        ).first()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        # Delete file from disk
+        if os.path.exists(doc.file_path):
+            os.remove(doc.file_path)
+
+        # Delete from database
+        db.delete(doc)
+        db.commit()
+
+        logger.info(f"Deleted generated document: {document_id}")
+
+        return {"message": "Document deleted successfully", "id": document_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting document {document_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete document")

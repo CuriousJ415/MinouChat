@@ -22,5 +22,7 @@
     "repeat_penalty": 1.1,
     "top_k": 40
   },
-  "id": "7f737240-dfb8-4545-9886-a2b6a0e6c8b3"
+  "id": "7f737240-dfb8-4545-9886-a2b6a0e6c8b3",
+  "hide_category": false,
+  "updated_at": "2025-12-22T03:27:07.157184+00:00"
 }

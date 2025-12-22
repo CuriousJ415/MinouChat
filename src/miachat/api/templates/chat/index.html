@@ -966,7 +966,10 @@
                 <select class="persona-dropdown" id="personaDropdown">
                     <option value="">Select a persona...</option>
                     {% for persona in personas %}
-                    <option value="{{ persona.id }}" data-name="{{ persona.name }}" data-category="{{ persona.category or 'General' }}">
+                    <option value="{{ persona.id }}"
+                            data-name="{{ persona.name }}"
+                            data-category="{{ persona.category or 'General' }}"
+                            data-hide-category="{{ 'true' if persona.hide_category else 'false' }}">
                         {% if persona.hide_category %}
                         {{ persona.name }}
                         {% else %}
