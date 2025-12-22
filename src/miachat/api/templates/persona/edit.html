@@ -706,6 +706,69 @@
             </div>
         </div>
 
+        <!-- Sidebar Features -->
+        <div class="form-card">
+            <div class="collapsible-header" onclick="toggleFeaturesSettings()">
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <h3 class="form-section-title" style="margin: 0; border: none; padding: 0;">
+                        Sidebar Features
+                    </h3>
+                    <span class="changes-badge" id="features-changes-badge"></span>
+                </div>
+                <i data-lucide="chevron-down" class="collapsible-icon"></i>
+            </div>
+
+            <div class="collapsible-content" id="features-content" style="display: none;">
+                <p style="color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4);">
+                    Choose which tracking features appear in the sidebar when chatting with this persona.
+                    Users can override these defaults in their own settings.
+                </p>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                            <input type="checkbox" id="feature_goals" name="feature_goals"
+                                   {% if persona.features and persona.features.goals %}checked{% elif not persona.features %}checked{% endif %}>
+                            <i data-lucide="target" style="width: 16px; height: 16px; color: var(--text-secondary);"></i>
+                            <span>Goals</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                            <input type="checkbox" id="feature_habits" name="feature_habits"
+                                   {% if persona.features and persona.features.habits %}checked{% elif not persona.features %}checked{% endif %}>
+                            <i data-lucide="repeat" style="width: 16px; height: 16px; color: var(--text-secondary);"></i>
+                            <span>Habits</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                            <input type="checkbox" id="feature_todos" name="feature_todos"
+                                   {% if persona.features and persona.features.todos %}checked{% elif not persona.features %}checked{% endif %}>
+                            <i data-lucide="check-square" style="width: 16px; height: 16px; color: var(--text-secondary);"></i>
+                            <span>Todo List</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                            <input type="checkbox" id="feature_life_areas" name="feature_life_areas"
+                                   {% if persona.features and persona.features.life_areas %}checked{% endif %}>
+                            <i data-lucide="pie-chart" style="width: 16px; height: 16px; color: var(--text-secondary);"></i>
+                            <span>Life Areas</span>
+                        </label>
+                    </div>
+                </div>
+
+                <p style="color: var(--text-muted); font-size: var(--text-xs); margin-top: var(--space-3);">
+                    <i data-lucide="info" style="width: 12px; height: 12px; display: inline; vertical-align: middle;"></i>
+                    Leave unchecked to hide the feature by default. Users can still enable it for themselves.
+                </p>
+            </div>
+        </div>
+
         <!-- System Prompt -->
         <div class="form-card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
@@ -1284,6 +1347,14 @@
         const content = document.getElementById('style-content');
         header.classList.toggle('open');
         content.classList.toggle('open');
+    }
+
+    function toggleFeaturesSettings() {
+        const content = document.getElementById('features-content');
+        const header = content.previousElementSibling;
+        const isOpen = content.style.display !== 'none';
+        content.style.display = isOpen ? 'none' : 'block';
+        header.classList.toggle('open', !isOpen);
     }
 
     function toggleModelSettings() {
@@ -2006,12 +2077,22 @@
         if (document.querySelector('[name="affection_future"]')?.checked) affectionExpressions.push('future_plans');
         if (document.querySelector('[name="affection_vulnerability"]')?.checked) affectionExpressions.push('vulnerability');
 
+        // Build features object from checkboxes
+        const features = {
+            goals: document.getElementById('feature_goals')?.checked || false,
+            habits: document.getElementById('feature_habits')?.checked || false,
+            todos: document.getElementById('feature_todos')?.checked || false,
+            life_areas: document.getElementById('feature_life_areas')?.checked || false
+        };
+
         const personaData = {
             name: formData.get('name'),
             category: formData.get('category'),
             hide_category: document.getElementById('hide-category').checked,
             system_prompt: formData.get('system_prompt'),
             communication_style: currentStyles,
+            // Sidebar Features
+            features: features,
             // Companion Mode settings
             companion_mode: document.getElementById('companion-mode')?.checked || false,
             intimacy_style: formData.get('intimacy_style') || 'romantic',

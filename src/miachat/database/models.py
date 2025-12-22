@@ -1074,3 +1074,48 @@ class HabitCompletion(Base):
             'note': self.note
         }
 
+
+class PersonaFeaturePreferences(Base):
+    """User preferences for which features are enabled per persona.
+
+    Hierarchy for determining feature visibility:
+    1. User override (this table) - highest priority
+    2. Character card 'features' field - persona creator defaults
+    3. Category defaults - based on persona category (Coach, Friend, etc.)
+    """
+    __tablename__ = 'persona_feature_preferences'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=False, index=True)
+
+    # Feature toggles (NULL means use default, True/False for explicit override)
+    show_goals = Column(Integer, nullable=True)  # NULL = use default
+    show_habits = Column(Integer, nullable=True)
+    show_todos = Column(Integer, nullable=True)
+    show_life_areas = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Unique constraint: one preference record per user+character combo
+    __table_args__ = (
+        UniqueConstraint('user_id', 'character_id', name='uq_user_character_features'),
+    )
+
+    # Relationships
+    user = relationship('User', backref='feature_preferences')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'show_goals': bool(self.show_goals) if self.show_goals is not None else None,
+            'show_habits': bool(self.show_habits) if self.show_habits is not None else None,
+            'show_todos': bool(self.show_todos) if self.show_todos is not None else None,
+            'show_life_areas': bool(self.show_life_areas) if self.show_life_areas is not None else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
