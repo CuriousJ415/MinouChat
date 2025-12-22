@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MinouChat is a privacy-first AI assistant platform that enables users to create and interact with customizable AI characters. The system features persistent memory, document analysis (RAG), and support for multiple LLM providers with Ollama (local) as the default.
 
+## Development Roadmap
+
+**Active development plan:** `docs/implementation/development-plan.md`
+
+Check this file for current phase status, next steps, and feature specifications. Always review this before asking "what's next?"
+
 ## Development Commands
 
 ### Running the Application
