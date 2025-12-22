@@ -61,6 +61,154 @@
             font-size: var(--text-lg);
         }
 
+        /* Persona Dropdown */
+        .persona-dropdown-wrapper {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .persona-dropdown {
+            width: 100%;
+            padding: var(--space-3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: var(--text-sm);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
+        }
+
+        .persona-dropdown:focus {
+            outline: none;
+            border-color: var(--text-primary);
+        }
+
+        /* New Chat Button */
+        .new-chat-wrapper {
+            padding: var(--space-2) var(--space-3);
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            padding: var(--space-3);
+            background: var(--bg-primary);
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: var(--text-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .new-chat-btn:hover {
+            border-style: solid;
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        /* Conversation History */
+        .conversation-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-2) var(--space-3);
+        }
+
+        .history-group {
+            margin-bottom: var(--space-4);
+        }
+
+        .history-group-label {
+            font-size: var(--text-xs);
+            font-weight: var(--font-semibold);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: var(--space-2) var(--space-2);
+            margin-bottom: var(--space-1);
+        }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-bottom: var(--space-1);
+            position: relative;
+        }
+
+        .conversation-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .conversation-item.active {
+            background: var(--bg-tertiary);
+        }
+
+        .conversation-item-icon {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+        }
+
+        .conversation-item-title {
+            flex: 1;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-item-delete {
+            opacity: 0;
+            padding: var(--space-1);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .conversation-item:hover .conversation-item-delete {
+            opacity: 1;
+        }
+
+        .conversation-item-delete:hover {
+            color: var(--pop-danger);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .history-empty {
+            text-align: center;
+            padding: var(--space-6) var(--space-4);
+            color: var(--text-muted);
+            font-size: var(--text-sm);
+        }
+
+        .history-empty svg {
+            width: 32px;
+            height: 32px;
+            margin-bottom: var(--space-2);
+            opacity: 0.5;
+        }
+
+        /* Legacy persona list styles - keeping for backward compatibility */
         .personas-list {
             flex: 1;
             overflow-y: auto;
@@ -124,6 +272,50 @@
             border-top: 1px solid var(--border-subtle);
         }
 
+        /* Delete Confirmation Modal */
+        .delete-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: var(--z-modal);
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-normal);
+        }
+
+        .delete-modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .delete-modal {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .delete-modal h3 {
+            margin: 0 0 var(--space-3) 0;
+            font-size: var(--text-lg);
+        }
+
+        .delete-modal p {
+            color: var(--text-muted);
+            margin-bottom: var(--space-4);
+        }
+
+        .delete-modal-actions {
+            display: flex;
+            gap: var(--space-3);
+            justify-content: center;
+        }
+
         /* Main Chat Area */
         .chat-main {
             flex: 1;
@@ -170,6 +362,112 @@
             display: flex;
             align-items: center;
             gap: var(--space-2);
+        }
+
+        /* Export Dropdown */
+        .export-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .export-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            min-width: 200px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: var(--z-dropdown);
+            padding: var(--space-2) 0;
+            margin-top: var(--space-1);
+        }
+
+        .export-dropdown-content.show {
+            display: block;
+        }
+
+        .export-dropdown-header {
+            padding: var(--space-2) var(--space-3);
+            font-size: var(--text-xs);
+            font-weight: var(--font-semibold);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .export-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: var(--text-sm);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .export-dropdown-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .export-dropdown-item .export-icon {
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+        }
+
+        .export-dropdown-item .export-label {
+            flex: 1;
+        }
+
+        .export-dropdown-item .export-ext {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+
+        .export-dropdown-divider {
+            height: 1px;
+            background: var(--border-subtle);
+            margin: var(--space-2) 0;
+        }
+
+        .format-btn {
+            padding: 4px 8px;
+            font-size: var(--text-xs);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .format-btn:hover {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+        }
+
+        .format-btn.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .export-dropdown-item.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .export-dropdown-item.loading::after {
+            content: " ...";
         }
 
         /* LLM Info Banner */
@@ -663,28 +961,57 @@
                 </button>
             </div>
 
-            <div class="personas-list" id="personasList">
-                {% for persona in personas %}
-                <div class="persona-item {% if persona.name == active_persona %}active{% endif %}"
-                     data-persona="{{ persona.name }}"
-                     data-character-id="{{ persona.id }}"
-                     data-category="{{ persona.category or '' }}">
-                    <div class="persona-avatar-sm">{{ persona.name[0]|upper }}</div>
-                    <div class="persona-details">
-                        <div class="persona-name">{{ persona.name }}</div>
-                        <div class="persona-category">{{ persona.category or 'General' }}</div>
-                    </div>
+            <!-- Persona Dropdown -->
+            <div class="persona-dropdown-wrapper">
+                <select class="persona-dropdown" id="personaDropdown">
+                    <option value="">Select a persona...</option>
+                    {% for persona in personas %}
+                    <option value="{{ persona.id }}" data-name="{{ persona.name }}" data-category="{{ persona.category or 'General' }}">
+                        {% if persona.hide_category %}
+                        {{ persona.name }}
+                        {% else %}
+                        {{ persona.name }} ({{ persona.category or 'General' }})
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- New Chat Button -->
+            <div class="new-chat-wrapper">
+                <button class="new-chat-btn" id="newChatBtn" onclick="startNewChat()">
+                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                    New Chat
+                </button>
+            </div>
+
+            <!-- Conversation History -->
+            <div class="conversation-history" id="conversationHistory">
+                <div class="history-empty">
+                    <i data-lucide="message-square" style="width: 32px; height: 32px;"></i>
+                    <p>Select a persona to see your chat history</p>
                 </div>
-                {% endfor %}
             </div>
 
             <div class="sidebar-footer">
                 <a href="/personas" class="btn btn-secondary" style="width: 100%;">
-                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
-                    New Persona
+                    <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i>
+                    Manage Personas
                 </a>
             </div>
         </aside>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="delete-modal-overlay" id="deleteModalOverlay">
+            <div class="delete-modal">
+                <h3>Delete Conversation?</h3>
+                <p>This will permanently delete this conversation and all its messages.</p>
+                <div class="delete-modal-actions">
+                    <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                    <button class="btn btn-danger" onclick="confirmDeleteConversation()">Delete</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Main Chat -->
         <main class="chat-main">
@@ -706,6 +1033,45 @@
                     <button class="btn btn-ghost" onclick="toggleDocumentPanel()" title="View and manage uploaded documents for this conversation">
                         <i data-lucide="file-text" style="width: 18px; height: 18px;"></i>
                     </button>
+                    <!-- Export Dropdown -->
+                    <div class="export-dropdown" id="exportDropdown">
+                        <button class="btn btn-ghost" onclick="toggleExportDropdown(event)" title="Generate document from conversation">
+                            <i data-lucide="file-output" style="width: 18px; height: 18px;"></i>
+                        </button>
+                        <div class="export-dropdown-content" id="exportDropdownContent">
+                            <!-- Basic Export Options -->
+                            <div class="export-dropdown-header">Quick Export</div>
+                            <button class="export-dropdown-item" onclick="exportConversation('pdf')">
+                                <i data-lucide="file" class="export-icon"></i>
+                                <span class="export-label">Full Transcript (PDF)</span>
+                                <span class="export-ext">.pdf</span>
+                            </button>
+                            <button class="export-dropdown-item" onclick="exportConversation('md')">
+                                <i data-lucide="file-code" class="export-icon"></i>
+                                <span class="export-label">Full Transcript (Markdown)</span>
+                                <span class="export-ext">.md</span>
+                            </button>
+
+                            <!-- Dynamic Document Types (loaded based on character category) -->
+                            <div id="documentTypesSection" style="display: none;">
+                                <div class="export-dropdown-divider"></div>
+                                <div class="export-dropdown-header" id="documentTypesHeader">Generate Document</div>
+                                <div id="documentTypesList">
+                                    <!-- Populated dynamically by JavaScript -->
+                                </div>
+                            </div>
+
+                            <!-- Format Selection Modal Trigger -->
+                            <div class="export-dropdown-divider"></div>
+                            <div class="export-dropdown-header">Output Format</div>
+                            <div style="display: flex; gap: 4px; padding: 4px 12px;">
+                                <button class="format-btn active" data-format="pdf" title="PDF">PDF</button>
+                                <button class="format-btn" data-format="docx" title="Word">DOCX</button>
+                                <button class="format-btn" data-format="md" title="Markdown">MD</button>
+                                <button class="format-btn" data-format="txt" title="Plain Text">TXT</button>
+                            </div>
+                        </div>
+                    </div>
                     <button class="btn btn-ghost" onclick="clearChat()" title="Clear all messages in this chat session">
                         <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
                     </button>
@@ -915,6 +1281,7 @@
         // Initialize sidebar state based on screen size
         let sidebarCollapsed = window.innerWidth <= 768;
         let documentPanelOpen = false;
+        let conversationToDelete = null;  // Track which conversation is pending deletion
 
         // Apply initial collapsed state for mobile
         if (sidebarCollapsed) {
@@ -930,12 +1297,18 @@
                         currentPersona = data.name;
                         document.getElementById('currentPersona').textContent = data.name;
                         updateEditPersonaLink(currentCharacterId);
+
+                        // Update character category for export document types
+                        updateCharacterCategory(data.category);
+
                         enableChat();
 
-                        // Auto-collapse sidebar on page load when persona is selected
-                        if (!sidebarCollapsed) {
-                            toggleSidebar();
-                        }
+                        // Set dropdown to this character
+                        const dropdown = document.getElementById('personaDropdown');
+                        dropdown.value = currentCharacterId;
+
+                        // Load conversation history for this character
+                        loadConversationHistory(currentCharacterId);
 
                         if (currentSessionId) {
                             loadExistingConversation();
@@ -964,36 +1337,222 @@
             }
         }
 
-        // Persona selection
-        document.querySelectorAll('.persona-item').forEach(item => {
-            item.addEventListener('click', function() {
-                selectPersona(this.dataset.persona, this.dataset.characterId);
-            });
+        // Persona selection via dropdown
+        document.getElementById('personaDropdown').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (this.value) {
+                selectPersona(selectedOption.dataset.name, this.value, selectedOption.dataset.category);
+            }
         });
 
-        function selectPersona(name, characterId) {
-            document.querySelectorAll('.persona-item').forEach(p => p.classList.remove('active'));
-            document.querySelector(`[data-persona="${name}"]`)?.classList.add('active');
-
+        function selectPersona(name, characterId, category) {
             currentPersona = name;
             currentCharacterId = characterId;
+            currentSessionId = null;  // Clear session for new persona
+            localStorage.removeItem('currentSessionId');
+
             document.getElementById('currentPersona').textContent = name;
 
             // Show edit persona link
             updateEditPersonaLink(characterId);
 
+            // Update character category for export document types
+            updateCharacterCategory(category);
+
             // Hide the LLM banner until we get a chat response with LLM info
             resetLLMBannerDismiss();
+
+            // Load conversation history for this persona
+            loadConversationHistory(characterId);
 
             enableChat();
             clearChat();
             // Use personalized greeting instead of generic one
             showPersonalizedGreeting(characterId, name);
 
-            // Auto-collapse sidebar on all screen sizes after selecting a persona
-            if (!sidebarCollapsed) {
-                toggleSidebar();
+            // Update URL without reloading
+            const url = new URL(window.location);
+            url.searchParams.set('character_id', characterId);
+            window.history.pushState({}, '', url);
+        }
+
+        // Start a new chat (clear current conversation)
+        function startNewChat() {
+            if (!currentCharacterId) {
+                showToast('Please select a persona first', 'error');
+                return;
             }
+
+            currentSessionId = null;
+            localStorage.removeItem('currentSessionId');
+            clearChat();
+            showPersonalizedGreeting(currentCharacterId, currentPersona);
+
+            // Update active state in conversation list
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            showToast('Started new conversation', 'success');
+        }
+
+        // Load conversation history for a character
+        async function loadConversationHistory(characterId) {
+            const container = document.getElementById('conversationHistory');
+            container.innerHTML = '<div class="history-empty"><span class="spinner spinner-sm"></span><p>Loading...</p></div>';
+
+            try {
+                const response = await authFetch(`/api/conversations/character/${characterId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load conversations');
+                }
+
+                const data = await response.json();
+                renderConversationHistory(data.groups);
+            } catch (e) {
+                console.error('Error loading conversation history:', e);
+                container.innerHTML = `
+                    <div class="history-empty">
+                        <i data-lucide="alert-circle" style="width: 32px; height: 32px;"></i>
+                        <p>Could not load history</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        // Render conversation history grouped by date
+        function renderConversationHistory(groups) {
+            const container = document.getElementById('conversationHistory');
+
+            // Check if there are any conversations
+            const hasConversations = Object.values(groups).some(g => g.length > 0);
+
+            if (!hasConversations) {
+                container.innerHTML = `
+                    <div class="history-empty">
+                        <i data-lucide="message-square" style="width: 32px; height: 32px;"></i>
+                        <p>No conversations yet.<br>Start chatting!</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            const groupLabels = {
+                today: 'Today',
+                yesterday: 'Yesterday',
+                previous_7_days: 'Previous 7 Days',
+                older: 'Older'
+            };
+
+            let html = '';
+            for (const [groupKey, conversations] of Object.entries(groups)) {
+                if (conversations.length === 0) continue;
+
+                html += `<div class="history-group">`;
+                html += `<div class="history-group-label">${groupLabels[groupKey]}</div>`;
+
+                for (const conv of conversations) {
+                    const isActive = conv.id === currentSessionId ? 'active' : '';
+                    html += `
+                        <div class="conversation-item ${isActive}"
+                             data-session-id="${conv.id}"
+                             onclick="loadConversation('${conv.id}')">
+                            <i data-lucide="message-square" class="conversation-item-icon"></i>
+                            <span class="conversation-item-title">${escapeHtml(conv.title)}</span>
+                            <button class="conversation-item-delete"
+                                    onclick="event.stopPropagation(); showDeleteModal('${conv.id}')"
+                                    title="Delete conversation">
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // Load a specific conversation
+        async function loadConversation(sessionId) {
+            if (!sessionId) return;
+
+            // Update active state
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.sessionId === sessionId);
+            });
+
+            currentSessionId = sessionId;
+            localStorage.setItem('currentSessionId', sessionId);
+
+            // Load conversation history
+            try {
+                const response = await authFetch(`/api/conversations/${sessionId}/history`);
+                if (!response.ok) {
+                    throw new Error('Failed to load conversation');
+                }
+
+                const data = await response.json();
+                clearChat();
+
+                if (data.history && data.history.length > 0) {
+                    data.history.forEach(msg => addMessage(msg.role, msg.content));
+                } else {
+                    showPersonalizedGreeting(currentCharacterId, currentPersona);
+                }
+            } catch (e) {
+                console.error('Error loading conversation:', e);
+                showToast('Could not load conversation', 'error');
+            }
+        }
+
+        // Delete conversation modal
+        function showDeleteModal(sessionId) {
+            conversationToDelete = sessionId;
+            document.getElementById('deleteModalOverlay').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            conversationToDelete = null;
+            document.getElementById('deleteModalOverlay').classList.remove('show');
+        }
+
+        async function confirmDeleteConversation() {
+            if (!conversationToDelete) return;
+
+            try {
+                const response = await authFetch(`/api/conversations/${conversationToDelete}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // If we deleted the current conversation, start a new one
+                    if (conversationToDelete === currentSessionId) {
+                        startNewChat();
+                    }
+
+                    // Reload the conversation history
+                    loadConversationHistory(currentCharacterId);
+                    showToast('Conversation deleted', 'success');
+                } else {
+                    showToast('Failed to delete conversation', 'error');
+                }
+            } catch (e) {
+                console.error('Error deleting conversation:', e);
+                showToast('Failed to delete conversation', 'error');
+            }
+
+            closeDeleteModal();
+        }
+
+        // Helper to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Update the edit persona link with the current character ID
@@ -1089,6 +1648,209 @@
                     currentSessionId = null;
                     localStorage.removeItem('currentSessionId');
                 });
+        }
+
+        // Export functionality
+        let selectedExportFormat = 'pdf';
+        let currentCharacterCategory = 'Assistant';
+        let documentTypesCache = {};
+
+        function toggleExportDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('exportDropdownContent');
+            dropdown.classList.toggle('show');
+
+            // Load document types for current character category
+            if (dropdown.classList.contains('show')) {
+                loadDocumentTypes(currentCharacterCategory);
+                document.addEventListener('click', closeExportDropdown);
+            }
+        }
+
+        function closeExportDropdown() {
+            const dropdown = document.getElementById('exportDropdownContent');
+            dropdown.classList.remove('show');
+            document.removeEventListener('click', closeExportDropdown);
+        }
+
+        async function loadDocumentTypes(category) {
+            const section = document.getElementById('documentTypesSection');
+            const list = document.getElementById('documentTypesList');
+            const header = document.getElementById('documentTypesHeader');
+
+            if (!category) {
+                section.style.display = 'none';
+                return;
+            }
+
+            // Check cache first
+            if (documentTypesCache[category]) {
+                renderDocumentTypes(documentTypesCache[category], category);
+                return;
+            }
+
+            try {
+                const response = await authFetch(`/api/export/document-types/${category}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    documentTypesCache[category] = data.document_types;
+                    renderDocumentTypes(data.document_types, category);
+                }
+            } catch (error) {
+                console.error('Failed to load document types:', error);
+                section.style.display = 'none';
+            }
+        }
+
+        function renderDocumentTypes(docTypes, category) {
+            const section = document.getElementById('documentTypesSection');
+            const list = document.getElementById('documentTypesList');
+            const header = document.getElementById('documentTypesHeader');
+
+            if (!docTypes || docTypes.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            header.textContent = `Generate ${category} Document`;
+
+            list.innerHTML = docTypes.map(dt => `
+                <button class="export-dropdown-item" onclick="generateDocument('${dt.id}')" title="${dt.description}">
+                    <i data-lucide="sparkles" class="export-icon"></i>
+                    <span class="export-label">${dt.name}</span>
+                    <span class="export-ext">.${selectedExportFormat}</span>
+                </button>
+            `).join('');
+
+            // Reinitialize Lucide icons for new elements
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // Format button handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.format-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    selectedExportFormat = this.dataset.format;
+
+                    // Update extension displays
+                    document.querySelectorAll('#documentTypesList .export-ext').forEach(ext => {
+                        ext.textContent = '.' + selectedExportFormat;
+                    });
+                });
+            });
+        });
+
+        async function exportConversation(format) {
+            closeExportDropdown();
+
+            if (!currentSessionId) {
+                alert('No active conversation to export');
+                return;
+            }
+
+            try {
+                const response = await authFetch(`/api/export/conversation/${currentSessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        format: format,
+                        include_system: false,
+                        include_timestamps: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Export failed');
+                }
+
+                downloadFile(response, `conversation.${format}`);
+
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export conversation: ' + error.message);
+            }
+        }
+
+        async function generateDocument(documentType) {
+            closeExportDropdown();
+
+            if (!currentSessionId) {
+                alert('No active conversation to generate document from');
+                return;
+            }
+
+            // Show loading state
+            const exportBtn = document.querySelector('#exportDropdown > button');
+            const originalTitle = exportBtn.title;
+            exportBtn.title = 'Generating document...';
+            exportBtn.style.opacity = '0.5';
+            exportBtn.disabled = true;
+
+            try {
+                const response = await authFetch(`/api/export/generate/${currentSessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        document_type: documentType,
+                        format: selectedExportFormat,
+                        sfw_mode: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Document generation failed');
+                }
+
+                downloadFile(response, `document.${selectedExportFormat}`);
+
+            } catch (error) {
+                console.error('Document generation error:', error);
+                alert('Failed to generate document: ' + error.message);
+            } finally {
+                exportBtn.title = originalTitle;
+                exportBtn.style.opacity = '';
+                exportBtn.disabled = false;
+            }
+        }
+
+        async function downloadFile(response, defaultFilename) {
+            // Get filename from Content-Disposition header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = defaultFilename;
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="(.+)"/);
+                if (match) {
+                    filename = match[1];
+                }
+            }
+
+            // Download the file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        }
+
+        // Update character category when character changes
+        function updateCharacterCategory(category) {
+            currentCharacterCategory = category || 'Assistant';
+            // Clear cache to force reload on next dropdown open
+            delete documentTypesCache[currentCharacterCategory];
         }
 
         // Sidebar
@@ -1230,8 +1992,18 @@
                     document.getElementById('processingStatus').classList.remove('show');
 
                     if (data.response) {
+                        const isNewConversation = !currentSessionId || currentSessionId !== data.session_id;
                         currentSessionId = data.session_id;
                         localStorage.setItem('currentSessionId', currentSessionId);
+
+                        // Refresh conversation history if this is a new conversation
+                        if (isNewConversation && currentCharacterId) {
+                            loadConversationHistory(currentCharacterId);
+                            // Refresh again after delay to pick up LLM-generated title
+                            setTimeout(() => {
+                                loadConversationHistory(currentCharacterId);
+                            }, 3000);
+                        }
 
                         // Show LLM info banner if using default LLM
                         const llmBanner = document.getElementById('llmInfoBanner');

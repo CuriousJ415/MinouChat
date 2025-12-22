@@ -606,6 +606,17 @@
                     </select>
                 </div>
             </div>
+
+            <!-- Privacy Options -->
+            <div class="form-group" style="margin-top: var(--space-4);">
+                <label class="form-label" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                    <input type="checkbox" id="hide-category" name="hide_category"
+                           {% if persona.hide_category %}checked{% endif %}
+                           style="width: 18px; height: 18px; cursor: pointer;">
+                    <span>Hide category in persona list</span>
+                </label>
+                <span class="form-hint">When enabled, shows just the name (e.g., "Luna" instead of "Luna (Friend)")</span>
+            </div>
         </div>
 
         <!-- System Prompt -->
@@ -1869,6 +1880,7 @@
         const personaData = {
             name: formData.get('name'),
             category: formData.get('category'),
+            hide_category: document.getElementById('hide-category').checked,
             system_prompt: formData.get('system_prompt'),
             communication_style: currentStyles,
             llm_config: {
