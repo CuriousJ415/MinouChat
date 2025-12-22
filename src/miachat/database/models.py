@@ -4,7 +4,7 @@ Database models for MiaChat.
 
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Table, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Table, Text, UniqueConstraint
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableDict
 
@@ -756,4 +756,120 @@ class GeneratedDocument(Base):
             'message_count': self.message_count,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class TodoItem(Base):
+    """User todo items for sidebar tracking.
+
+    Todo items can be manually created or extracted from conversation.
+    Displayed in the sidebar for Assistant-category personas.
+    """
+    __tablename__ = 'todo_items'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=False, index=True)
+
+    # Task content
+    text = Column(Text, nullable=False)
+    is_completed = Column(Integer, default=0)  # Boolean: 0=False, 1=True
+
+    # Optional fields
+    priority = Column(Integer, default=2)  # 1=high, 2=medium, 3=low
+    due_date = Column(DateTime, nullable=True)
+
+    # Source tracking
+    source_message_id = Column(Integer, nullable=True)
+    source_type = Column(String(20), default='manual')  # 'manual', 'extracted'
+
+    # Order for manual reordering
+    sort_order = Column(Integer, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    user = relationship('User', backref='todo_items')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'text': self.text,
+            'is_completed': bool(self.is_completed),
+            'priority': self.priority,
+            'due_date': self.due_date.isoformat() if self.due_date else None,
+            'source_type': self.source_type,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
+
+
+class LifeAreaScore(Base):
+    """Life areas scorecard for Coach personas.
+
+    Tracks user satisfaction scores (1-10) across life domains.
+    Displayed in the sidebar for Coach-category personas.
+    """
+    __tablename__ = 'life_area_scores'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=False, index=True)
+
+    # Life area and score
+    area = Column(String(50), nullable=False)  # career, finances, health, etc.
+    score = Column(Integer, nullable=False)  # 1-10
+
+    # Optional notes
+    notes = Column(Text, nullable=True)
+
+    # Source tracking
+    source_message_id = Column(Integer, nullable=True)
+    source_type = Column(String(20), default='manual')  # 'manual', 'extracted'
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='life_area_scores')
+
+    # Unique constraint: one score per area per user+character
+    __table_args__ = (
+        UniqueConstraint('user_id', 'character_id', 'area', name='uix_life_area_score'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'area': self.area,
+            'score': self.score,
+            'notes': self.notes,
+            'source_type': self.source_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+# Life areas constant for reference
+LIFE_AREAS = [
+    'career',       # Career/Work
+    'finances',     # Finances
+    'health',       # Health
+    'relationships',  # Romantic Relationships
+    'family',       # Family
+    'friendships',  # Friendships
+    'growth',       # Personal Growth
+    'recreation',   # Fun/Recreation
+    'environment',  # Environment/Home
+    'contribution'  # Contribution/Service
+]
 

@@ -117,6 +117,185 @@
         }
 
         /* Conversation History */
+        /* Sidebar Documents Section */
+        .sidebar-documents {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--border-subtle);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .sidebar-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-2);
+        }
+
+        .sidebar-section-header h4 {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        /* Todo List Styles */
+        .todo-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-2);
+            padding: var(--space-2);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            transition: background var(--transition-fast);
+        }
+
+        .todo-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .todo-item.completed .todo-text {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .todo-checkbox {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .todo-checkbox input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--pop-primary);
+        }
+
+        .todo-text {
+            flex: 1;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            word-break: break-word;
+            line-height: 1.4;
+        }
+
+        .todo-delete {
+            opacity: 0;
+            padding: var(--space-1);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: opacity var(--transition-fast);
+            display: flex;
+            align-items: center;
+        }
+
+        .todo-item:hover .todo-delete {
+            opacity: 1;
+        }
+
+        .todo-delete:hover {
+            color: var(--pop-danger);
+        }
+
+        /* Priority indicators */
+        .todo-priority-1 { border-left: 3px solid var(--pop-danger); }
+        .todo-priority-2 { border-left: 3px solid var(--pop-warning); }
+        .todo-priority-3 { border-left: 3px solid var(--text-muted); }
+
+        .todo-add-form {
+            margin-top: var(--space-2);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+
+        .todo-add-actions {
+            display: flex;
+            gap: var(--space-2);
+            justify-content: flex-end;
+        }
+
+        /* Life Areas Scorecard */
+        .life-areas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-2);
+        }
+
+        .life-area-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: var(--space-2);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .life-area-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .life-area-name {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .life-area-score {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        .life-area-score-value {
+            font-size: var(--text-base);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
+            min-width: 20px;
+        }
+
+        .life-area-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        .life-area-bar-fill {
+            height: 100%;
+            background: var(--pop-primary);
+            transition: width var(--transition-normal);
+        }
+
+        /* Score color coding */
+        .score-low { color: var(--pop-danger) !important; }
+        .score-medium { color: var(--pop-warning) !important; }
+        .score-high { color: var(--pop-success) !important; }
+
+        .life-areas-average {
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+        }
+
         .conversation-history {
             flex: 1;
             overflow-y: auto;
@@ -980,6 +1159,48 @@
                 </select>
             </div>
 
+            <!-- Sidebar Documents Section -->
+            <div class="sidebar-documents" id="sidebarDocuments" style="display: none;">
+                <!-- Todo List (for non-Coach personas) -->
+                <div class="sidebar-todo-section" id="todoSection" style="display: none;">
+                    <div class="sidebar-section-header">
+                        <h4>
+                            <i data-lucide="check-square" style="width: 16px; height: 16px;"></i>
+                            Todo List
+                        </h4>
+                        <button class="btn btn-ghost btn-sm" onclick="addTodoInline()" title="Add todo">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                    <div class="todo-list" id="todoList">
+                        <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
+                    </div>
+                    <div class="todo-add-form" id="todoAddForm" style="display: none;">
+                        <input type="text" class="form-input form-input-sm"
+                               placeholder="Add a task..." id="newTodoInput"
+                               onkeypress="if(event.key==='Enter') saveTodo()">
+                        <div class="todo-add-actions">
+                            <button class="btn btn-sm btn-primary" onclick="saveTodo()">Add</button>
+                            <button class="btn btn-sm btn-ghost" onclick="cancelAddTodo()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Life Areas Scorecard (for Coach personas) -->
+                <div class="sidebar-life-areas" id="lifeAreasSection" style="display: none;">
+                    <div class="sidebar-section-header">
+                        <h4>
+                            <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+                            Life Areas
+                        </h4>
+                        <span class="life-areas-average" id="lifeAreasAverage">--</span>
+                    </div>
+                    <div class="life-areas-grid" id="lifeAreasGrid">
+                        <p class="text-muted text-sm text-center" style="padding: var(--space-2); grid-column: 1/-1;">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- New Chat Button -->
             <div class="new-chat-wrapper">
                 <button class="new-chat-btn" id="newChatBtn" onclick="startNewChat()">
@@ -1304,6 +1525,9 @@
                         // Update character category for export document types
                         updateCharacterCategory(data.category);
 
+                        // Update sidebar documents (todos for Assistant, life areas for Coach)
+                        updateSidebarDocuments(data.category);
+
                         enableChat();
 
                         // Set dropdown to this character
@@ -1361,6 +1585,9 @@
 
             // Update character category for export document types
             updateCharacterCategory(category);
+
+            // Update sidebar documents (todos for Assistant, life areas for Coach)
+            updateSidebarDocuments(category);
 
             // Hide the LLM banner until we get a chat response with LLM info
             resetLLMBannerDismiss();
@@ -1651,6 +1878,232 @@
                     currentSessionId = null;
                     localStorage.removeItem('currentSessionId');
                 });
+        }
+
+        // ===== Sidebar Documents =====
+        let currentTodos = [];
+        let currentLifeAreas = {};
+
+        function updateSidebarDocuments(category) {
+            const sidebarDocs = document.getElementById('sidebarDocuments');
+            const todoSection = document.getElementById('todoSection');
+            const lifeAreasSection = document.getElementById('lifeAreasSection');
+
+            if (!currentCharacterId) {
+                sidebarDocs.style.display = 'none';
+                return;
+            }
+
+            sidebarDocs.style.display = 'block';
+
+            // Show appropriate section based on category
+            const isCoach = category && category.toLowerCase().includes('coach');
+
+            if (isCoach) {
+                todoSection.style.display = 'none';
+                lifeAreasSection.style.display = 'block';
+                loadLifeAreas(currentCharacterId);
+            } else {
+                todoSection.style.display = 'block';
+                lifeAreasSection.style.display = 'none';
+                loadTodos(currentCharacterId);
+            }
+        }
+
+        // ===== Todo Functions =====
+        async function loadTodos(characterId) {
+            try {
+                const response = await authFetch(`/api/todos?character_id=${characterId}`);
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                currentTodos = data.todos || [];
+                renderTodos();
+            } catch (e) {
+                console.error('Failed to load todos:', e);
+                document.getElementById('todoList').innerHTML =
+                    '<p class="text-muted text-sm text-center" style="padding: var(--space-2);">Failed to load</p>';
+            }
+        }
+
+        function renderTodos() {
+            const container = document.getElementById('todoList');
+            if (currentTodos.length === 0) {
+                container.innerHTML = `
+                    <p class="text-muted text-sm text-center" style="padding: var(--space-3);">
+                        No tasks yet. Add one above or say "add to my todo" in chat.
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = currentTodos.map(todo => `
+                <div class="todo-item ${todo.is_completed ? 'completed' : ''} todo-priority-${todo.priority}"
+                     data-todo-id="${todo.id}">
+                    <label class="todo-checkbox">
+                        <input type="checkbox" ${todo.is_completed ? 'checked' : ''}
+                               onchange="toggleTodo(${todo.id})">
+                    </label>
+                    <span class="todo-text">${escapeHtml(todo.text)}</span>
+                    <button class="todo-delete" onclick="deleteTodo(${todo.id})" title="Delete">
+                        <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function toggleTodo(todoId) {
+            try {
+                await authFetch(`/api/todos/${todoId}/toggle`, { method: 'PUT' });
+                await loadTodos(currentCharacterId);
+            } catch (e) {
+                showToast('Failed to update todo', 'error');
+            }
+        }
+
+        async function deleteTodo(todoId) {
+            try {
+                await authFetch(`/api/todos/${todoId}`, { method: 'DELETE' });
+                await loadTodos(currentCharacterId);
+            } catch (e) {
+                showToast('Failed to delete todo', 'error');
+            }
+        }
+
+        function addTodoInline() {
+            document.getElementById('todoAddForm').style.display = 'flex';
+            document.getElementById('newTodoInput').focus();
+        }
+
+        function cancelAddTodo() {
+            document.getElementById('todoAddForm').style.display = 'none';
+            document.getElementById('newTodoInput').value = '';
+        }
+
+        async function saveTodo() {
+            const input = document.getElementById('newTodoInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            try {
+                await authFetch('/api/todos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_id: currentCharacterId,
+                        text: text,
+                        priority: 2
+                    })
+                });
+                cancelAddTodo();
+                await loadTodos(currentCharacterId);
+            } catch (e) {
+                showToast('Failed to add todo', 'error');
+            }
+        }
+
+        // ===== Life Areas Functions =====
+        async function loadLifeAreas(characterId) {
+            try {
+                const response = await authFetch(`/api/life-areas?character_id=${characterId}`);
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                currentLifeAreas = data.scorecard || {};
+                renderLifeAreas(data.average);
+            } catch (e) {
+                console.error('Failed to load life areas:', e);
+                document.getElementById('lifeAreasGrid').innerHTML =
+                    '<p class="text-muted text-sm text-center" style="padding: var(--space-2); grid-column: 1/-1;">Failed to load</p>';
+            }
+        }
+
+        function renderLifeAreas(average) {
+            const container = document.getElementById('lifeAreasGrid');
+            const avgDisplay = document.getElementById('lifeAreasAverage');
+
+            avgDisplay.textContent = `Avg: ${average || '--'}`;
+
+            const areaNames = {
+                'career': 'Career',
+                'finances': 'Money',
+                'health': 'Health',
+                'relationships': 'Love',
+                'family': 'Family',
+                'friendships': 'Friends',
+                'growth': 'Growth',
+                'recreation': 'Fun',
+                'environment': 'Home',
+                'contribution': 'Giving'
+            };
+
+            const areas = Object.entries(currentLifeAreas);
+
+            container.innerHTML = areas.map(([area, data]) => {
+                const score = data.score || 5;
+                const scoreClass = score <= 3 ? 'score-low' : score <= 6 ? 'score-medium' : 'score-high';
+                return `
+                    <div class="life-area-item" onclick="editLifeArea('${area}')"
+                         title="Click to update score">
+                        <span class="life-area-name">${areaNames[area] || area}</span>
+                        <div class="life-area-score">
+                            <span class="life-area-score-value ${scoreClass}">${score}</span>
+                            <div class="life-area-bar">
+                                <div class="life-area-bar-fill" style="width: ${score * 10}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function editLifeArea(area) {
+            const areaNames = {
+                'career': 'Career/Work',
+                'finances': 'Finances',
+                'health': 'Health',
+                'relationships': 'Relationships',
+                'family': 'Family',
+                'friendships': 'Friendships',
+                'growth': 'Personal Growth',
+                'recreation': 'Fun/Recreation',
+                'environment': 'Environment',
+                'contribution': 'Contribution'
+            };
+
+            const current = currentLifeAreas[area]?.score || 5;
+            const newScore = prompt(`Rate your ${areaNames[area] || area} (1-10):`, current);
+
+            if (newScore !== null) {
+                const score = parseInt(newScore, 10);
+                if (score >= 1 && score <= 10) {
+                    updateLifeAreaScore(area, score);
+                } else {
+                    showToast('Please enter a number between 1 and 10', 'error');
+                }
+            }
+        }
+
+        async function updateLifeAreaScore(area, score) {
+            try {
+                await authFetch(`/api/life-areas/${area}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_id: currentCharacterId,
+                        score: score
+                    })
+                });
+                await loadLifeAreas(currentCharacterId);
+            } catch (e) {
+                showToast('Failed to update score', 'error');
+            }
         }
 
         // Export functionality
@@ -2056,6 +2509,30 @@
                         }
 
                         addMessage('assistant', content);
+
+                        // Handle sidebar extractions (todos, life areas)
+                        if (data.sidebar_extractions) {
+                            const extractions = data.sidebar_extractions;
+                            const todoCount = extractions.todos?.length || 0;
+                            const lifeAreaCount = extractions.life_areas?.length || 0;
+
+                            if (todoCount > 0 || lifeAreaCount > 0) {
+                                // Show toast notification
+                                let toastMsg = '';
+                                if (todoCount > 0) {
+                                    toastMsg = `Added ${todoCount} todo${todoCount > 1 ? 's' : ''} to your list`;
+                                    loadTodos(); // Refresh sidebar
+                                }
+                                if (lifeAreaCount > 0) {
+                                    if (toastMsg) toastMsg += ' | ';
+                                    toastMsg += `Updated ${lifeAreaCount} life area${lifeAreaCount > 1 ? 's' : ''}`;
+                                    loadLifeAreas(); // Refresh sidebar
+                                }
+
+                                // Simple toast (reusing LLM banner temporarily)
+                                console.log('Sidebar extraction:', toastMsg);
+                            }
+                        }
 
                         if (selectedFile) {
                             removeFile();

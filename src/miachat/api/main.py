@@ -535,6 +535,12 @@ app.include_router(backstory_router)
 from .routes.facts import router as facts_router
 app.include_router(facts_router)
 
+from .routes.todos import router as todos_router
+app.include_router(todos_router)
+
+from .routes.life_areas import router as life_areas_router
+app.include_router(life_areas_router)
+
 # Import new services for chat integration
 from .core.token_service import token_service
 from .core.world_info_service import world_info_service
@@ -575,6 +581,8 @@ class ChatResponse(BaseModel):
     llm_model: Optional[str] = None
     using_default_llm: bool = False  # True if using system default instead of character config
     llm_message: Optional[str] = None  # Info message about LLM being used
+    # Sidebar document extractions
+    sidebar_extractions: Optional[Dict[str, List[Dict[str, Any]]]] = None
 
 class CharacterCreateRequest(BaseModel):
     name: str
@@ -1683,6 +1691,31 @@ You should be proactive about offering to create documents when it would be help
             # Don't fail the chat if fact extraction fails
             logger.warning(f"Fact extraction hook failed: {e}")
 
+        # Sidebar extraction hook - extract todos (Assistant) or life areas (Coach)
+        sidebar_extractions = None
+        try:
+            category = character.get('category', '')
+            # Only process for Assistant (todos) or Coach (life areas) categories
+            if category.lower() in ['assistant', 'coach'] and len(request.message) >= 10:
+                from .core.sidebar_extraction_service import sidebar_extraction_service
+
+                extractions = await sidebar_extraction_service.process_message(
+                    message=request.message,
+                    user_id=current_user.id,
+                    character_id=request.character_id,
+                    category=category,
+                    db=db
+                )
+
+                # Only include if something was extracted
+                if extractions.get('todos') or extractions.get('life_areas'):
+                    sidebar_extractions = extractions
+                    logger.info(f"Sidebar extractions: {len(extractions.get('todos', []))} todos, "
+                              f"{len(extractions.get('life_areas', []))} life areas")
+        except Exception as e:
+            # Don't fail the chat if sidebar extraction fails
+            logger.warning(f"Sidebar extraction hook failed: {e}")
+
         # Save additional reasoning context if available
         if reasoning_chain:
             try:
@@ -1720,7 +1753,9 @@ You should be proactive about offering to create documents when it would be help
             llm_provider=llm_provider,
             llm_model=llm_model,
             using_default_llm=using_default_llm,
-            llm_message=llm_message
+            llm_message=llm_message,
+            # Sidebar document extractions
+            sidebar_extractions=sidebar_extractions
         )
         
     except Exception as e:
