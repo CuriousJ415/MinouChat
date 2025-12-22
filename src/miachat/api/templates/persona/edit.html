@@ -619,6 +619,93 @@
             </div>
         </div>
 
+        <!-- Companion Mode (for Friend/Companion/Roleplay categories) -->
+        <div class="form-card" id="companion-mode-section" style="display: none;">
+            <div class="collapsible-header" onclick="toggleCompanionSettings()">
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <h3 class="form-section-title" style="margin: 0; border: none; padding: 0;">
+                        Companion Mode
+                    </h3>
+                    <span class="form-hint" style="margin: 0;">(Relationship dynamics)</span>
+                </div>
+                <i data-lucide="chevron-down" class="collapsible-icon" id="companion-icon"></i>
+            </div>
+
+            <div class="collapsible-content" id="companion-content" style="display: none;">
+                <p style="color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4);">
+                    Enable enhanced relationship dynamics for romantic companions.
+                </p>
+
+                <!-- Enable Toggle -->
+                <div class="form-group">
+                    <label class="form-label" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                        <input type="checkbox" id="companion-mode" name="companion_mode"
+                               {% if persona.companion_mode %}checked{% endif %}
+                               onchange="toggleCompanionOptions()"
+                               style="width: 18px; height: 18px; cursor: pointer;">
+                        <span>Enable Companion Mode</span>
+                    </label>
+                </div>
+
+                <!-- Companion Options (shown when enabled) -->
+                <div id="companion-options" style="display: none; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+
+                    <!-- Intimacy Style -->
+                    <div class="form-group">
+                        <label for="intimacy-style" class="form-label">Intimacy Style</label>
+                        <select class="form-input" id="intimacy-style" name="intimacy_style">
+                            <option value="reserved" {% if persona.intimacy_style == 'reserved' %}selected{% endif %}>Reserved - Warm friendship, subtle affection</option>
+                            <option value="affectionate" {% if persona.intimacy_style == 'affectionate' %}selected{% endif %}>Affectionate - Open affection, light flirting</option>
+                            <option value="romantic" {% if persona.intimacy_style == 'romantic' or not persona.intimacy_style %}selected{% endif %}>Romantic - Full relationship dynamic</option>
+                            <option value="passionate" {% if persona.intimacy_style == 'passionate' %}selected{% endif %}>Passionate - Unrestricted expression</option>
+                        </select>
+                    </div>
+
+                    <!-- Connection Depth -->
+                    <div class="form-group">
+                        <label for="connection-depth" class="form-label">Connection Depth</label>
+                        <select class="form-input" id="connection-depth" name="connection_depth">
+                            <option value="casual" {% if persona.connection_depth == 'casual' %}selected{% endif %}>Casual - Light, fun conversations</option>
+                            <option value="meaningful" {% if persona.connection_depth == 'meaningful' or not persona.connection_depth %}selected{% endif %}>Meaningful - Emotional support, personal sharing</option>
+                            <option value="intimate" {% if persona.connection_depth == 'intimate' %}selected{% endif %}>Intimate - Deep trust, vulnerability</option>
+                        </select>
+                    </div>
+
+                    <!-- Affection Expressions -->
+                    <div class="form-group">
+                        <label class="form-label">Affection Expressions</label>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2);">
+                            <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: var(--text-sm);">
+                                <input type="checkbox" name="affection_pet_names" {% if 'pet_names' in (persona.affection_expressions or []) %}checked{% endif %}>
+                                <span>Pet names</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: var(--text-sm);">
+                                <input type="checkbox" name="affection_flirting" {% if 'flirting' in (persona.affection_expressions or []) %}checked{% endif %}>
+                                <span>Flirting</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: var(--text-sm);">
+                                <input type="checkbox" name="affection_physical" {% if 'physical_affection' in (persona.affection_expressions or []) %}checked{% endif %}>
+                                <span>Physical affection</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: var(--text-sm);">
+                                <input type="checkbox" name="affection_missing" {% if 'missing_you' in (persona.affection_expressions or []) %}checked{% endif %}>
+                                <span>Missing you</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: var(--text-sm);">
+                                <input type="checkbox" name="affection_future" {% if 'future_plans' in (persona.affection_expressions or []) %}checked{% endif %}>
+                                <span>Future plans</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: var(--text-sm);">
+                                <input type="checkbox" name="affection_vulnerability" {% if 'vulnerability' in (persona.affection_expressions or []) %}checked{% endif %}>
+                                <span>Vulnerability</span>
+                            </label>
+                        </div>
+                        <span class="form-hint">Select behaviors to include in relationship dynamics</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- System Prompt -->
         <div class="form-card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
@@ -1226,6 +1313,39 @@
         header.classList.toggle('open');
         content.classList.toggle('open');
     }
+
+    // Companion Mode functions
+    function toggleCompanionSettings() {
+        const content = document.getElementById('companion-content');
+        const icon = document.getElementById('companion-icon');
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            icon.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function toggleCompanionOptions() {
+        const checkbox = document.getElementById('companion-mode');
+        const options = document.getElementById('companion-options');
+        options.style.display = checkbox.checked ? 'block' : 'none';
+    }
+
+    function updateCompanionSectionVisibility() {
+        const category = document.getElementById('category-select').value;
+        const section = document.getElementById('companion-mode-section');
+        const companionCategories = ['Friend', 'Companion', 'Roleplay', 'Creative'];
+        section.style.display = companionCategories.includes(category) ? 'block' : 'none';
+    }
+
+    // Initialize companion mode on page load
+    updateCompanionSectionVisibility();
+    toggleCompanionOptions();
+
+    // Update companion visibility when category changes
+    categorySelect.addEventListener('change', updateCompanionSectionVisibility);
 
     // User Profile (About You) Management
     let currentUserProfile = {
@@ -1877,12 +1997,26 @@
         const selectedOption = modelSelect.options[modelSelect.selectedIndex];
         const provider = selectedOption?.dataset?.provider || 'ollama';
 
+        // Build affection expressions array from checkboxes
+        const affectionExpressions = [];
+        if (document.querySelector('[name="affection_pet_names"]')?.checked) affectionExpressions.push('pet_names');
+        if (document.querySelector('[name="affection_flirting"]')?.checked) affectionExpressions.push('flirting');
+        if (document.querySelector('[name="affection_physical"]')?.checked) affectionExpressions.push('physical_affection');
+        if (document.querySelector('[name="affection_missing"]')?.checked) affectionExpressions.push('missing_you');
+        if (document.querySelector('[name="affection_future"]')?.checked) affectionExpressions.push('future_plans');
+        if (document.querySelector('[name="affection_vulnerability"]')?.checked) affectionExpressions.push('vulnerability');
+
         const personaData = {
             name: formData.get('name'),
             category: formData.get('category'),
             hide_category: document.getElementById('hide-category').checked,
             system_prompt: formData.get('system_prompt'),
             communication_style: currentStyles,
+            // Companion Mode settings
+            companion_mode: document.getElementById('companion-mode')?.checked || false,
+            intimacy_style: formData.get('intimacy_style') || 'romantic',
+            connection_depth: formData.get('connection_depth') || 'meaningful',
+            affection_expressions: affectionExpressions,
             llm_config: {
                 provider: provider,
                 model: formData.get('model'),
