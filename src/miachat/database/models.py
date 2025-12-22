@@ -777,6 +777,7 @@ class TodoItem(Base):
     # Optional fields
     priority = Column(Integer, default=2)  # 1=high, 2=medium, 3=low
     due_date = Column(DateTime, nullable=True)
+    parent_goal_id = Column(Integer, ForeignKey('persona_goals.id'), nullable=True)  # Link to goal
 
     # Source tracking
     source_message_id = Column(Integer, nullable=True)
@@ -802,6 +803,7 @@ class TodoItem(Base):
             'is_completed': bool(self.is_completed),
             'priority': self.priority,
             'due_date': self.due_date.isoformat() if self.due_date else None,
+            'parent_goal_id': self.parent_goal_id,
             'source_type': self.source_type,
             'sort_order': self.sort_order,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -872,4 +874,203 @@ LIFE_AREAS = [
     'environment',  # Environment/Home
     'contribution'  # Contribution/Service
 ]
+
+
+class PersonaGoal(Base):
+    """Goals with progress tracking for personas.
+
+    Users can set goals with numeric targets and track progress over time.
+    Goals can be linked to a specific persona (Coach personas are typical users).
+    """
+    __tablename__ = 'persona_goals'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=False, index=True)
+
+    # Goal definition
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String(50), nullable=True)  # health, career, finance, personal, etc.
+
+    # Target tracking
+    target_value = Column(Float, nullable=True)  # Optional numeric target
+    current_value = Column(Float, default=0)
+    unit = Column(String(50), nullable=True)  # e.g., "lbs", "miles", "$", "hours"
+
+    # Timeline
+    target_date = Column(DateTime, nullable=True)
+    start_date = Column(DateTime, default=datetime.utcnow)
+
+    # Status
+    status = Column(String(20), default='active')  # active, completed, paused, abandoned
+    priority = Column(Integer, default=2)  # 1=high, 2=medium, 3=low
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    user = relationship('User', backref='persona_goals')
+    progress_logs = relationship('GoalProgressLog', back_populates='goal', cascade='all, delete-orphan')
+    todos = relationship('TodoItem', backref='parent_goal', foreign_keys='TodoItem.parent_goal_id')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'title': self.title,
+            'description': self.description,
+            'category': self.category,
+            'target_value': self.target_value,
+            'current_value': self.current_value,
+            'unit': self.unit,
+            'target_date': self.target_date.isoformat() if self.target_date else None,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'status': self.status,
+            'priority': self.priority,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'progress_percentage': self.get_progress_percentage()
+        }
+
+    def get_progress_percentage(self) -> float:
+        """Calculate progress as a percentage (0-100)."""
+        if not self.target_value or self.target_value == 0:
+            return 0 if self.status != 'completed' else 100
+        return min(100, (self.current_value / self.target_value) * 100)
+
+    def mark_completed(self):
+        """Mark goal as completed."""
+        self.status = 'completed'
+        self.completed_at = datetime.utcnow()
+        if self.target_value:
+            self.current_value = self.target_value
+
+
+class GoalProgressLog(Base):
+    """Log entries for goal progress updates.
+
+    Each time a user updates progress on a goal, a log entry is created.
+    This enables tracking progress over time and showing charts.
+    """
+    __tablename__ = 'goal_progress_logs'
+
+    id = Column(Integer, primary_key=True)
+    goal_id = Column(Integer, ForeignKey('persona_goals.id'), nullable=False)
+
+    # Progress update
+    value_change = Column(Float, nullable=False)  # Positive or negative change
+    new_value = Column(Float, nullable=False)  # Value after change
+    note = Column(Text, nullable=True)
+
+    # Timestamp
+    logged_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    goal = relationship('PersonaGoal', back_populates='progress_logs')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'goal_id': self.goal_id,
+            'value_change': self.value_change,
+            'new_value': self.new_value,
+            'note': self.note,
+            'logged_at': self.logged_at.isoformat() if self.logged_at else None
+        }
+
+
+class PersonaHabit(Base):
+    """Habits with streak tracking for personas.
+
+    Users can define habits and track daily/weekly completion.
+    Streaks are automatically calculated based on completions.
+    """
+    __tablename__ = 'persona_habits'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=False, index=True)
+
+    # Habit definition
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Frequency configuration
+    frequency = Column(String(20), default='daily')  # daily, weekly
+    frequency_days = Column(JSON, nullable=True)  # For weekly: ["mon", "wed", "fri"]
+    target_per_period = Column(Integer, default=1)  # Times per day/week
+
+    # Streak tracking
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_completed_date = Column(DateTime, nullable=True)
+
+    # Status
+    is_active = Column(Integer, default=1)  # Boolean: 0=paused, 1=active
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='persona_habits')
+    completions = relationship('HabitCompletion', back_populates='habit', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'title': self.title,
+            'description': self.description,
+            'frequency': self.frequency,
+            'frequency_days': self.frequency_days,
+            'target_per_period': self.target_per_period,
+            'current_streak': self.current_streak,
+            'longest_streak': self.longest_streak,
+            'last_completed_date': self.last_completed_date.isoformat() if self.last_completed_date else None,
+            'is_active': bool(self.is_active),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'completed_today': self.is_completed_today()
+        }
+
+    def is_completed_today(self) -> bool:
+        """Check if habit was completed today."""
+        if not self.last_completed_date:
+            return False
+        today = datetime.utcnow().date()
+        return self.last_completed_date.date() == today
+
+
+class HabitCompletion(Base):
+    """Log of habit completions.
+
+    Each time a user marks a habit as done, a completion is recorded.
+    Used for streak calculation and completion history.
+    """
+    __tablename__ = 'habit_completions'
+
+    id = Column(Integer, primary_key=True)
+    habit_id = Column(Integer, ForeignKey('persona_habits.id'), nullable=False)
+
+    # Completion details
+    completed_at = Column(DateTime, default=datetime.utcnow)
+    note = Column(Text, nullable=True)
+
+    # Relationships
+    habit = relationship('PersonaHabit', back_populates='completions')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'habit_id': self.habit_id,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'note': self.note
+        }
 

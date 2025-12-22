@@ -226,6 +226,129 @@
             justify-content: flex-end;
         }
 
+        /* Goals List Styles */
+        .goals-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+
+        .goal-item {
+            padding: var(--space-2);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .goal-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: var(--space-2);
+            margin-bottom: var(--space-1);
+        }
+
+        .goal-title {
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .goal-progress-bar {
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .goal-progress-fill {
+            height: 100%;
+            background: var(--pop-primary);
+            border-radius: 2px;
+            transition: width var(--transition-base);
+        }
+
+        .goal-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: var(--space-1);
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+
+        /* Habits List Styles */
+        .habits-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
+        }
+
+        .habit-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            transition: background var(--transition-fast);
+        }
+
+        .habit-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .habit-check-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .habit-check-btn:hover {
+            border-color: var(--pop-primary);
+        }
+
+        .habit-check-btn.completed {
+            background: var(--pop-primary);
+            border-color: var(--pop-primary);
+            color: white;
+        }
+
+        .habit-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .habit-title {
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .habit-streak {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+
+        .habit-streak.active {
+            color: var(--pop-warning);
+        }
+
         /* Life Areas Scorecard */
         .life-areas-grid {
             display: grid;
@@ -1209,11 +1332,43 @@
                     </div>
                 </div>
 
+                <!-- Goals Section -->
+                <div class="sidebar-goals-section" id="goalsSection" style="display: none;">
+                    <div class="sidebar-section-header">
+                        <h4>
+                            <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+                            Goals
+                        </h4>
+                        <button class="btn btn-ghost btn-sm" onclick="showAddGoalModal()" title="Add goal">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                    <div class="goals-list" id="goalsList">
+                        <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- Habits Section -->
+                <div class="sidebar-habits-section" id="habitsSection" style="display: none;">
+                    <div class="sidebar-section-header">
+                        <h4>
+                            <i data-lucide="repeat" style="width: 16px; height: 16px;"></i>
+                            Habits
+                        </h4>
+                        <button class="btn btn-ghost btn-sm" onclick="showAddHabitModal()" title="Add habit">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                    <div class="habits-list" id="habitsList">
+                        <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
+                    </div>
+                </div>
+
                 <!-- Life Areas Scorecard (for Coach personas) -->
                 <div class="sidebar-life-areas" id="lifeAreasSection" style="display: none;">
                     <div class="sidebar-section-header">
                         <h4>
-                            <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="pie-chart" style="width: 16px; height: 16px;"></i>
                             Life Areas
                         </h4>
                         <span class="life-areas-average" id="lifeAreasAverage">--</span>
@@ -1910,6 +2065,8 @@
         function updateSidebarDocuments(category) {
             const sidebarDocs = document.getElementById('sidebarDocuments');
             const todoSection = document.getElementById('todoSection');
+            const goalsSection = document.getElementById('goalsSection');
+            const habitsSection = document.getElementById('habitsSection');
             const lifeAreasSection = document.getElementById('lifeAreasSection');
 
             if (!currentCharacterId) {
@@ -1919,18 +2076,23 @@
 
             sidebarDocs.style.display = 'block';
 
-            // Show appropriate section based on category
+            // Show appropriate sections based on category
             const isCoach = category && category.toLowerCase().includes('coach');
+            const isFriend = category && (category.toLowerCase().includes('friend') || category.toLowerCase().includes('companion'));
 
-            if (isCoach) {
-                todoSection.style.display = 'none';
-                lifeAreasSection.style.display = 'block';
-                loadLifeAreas(currentCharacterId);
-            } else {
-                todoSection.style.display = 'block';
-                lifeAreasSection.style.display = 'none';
-                loadTodos(currentCharacterId);
-            }
+            // Show todos for all except pure Friend personas
+            todoSection.style.display = isFriend ? 'none' : 'block';
+            if (!isFriend) loadTodos(currentCharacterId);
+
+            // Show goals and habits for all personas
+            goalsSection.style.display = 'block';
+            habitsSection.style.display = 'block';
+            loadGoals(currentCharacterId);
+            loadHabits(currentCharacterId);
+
+            // Show Life Areas only for Coach personas
+            lifeAreasSection.style.display = isCoach ? 'block' : 'none';
+            if (isCoach) loadLifeAreas(currentCharacterId);
         }
 
         // ===== Todo Functions =====
@@ -2151,6 +2313,270 @@
                 await loadLifeAreas(currentCharacterId);
             } catch (e) {
                 showToast('Failed to update score', 'error');
+            }
+        }
+
+        // ===== Goals Functions =====
+        let currentGoals = [];
+
+        async function loadGoals(characterId) {
+            try {
+                const response = await authFetch(`/api/tracking/goals?character_id=${characterId}`);
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                currentGoals = data.goals || [];
+                renderGoals();
+            } catch (e) {
+                console.error('Failed to load goals:', e);
+                document.getElementById('goalsList').innerHTML =
+                    '<p class="text-muted text-sm text-center" style="padding: var(--space-2);">Failed to load</p>';
+            }
+        }
+
+        function renderGoals() {
+            const container = document.getElementById('goalsList');
+            if (currentGoals.length === 0) {
+                container.innerHTML = `
+                    <p class="text-muted text-sm text-center" style="padding: var(--space-3);">
+                        No goals yet. Click + to add one.
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = currentGoals.map(goal => {
+                const progress = goal.progress_percentage || 0;
+                const progressText = goal.target_value
+                    ? `${goal.current_value || 0}/${goal.target_value} ${goal.unit || ''}`
+                    : `${Math.round(progress)}%`;
+                const dueDate = goal.target_date ? new Date(goal.target_date).toLocaleDateString() : '';
+
+                return `
+                    <div class="goal-item" onclick="showGoalDetails(${goal.id})">
+                        <div class="goal-header">
+                            <span class="goal-title">${escapeHtml(goal.title)}</span>
+                        </div>
+                        <div class="goal-progress-bar">
+                            <div class="goal-progress-fill" style="width: ${Math.min(100, progress)}%"></div>
+                        </div>
+                        <div class="goal-meta">
+                            <span>${progressText}</span>
+                            ${dueDate ? `<span>Due: ${dueDate}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showAddGoalModal() {
+            const title = prompt('Goal title:');
+            if (!title) return;
+
+            const targetValue = prompt('Target value (optional, e.g., 10):');
+            const unit = targetValue ? prompt('Unit (e.g., lbs, books, miles):') : null;
+
+            createGoal(title, targetValue ? parseFloat(targetValue) : null, unit);
+        }
+
+        async function createGoal(title, targetValue, unit) {
+            try {
+                await authFetch('/api/tracking/goals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_id: currentCharacterId,
+                        title: title,
+                        target_value: targetValue,
+                        unit: unit
+                    })
+                });
+                await loadGoals(currentCharacterId);
+                showToast('Goal added!', 'success');
+            } catch (e) {
+                showToast('Failed to add goal', 'error');
+            }
+        }
+
+        async function showGoalDetails(goalId) {
+            const goal = currentGoals.find(g => g.id === goalId);
+            if (!goal) return;
+
+            const action = prompt(
+                `${goal.title}\nProgress: ${goal.current_value || 0}/${goal.target_value || '?'} ${goal.unit || ''}\n\n` +
+                `Enter progress to add (e.g., +5), or type "complete" to mark done, "delete" to remove:`
+            );
+
+            if (!action) return;
+
+            if (action.toLowerCase() === 'delete') {
+                await deleteGoal(goalId);
+            } else if (action.toLowerCase() === 'complete') {
+                await updateGoal(goalId, { status: 'completed' });
+            } else {
+                const value = parseFloat(action.replace('+', ''));
+                if (!isNaN(value)) {
+                    await logGoalProgress(goalId, value);
+                }
+            }
+        }
+
+        async function logGoalProgress(goalId, value) {
+            try {
+                await authFetch(`/api/tracking/goals/${goalId}/progress`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value_change: value })
+                });
+                await loadGoals(currentCharacterId);
+                showToast('Progress updated!', 'success');
+            } catch (e) {
+                showToast('Failed to update progress', 'error');
+            }
+        }
+
+        async function updateGoal(goalId, updates) {
+            try {
+                await authFetch(`/api/tracking/goals/${goalId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                await loadGoals(currentCharacterId);
+                showToast('Goal updated!', 'success');
+            } catch (e) {
+                showToast('Failed to update goal', 'error');
+            }
+        }
+
+        async function deleteGoal(goalId) {
+            try {
+                await authFetch(`/api/tracking/goals/${goalId}`, { method: 'DELETE' });
+                await loadGoals(currentCharacterId);
+                showToast('Goal deleted', 'success');
+            } catch (e) {
+                showToast('Failed to delete goal', 'error');
+            }
+        }
+
+        // ===== Habits Functions =====
+        let currentHabits = [];
+
+        async function loadHabits(characterId) {
+            try {
+                const response = await authFetch(`/api/tracking/habits?character_id=${characterId}`);
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                currentHabits = data.habits || [];
+                renderHabits();
+            } catch (e) {
+                console.error('Failed to load habits:', e);
+                document.getElementById('habitsList').innerHTML =
+                    '<p class="text-muted text-sm text-center" style="padding: var(--space-2);">Failed to load</p>';
+            }
+        }
+
+        function renderHabits() {
+            const container = document.getElementById('habitsList');
+            if (currentHabits.length === 0) {
+                container.innerHTML = `
+                    <p class="text-muted text-sm text-center" style="padding: var(--space-3);">
+                        No habits yet. Click + to add one.
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = currentHabits.map(habit => {
+                const isCompleted = habit.completed_today;
+                const streak = habit.current_streak || 0;
+                const streakClass = streak > 0 ? 'active' : '';
+
+                return `
+                    <div class="habit-item">
+                        <button class="habit-check-btn ${isCompleted ? 'completed' : ''}"
+                                onclick="toggleHabit(${habit.id}, ${isCompleted})"
+                                title="${isCompleted ? 'Completed today!' : 'Mark as done'}">
+                            ${isCompleted ? '<i data-lucide="check" style="width: 14px; height: 14px;"></i>' : ''}
+                        </button>
+                        <div class="habit-info" onclick="showHabitDetails(${habit.id})">
+                            <div class="habit-title">${escapeHtml(habit.title)}</div>
+                            ${streak > 0 ? `<div class="habit-streak ${streakClass}">🔥 ${streak} day streak</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function showAddHabitModal() {
+            const title = prompt('Habit name (e.g., "Exercise 30 min"):');
+            if (!title) return;
+
+            createHabit(title);
+        }
+
+        async function createHabit(title) {
+            try {
+                await authFetch('/api/tracking/habits', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_id: currentCharacterId,
+                        title: title,
+                        frequency: 'daily'
+                    })
+                });
+                await loadHabits(currentCharacterId);
+                showToast('Habit added!', 'success');
+            } catch (e) {
+                showToast('Failed to add habit', 'error');
+            }
+        }
+
+        async function toggleHabit(habitId, isCurrentlyCompleted) {
+            if (isCurrentlyCompleted) {
+                // Already completed today, do nothing or show message
+                showToast('Already completed today!', 'info');
+                return;
+            }
+
+            try {
+                await authFetch(`/api/tracking/habits/${habitId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                await loadHabits(currentCharacterId);
+                showToast('Great job! 🎉', 'success');
+            } catch (e) {
+                showToast('Failed to complete habit', 'error');
+            }
+        }
+
+        async function showHabitDetails(habitId) {
+            const habit = currentHabits.find(h => h.id === habitId);
+            if (!habit) return;
+
+            const action = prompt(
+                `${habit.title}\n` +
+                `Streak: ${habit.current_streak || 0} days\n` +
+                `Best: ${habit.longest_streak || 0} days\n\n` +
+                `Type "delete" to remove this habit:`
+            );
+
+            if (action && action.toLowerCase() === 'delete') {
+                await deleteHabit(habitId);
+            }
+        }
+
+        async function deleteHabit(habitId) {
+            try {
+                await authFetch(`/api/tracking/habits/${habitId}`, { method: 'DELETE' });
+                await loadHabits(currentCharacterId);
+                showToast('Habit deleted', 'success');
+            } catch (e) {
+                showToast('Failed to delete habit', 'error');
             }
         }
 

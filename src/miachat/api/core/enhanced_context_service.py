@@ -24,6 +24,7 @@ from .backstory_service import backstory_service
 from .fact_extraction_service import fact_extraction_service
 from .user_profile_service import user_profile_service
 from .security.prompt_sanitizer import prompt_sanitizer
+from .tracking_service import tracking_service
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,12 @@ class EnhancedContextService:
         # Context budget allocation (percentages)
         self.context_budget = {
             'user_profile': 0.10, # 10% for user's "About You" profile (highest priority)
-            'setting': 0.10,      # 10% for world/location/time
+            'setting': 0.08,      # 8% for world/location/time
+            'tracking': 0.10,     # 10% for goals, todos, habits
             'user_facts': 0.10,   # 10% for learned user facts
-            'backstory': 0.15,    # 15% for character backstory
+            'backstory': 0.12,    # 12% for character backstory
             'conversation': 0.25, # 25% for recent conversation
-            'documents': 0.30     # 30% for document RAG
+            'documents': 0.25     # 25% for document RAG
         }
 
         # Document reference patterns for natural language parsing
@@ -114,6 +116,7 @@ class EnhancedContextService:
                 'document_references': [],
                 'user_profile_context': '',  # User's "About You" info (highest priority)
                 'setting_context': '',
+                'tracking_context': '',  # Goals, todos, habits
                 'backstory_context': [],
                 'user_facts': [],
                 'context_summary': '',
@@ -206,6 +209,23 @@ class EnhancedContextService:
                             'thought': "Retrieved character setting/world context"
                         })
 
+                # Get tracking context (goals, todos, habits)
+                try:
+                    tracking_ctx = tracking_service.get_tracking_context(
+                        user_id=user_id,
+                        character_id=character_id,
+                        db=db
+                    )
+                    if tracking_ctx:
+                        context['tracking_context'] = tracking_ctx
+                        if enable_reasoning:
+                            context['reasoning_chain'].append({
+                                'step': 'tracking_context',
+                                'thought': "Retrieved user's goals, todos, and habits"
+                            })
+                except Exception as e:
+                    logger.warning(f"Failed to get tracking context: {e}")
+
                 # Get relevant backstory chunks
                 backstory_chunks = backstory_service.get_relevant_backstory(
                     character_id=character_id,
@@ -261,6 +281,7 @@ class EnhancedContextService:
                 user_message=user_message,
                 user_profile_context=context.get('user_profile_context', ''),
                 setting_context=context.get('setting_context', ''),
+                tracking_context=context.get('tracking_context', ''),
                 backstory_context=context.get('backstory_context', []),
                 user_facts=context.get('user_facts', [])
             )
@@ -883,6 +904,7 @@ class EnhancedContextService:
         user_message: str,
         user_profile_context: str = '',
         setting_context: str = '',
+        tracking_context: str = '',
         backstory_context: Optional[List[str]] = None,
         user_facts: Optional[List[Dict[str, Any]]] = None
     ) -> str:
@@ -897,6 +919,7 @@ class EnhancedContextService:
             user_message: Current user message
             user_profile_context: User's "About You" profile (highest priority)
             setting_context: Formatted setting/world context
+            tracking_context: User's goals, todos, and habits
             backstory_context: Relevant backstory chunks
             user_facts: Known facts about the user
 
@@ -928,7 +951,15 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 3: User Facts (learned facts - personalizes interaction)
+        # SECTION 3: Tracking Context (goals, todos, habits)
+        # ============================================
+        if tracking_context:
+            truncated_tracking = self._truncate_to_budget(tracking_context, budgets['tracking'])
+            context_parts.append(truncated_tracking)
+            context_parts.append("")
+
+        # ============================================
+        # SECTION 4: User Facts (learned facts - personalizes interaction)
         # ============================================
         if user_facts:
             facts_content = []
@@ -956,7 +987,7 @@ class EnhancedContextService:
                 context_parts.append("")
 
         # ============================================
-        # SECTION 4: Relevant Backstory (character context)
+        # SECTION 5: Relevant Backstory (character context)
         # ============================================
         if backstory_context:
             context_parts.append("[Relevant Background - use naturally, don't explicitly reference]")
@@ -975,7 +1006,7 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 5: Recent Conversation Context
+        # SECTION 6: Recent Conversation Context
         # ============================================
         if recent_interactions:
             context_parts.append("Recent conversation:")
@@ -1014,7 +1045,7 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 6: Document RAG Context
+        # SECTION 7: Document RAG Context
         # ============================================
         if document_chunks:
             context_parts.append("Relevant documents:")
@@ -1065,7 +1096,7 @@ class EnhancedContextService:
             context_parts.append("")
 
         # ============================================
-        # SECTION 7: Conflict Warnings (if any)
+        # SECTION 8: Conflict Warnings (if any)
         # ============================================
         if conflicts:
             context_parts.append("Note: Potential information conflicts detected:")

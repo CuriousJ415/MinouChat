@@ -10,8 +10,8 @@ Phased feature rollout to improve chat experience and enable persona capabilitie
 |-------|---------|--------|
 | 1 | Chat History Library | ✅ COMPLETE |
 | 2a | Export Functionality | ✅ COMPLETE |
-| 2b | Per-Persona Tracking | 🔜 NEXT |
-| 3 | Interactive Documents | Planned |
+| 2b | Per-Persona Tracking | ✅ COMPLETE |
+| 3 | Interactive Documents | 🔜 NEXT |
 | 4 | Web Search (DuckDuckGo) | Planned |
 | 5 | Google Calendar + Reminders | Planned |
 
@@ -36,9 +36,23 @@ Phased feature rollout to improve chat experience and enable persona capabilitie
   - `src/miachat/api/core/export_service.py` - Format conversion (PDF via reportlab, DOCX via python-docx)
   - `src/miachat/api/routes/export.py` - `/api/export/conversation/{session_id}`, `/api/export/summary/{session_id}`
 
+### Phase 2b: Per-Persona Tracking ✅
+- Goals with progress tracking (numeric targets, progress bars)
+- Habits with streak tracking (daily completion, streak counts)
+- Sidebar sections for Goals and Habits (visible for all personas)
+- Tracking context injected into chat so persona is aware of user's goals/habits
+- Database models: PersonaGoal, GoalProgressLog, PersonaHabit, HabitCompletion
+- Files created:
+  - `src/miachat/api/core/tracking_service.py` - CRUD and context generation
+  - `src/miachat/api/routes/tracking.py` - REST API endpoints
+- Files modified:
+  - `src/miachat/database/models.py` - New tracking models
+  - `src/miachat/api/core/enhanced_context_service.py` - Tracking context injection
+  - `src/miachat/api/templates/chat/index.html` - Sidebar UI panels
+
 ---
 
-## Feature 2a: Export Functionality (NEXT)
+## Feature 2a: Export Functionality (COMPLETE)
 
 ### Overview
 Enable personas to generate exportable documents from chat conversations and artifacts.

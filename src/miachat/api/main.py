@@ -541,6 +541,9 @@ app.include_router(todos_router)
 from .routes.life_areas import router as life_areas_router
 app.include_router(life_areas_router)
 
+from .routes.tracking import router as tracking_router
+app.include_router(tracking_router)
+
 # Import new services for chat integration
 from .core.token_service import token_service
 from .core.world_info_service import world_info_service
