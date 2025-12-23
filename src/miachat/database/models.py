@@ -1119,3 +1119,153 @@ class PersonaFeaturePreferences(Base):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+
+# =============================================================================
+# Google Integration Models
+# =============================================================================
+
+class GoogleCredentials(Base):
+    """OAuth2 credentials for Google APIs (Calendar + Tasks).
+
+    Stores the user's Google OAuth tokens for accessing Calendar and Tasks APIs.
+    One record per user (unique on user_id).
+    """
+    __tablename__ = 'google_credentials'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
+
+    # OAuth tokens
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    token_expiry = Column(DateTime, nullable=False)
+
+    # Connection status
+    is_enabled = Column(Integer, default=1)  # Boolean
+    scopes = Column(JSON, default=list)  # List of granted scopes
+
+    # User info from Google
+    google_email = Column(String(255))
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', backref='google_credentials')
+
+    def is_token_expired(self) -> bool:
+        """Check if access token is expired (with 5 minute buffer)."""
+        from datetime import timedelta
+        return datetime.utcnow() >= (self.token_expiry - timedelta(minutes=5))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'google_email': self.google_email,
+            'is_enabled': bool(self.is_enabled),
+            'scopes': self.scopes,
+            'token_expired': self.is_token_expired(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class PersonaGoogleSyncConfig(Base):
+    """Per-persona Google sync configuration.
+
+    Controls which personas sync their todos to Google Tasks.
+    Each synced persona gets its own Google Tasks list.
+    """
+    __tablename__ = 'persona_google_sync_config'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    character_id = Column(String(36), nullable=False, index=True)
+
+    # Google Tasks sync
+    tasks_sync_enabled = Column(Integer, default=0)  # Boolean
+    google_tasklist_id = Column(String(255))  # Google's internal list ID
+    google_tasklist_name = Column(String(255))  # e.g., "MinouChat - Coach"
+
+    # Google Calendar sync
+    calendar_sync_enabled = Column(Integer, default=0)  # Boolean
+    calendar_id = Column(String(255), default='primary')  # Which calendar to read from
+
+    # Last sync timestamp
+    last_sync_at = Column(DateTime, nullable=True)
+    last_sync_status = Column(String(50), default='never')  # never, success, error
+    last_sync_error = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Unique constraint
+    __table_args__ = (
+        UniqueConstraint('user_id', 'character_id', name='uq_persona_google_sync'),
+    )
+
+    # Relationships
+    user = relationship('User', backref='persona_google_sync_configs')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'character_id': self.character_id,
+            'tasks_sync_enabled': bool(self.tasks_sync_enabled),
+            'google_tasklist_id': self.google_tasklist_id,
+            'google_tasklist_name': self.google_tasklist_name,
+            'calendar_sync_enabled': bool(self.calendar_sync_enabled),
+            'calendar_id': self.calendar_id,
+            'last_sync_at': self.last_sync_at.isoformat() if self.last_sync_at else None,
+            'last_sync_status': self.last_sync_status,
+            'last_sync_error': self.last_sync_error,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class TodoGoogleTaskMapping(Base):
+    """Mapping between MinouChat todos and Google Tasks.
+
+    Enables two-way sync by tracking which local todo corresponds to which
+    Google Task, and their respective update timestamps for conflict resolution.
+    """
+    __tablename__ = 'todo_google_task_mapping'
+
+    id = Column(Integer, primary_key=True)
+    todo_id = Column(Integer, ForeignKey('todo_items.id', ondelete='CASCADE'), nullable=False, unique=True)
+
+    # Google Task identifiers
+    google_task_id = Column(String(255), nullable=False)
+    google_tasklist_id = Column(String(255), nullable=False)
+
+    # Sync state tracking (for conflict resolution)
+    local_updated_at = Column(DateTime, nullable=False)  # Last local update at sync time
+    google_updated_at = Column(DateTime, nullable=False)  # Google's "updated" timestamp at sync time
+    last_sync_at = Column(DateTime, default=datetime.utcnow)
+    sync_status = Column(String(20), default='synced')  # synced, pending_push, pending_pull, conflict
+
+    # Relationships
+    todo = relationship('TodoItem', backref='google_mapping')
+
+    __table_args__ = (
+        # Index for looking up by Google task ID
+        # Note: Using a simple index instead of compound for SQLite compatibility
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'todo_id': self.todo_id,
+            'google_task_id': self.google_task_id,
+            'google_tasklist_id': self.google_tasklist_id,
+            'local_updated_at': self.local_updated_at.isoformat() if self.local_updated_at else None,
+            'google_updated_at': self.google_updated_at.isoformat() if self.google_updated_at else None,
+            'last_sync_at': self.last_sync_at.isoformat() if self.last_sync_at else None,
+            'sync_status': self.sync_status
+        }
+

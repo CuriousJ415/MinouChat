@@ -26,6 +26,8 @@ from .user_profile_service import user_profile_service
 from .security.prompt_sanitizer import prompt_sanitizer
 from .tracking_service import tracking_service
 from .web_search_service import web_search_service
+from .google_calendar_service import google_calendar_service
+from ...database.models import PersonaGoogleSyncConfig
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +59,12 @@ class EnhancedContextService:
             'user_profile': 0.10, # 10% for user's "About You" profile (highest priority)
             'setting': 0.08,      # 8% for world/location/time
             'tracking': 0.10,     # 10% for goals, todos, habits
+            'calendar': 0.08,     # 8% for upcoming calendar events
             'user_facts': 0.10,   # 10% for learned user facts
             'backstory': 0.10,    # 10% for character backstory
-            'conversation': 0.22, # 22% for recent conversation
-            'documents': 0.20,    # 20% for document RAG
-            'web_search': 0.10    # 10% for web search results
+            'conversation': 0.18, # 18% for recent conversation (reduced from 22%)
+            'documents': 0.18,    # 18% for document RAG (reduced from 20%)
+            'web_search': 0.08    # 8% for web search results (reduced from 10%)
         }
 
         # Document reference patterns for natural language parsing
@@ -121,6 +124,7 @@ class EnhancedContextService:
                 'user_profile_context': '',  # User's "About You" info (highest priority)
                 'setting_context': '',
                 'tracking_context': '',  # Goals, todos, habits
+                'calendar_context': '',  # Upcoming calendar events
                 'backstory_context': [],
                 'user_facts': [],
                 'web_search_results': [],  # Web search results if capability enabled
@@ -231,6 +235,31 @@ class EnhancedContextService:
                             })
                 except Exception as e:
                     logger.warning(f"Failed to get tracking context: {e}")
+
+                # Get calendar context (only if enabled for this persona)
+                try:
+                    # Check if calendar access is enabled for this persona
+                    sync_config = db.query(PersonaGoogleSyncConfig).filter_by(
+                        user_id=user_id,
+                        character_id=character_id
+                    ).first()
+
+                    if sync_config and sync_config.calendar_sync_enabled:
+                        calendar_ctx = google_calendar_service.get_calendar_context(
+                            user_id=user_id,
+                            db=db,
+                            days_ahead=7,
+                            max_events=10
+                        )
+                        if calendar_ctx:
+                            context['calendar_context'] = calendar_ctx
+                            if enable_reasoning:
+                                context['reasoning_chain'].append({
+                                    'step': 'calendar_context',
+                                    'thought': "Retrieved user's upcoming calendar events"
+                                })
+                except Exception as e:
+                    logger.warning(f"Failed to get calendar context: {e}")
 
                 # Get relevant backstory chunks
                 backstory_chunks = backstory_service.get_relevant_backstory(
@@ -346,6 +375,7 @@ class EnhancedContextService:
                 user_profile_context=context.get('user_profile_context', ''),
                 setting_context=context.get('setting_context', ''),
                 tracking_context=context.get('tracking_context', ''),
+                calendar_context=context.get('calendar_context', ''),
                 backstory_context=context.get('backstory_context', []),
                 user_facts=context.get('user_facts', []),
                 web_search_context=context.get('web_search_context', '')
@@ -970,6 +1000,7 @@ class EnhancedContextService:
         user_profile_context: str = '',
         setting_context: str = '',
         tracking_context: str = '',
+        calendar_context: str = '',
         backstory_context: Optional[List[str]] = None,
         user_facts: Optional[List[Dict[str, Any]]] = None,
         web_search_context: str = ''
@@ -986,6 +1017,7 @@ class EnhancedContextService:
             user_profile_context: User's "About You" profile (highest priority)
             setting_context: Formatted setting/world context
             tracking_context: User's goals, todos, and habits
+            calendar_context: User's upcoming calendar events
             backstory_context: Relevant backstory chunks
             user_facts: Known facts about the user
             web_search_context: Formatted web search results
@@ -1023,6 +1055,14 @@ class EnhancedContextService:
         if tracking_context:
             truncated_tracking = self._truncate_to_budget(tracking_context, budgets['tracking'])
             context_parts.append(truncated_tracking)
+            context_parts.append("")
+
+        # ============================================
+        # SECTION 3.5: Calendar Context (upcoming events)
+        # ============================================
+        if calendar_context:
+            truncated_calendar = self._truncate_to_budget(calendar_context, budgets['calendar'])
+            context_parts.append(truncated_calendar)
             context_parts.append("")
 
         # ============================================

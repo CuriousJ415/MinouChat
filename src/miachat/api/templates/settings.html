@@ -550,6 +550,69 @@
         </div>
     </div>
 
+    <!-- Google Integration Section -->
+    <div class="settings-section">
+        <h2 class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Google Integration
+        </h2>
+
+        <div class="settings-card">
+            <div id="google-connection-status">
+                <!-- Not Connected State -->
+                <div id="google-disconnected">
+                    <div class="preference-row">
+                        <div class="preference-info">
+                            <div class="preference-label">Google Account</div>
+                            <div class="preference-desc">Connect to sync todos with Google Tasks and access your calendar</div>
+                        </div>
+                        <div class="preference-control">
+                            <button class="btn btn-primary" onclick="connectGoogle()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                                    <polyline points="10 17 15 12 10 7"/>
+                                    <line x1="15" y1="12" x2="3" y2="12"/>
+                                </svg>
+                                Connect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connected State -->
+                <div id="google-connected" style="display: none;">
+                    <div class="preference-row">
+                        <div class="preference-info">
+                            <div class="preference-label">Google Account</div>
+                            <div class="preference-desc">
+                                <span class="status-dot status-dot-success" style="display: inline-block;"></span>
+                                Connected as <span id="google-email"></span>
+                            </div>
+                        </div>
+                        <div class="preference-control">
+                            <button class="btn btn-secondary" onclick="disconnectGoogle()">Disconnect</button>
+                        </div>
+                    </div>
+
+                    <!-- Per-Persona Google Access Section -->
+                    <div class="subsection" style="margin-top: var(--space-4);">
+                        <h4 class="subsection-title" style="font-size: 0.9rem; margin-bottom: var(--space-3);">Per-Persona Access</h4>
+                        <p class="text-sm text-muted mb-3">Choose which personas can sync tasks and see your calendar.</p>
+                        <div id="persona-google-list">
+                            <!-- Dynamically populated -->
+                            <div class="text-muted text-sm">Loading personas...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Account Section -->
     <div class="settings-section">
         <h2 class="section-title">
@@ -1148,6 +1211,162 @@
                 hidePasswordModal();
             }
         });
+
+        // Load Google integration status
+        loadGoogleStatus();
     });
+
+    // === Google Integration Functions ===
+
+    async function loadGoogleStatus() {
+        try {
+            const response = await fetch('/api/google/auth/status');
+            const status = await response.json();
+
+            const disconnectedEl = document.getElementById('google-disconnected');
+            const connectedEl = document.getElementById('google-connected');
+            const emailEl = document.getElementById('google-email');
+
+            if (status.connected) {
+                disconnectedEl.style.display = 'none';
+                connectedEl.style.display = 'block';
+                emailEl.textContent = status.google_email || 'Unknown';
+                loadPersonaGoogleStatus();
+            } else {
+                disconnectedEl.style.display = 'block';
+                connectedEl.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Failed to load Google status:', error);
+        }
+    }
+
+    async function connectGoogle() {
+        try {
+            const response = await fetch('/api/google/auth/url');
+            const data = await response.json();
+
+            if (data.auth_url) {
+                window.location.href = data.auth_url;
+            } else {
+                showToast('Failed to get Google auth URL', 'error');
+            }
+        } catch (error) {
+            showToast('Error connecting to Google: ' + error.message, 'error');
+        }
+    }
+
+    async function disconnectGoogle() {
+        if (!confirm('Disconnect your Google account? This will disable task sync for all personas.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/google/auth/disconnect', {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                showToast('Google account disconnected', 'success');
+                loadGoogleStatus();
+            } else {
+                showToast('Failed to disconnect Google account', 'error');
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+
+    async function loadPersonaGoogleStatus() {
+        const listEl = document.getElementById('persona-google-list');
+
+        try {
+            const response = await fetch('/api/google/tasks/personas');
+            const data = await response.json();
+
+            if (!data.personas || data.personas.length === 0) {
+                listEl.innerHTML = '<div class="text-muted text-sm">No personas found</div>';
+                return;
+            }
+
+            let html = `
+                <div style="display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-3); align-items: center;">
+                    <div class="text-xs text-muted" style="font-weight: 500;">Persona</div>
+                    <div class="text-xs text-muted" style="font-weight: 500; text-align: center;">Tasks</div>
+                    <div class="text-xs text-muted" style="font-weight: 500; text-align: center;">Calendar</div>
+            `;
+
+            for (const persona of data.personas) {
+                const tasksChecked = persona.tasks_sync_enabled ? 'checked' : '';
+                const calendarChecked = persona.calendar_sync_enabled ? 'checked' : '';
+
+                html += `
+                    <div style="font-size: 0.9rem;">${escapeHtml(persona.name)}</div>
+                    <div style="text-align: center;">
+                        <label class="switch" style="margin: 0;">
+                            <input type="checkbox" ${tasksChecked} onchange="togglePersonaGoogle('${persona.id}', 'tasks', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div style="text-align: center;">
+                        <label class="switch" style="margin: 0;">
+                            <input type="checkbox" ${calendarChecked} onchange="togglePersonaGoogle('${persona.id}', 'calendar', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            listEl.innerHTML = html;
+        } catch (error) {
+            listEl.innerHTML = '<div class="text-muted text-sm">Error loading personas</div>';
+            console.error('Failed to load persona Google status:', error);
+        }
+    }
+
+    async function togglePersonaGoogle(characterId, type, enabled) {
+        try {
+            const body = type === 'tasks'
+                ? { tasks_sync_enabled: enabled }
+                : { calendar_sync_enabled: enabled };
+
+            const response = await fetch(`/api/google/tasks/sync-config/${characterId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const label = type === 'tasks' ? 'Task sync' : 'Calendar access';
+                showToast(`${label} ${enabled ? 'enabled' : 'disabled'}`, 'success');
+            } else {
+                showToast(data.detail || 'Failed to update settings', 'error');
+                loadPersonaGoogleStatus();
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+            loadPersonaGoogleStatus();
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Handle Google OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('google_connected') === 'true') {
+        showToast('Google account connected successfully!', 'success');
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('google_error')) {
+        showToast('Google connection failed: ' + urlParams.get('google_error'), 'error');
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 </script>
 {% endblock %}

@@ -5,6 +5,7 @@ This service manages per-persona tracking features including:
 - Goals with progress tracking
 - Todo items with completion status
 - Habits with streak tracking
+- Google Tasks sync integration
 """
 
 import logging
@@ -22,6 +23,25 @@ from miachat.database.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _sync_todo_to_google(todo: TodoItem, action: str, db: Session):
+    """Helper to sync todo changes to Google Tasks (if enabled).
+
+    Uses lazy import to avoid circular dependency.
+    """
+    try:
+        from miachat.api.core.google_sync_service import google_sync_service
+
+        if action == 'create':
+            google_sync_service.sync_todo_create(todo, db)
+        elif action == 'update':
+            google_sync_service.sync_todo_update(todo, db)
+        elif action == 'toggle':
+            google_sync_service.sync_todo_toggle(todo, db)
+    except Exception as e:
+        # Don't fail the local operation if sync fails
+        logger.warning(f"Google sync failed for todo {action}: {e}")
 
 
 class TrackingService:
@@ -256,6 +276,10 @@ class TrackingService:
         db.commit()
         db.refresh(todo)
         logger.info(f"Created todo '{text[:50]}...' for user {user_id}")
+
+        # Sync to Google Tasks (if enabled for this persona)
+        _sync_todo_to_google(todo, 'create', db)
+
         return todo.to_dict()
 
     def update_todo(
@@ -281,6 +305,10 @@ class TrackingService:
 
         db.commit()
         db.refresh(todo)
+
+        # Sync to Google Tasks (if enabled for this persona)
+        _sync_todo_to_google(todo, 'update', db)
+
         return todo.to_dict()
 
     def toggle_todo(self, todo_id: int, user_id: int, db: Session) -> Optional[Dict[str, Any]]:
@@ -303,6 +331,10 @@ class TrackingService:
         db.commit()
         db.refresh(todo)
         logger.info(f"Toggled todo {todo_id} to {'completed' if todo.is_completed else 'incomplete'}")
+
+        # Sync to Google Tasks (if enabled for this persona)
+        _sync_todo_to_google(todo, 'toggle', db)
+
         return todo.to_dict()
 
     def delete_todo(self, todo_id: int, user_id: int, db: Session) -> bool:
@@ -314,6 +346,16 @@ class TrackingService:
 
         if not todo:
             return False
+
+        # Capture character_id for sync before deleting
+        character_id = todo.character_id
+
+        # Sync deletion to Google Tasks (if enabled for this persona)
+        try:
+            from miachat.api.core.google_sync_service import google_sync_service
+            google_sync_service.sync_todo_delete(todo_id, user_id, character_id, db)
+        except Exception as e:
+            logger.warning(f"Google sync failed for todo delete: {e}")
 
         db.delete(todo)
         db.commit()

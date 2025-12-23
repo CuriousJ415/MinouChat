@@ -550,6 +550,15 @@ app.include_router(feature_preferences_router)
 from .routes.web_search import router as web_search_router
 app.include_router(web_search_router)
 
+from .routes.google_auth import router as google_auth_router
+app.include_router(google_auth_router)
+
+from .routes.google_tasks import router as google_tasks_router
+app.include_router(google_tasks_router)
+
+from .routes.google_calendar import router as google_calendar_router
+app.include_router(google_calendar_router)
+
 # Import new services for chat integration
 from .core.token_service import token_service
 from .core.world_info_service import world_info_service
@@ -1730,12 +1739,13 @@ You should be proactive about offering to create documents when it would be help
             # Don't fail the chat if fact extraction fails
             logger.warning(f"Fact extraction hook failed: {e}")
 
-        # Sidebar extraction hook - extract todos (Assistant) or life areas (Coach)
+        # Sidebar extraction hook - extract todos, life areas, goals, habits, calendar events
         sidebar_extractions = None
         try:
             category = character.get('category', '')
-            # Only process for Assistant (todos) or Coach (life areas) categories
-            if category.lower() in ['assistant', 'coach'] and len(request.message) >= 10:
+            # Process for any category if message is long enough
+            # (Each extraction type checks its own category requirements internally)
+            if len(request.message) >= 10:
                 from .core.sidebar_extraction_service import sidebar_extraction_service
 
                 # Get recent conversation context for "add this to todo" style requests
@@ -1758,12 +1768,14 @@ You should be proactive about offering to create documents when it would be help
 
                 # Only include if something was extracted
                 if (extractions.get('todos') or extractions.get('life_areas') or
-                    extractions.get('goals') or extractions.get('habits')):
+                    extractions.get('goals') or extractions.get('habits') or
+                    extractions.get('calendar_events')):
                     sidebar_extractions = extractions
                     logger.info(f"Sidebar extractions: {len(extractions.get('todos', []))} todos, "
                               f"{len(extractions.get('life_areas', []))} life areas, "
                               f"{len(extractions.get('goals', []))} goals, "
-                              f"{len(extractions.get('habits', []))} habits")
+                              f"{len(extractions.get('habits', []))} habits, "
+                              f"{len(extractions.get('calendar_events', []))} calendar events")
         except Exception as e:
             # Don't fail the chat if sidebar extraction fails
             logger.warning(f"Sidebar extraction hook failed: {e}")

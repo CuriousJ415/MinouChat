@@ -99,6 +99,24 @@ class SidebarExtractionService:
         r'\bstart\s+(?:a\s+)?(?:daily|weekly)\s+\w+\s+habit\b',
     ]
 
+    # Trigger phrases for calendar event extraction
+    # Made flexible to match natural speech (allow text between keywords)
+    CALENDAR_TRIGGERS = [
+        # Any mention of adding to calendar (with up to 50 chars between)
+        r'\b(?:add|put|schedule|book)\b.{0,50}\b(?:to|on|in)\s+(?:my\s+)?calendar\b',
+        r'\b(?:to|on)\s+(?:my\s+)?calendar\b',  # "...to my calendar"
+        # Appointment/meeting/event/workout with day/time
+        r'\b(?:schedule|add|put|create|set\s+up|book)\b.{0,40}\b(?:appointment|meeting|event|workout|session|call)\b',
+        r'\b(?:appointment|meeting|event|workout)\b.{0,30}\b(?:on|at|for)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today)\b',
+        # Day + time patterns
+        r'\b(?:tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+\d',
+        r'\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b',
+        # Block time
+        r'\bblock\s+(?:off\s+)?(?:time|my\s+calendar)\b',
+        # Reminder style
+        r'\bremind(?:er)?\b.{0,30}\b(?:at|on|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+    ]
+
     def __init__(self):
         self.llm_client = None
 
@@ -137,6 +155,14 @@ class SidebarExtractionService:
         """Check if message might contain habit statements."""
         message_lower = message.lower()
         for pattern in self.HABIT_TRIGGERS:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                return True
+        return False
+
+    def should_extract_calendar_events(self, message: str) -> bool:
+        """Check if message requests calendar event creation."""
+        message_lower = message.lower()
+        for pattern in self.CALENDAR_TRIGGERS:
             if re.search(pattern, message_lower, re.IGNORECASE):
                 return True
         return False
@@ -534,6 +560,185 @@ Return ONLY the JSON array, nothing else."""
             logger.error(f"Error extracting habits: {str(e)}")
             return []
 
+    async def extract_calendar_events(
+        self,
+        message: str,
+        user_id: int,
+        character_id: str,
+        db: Session,
+        conversation_context: Optional[List[Dict[str, str]]] = None
+    ) -> List[Dict[str, Any]]:
+        """Extract and create calendar events from a message using LLM.
+
+        Args:
+            message: User message to extract from
+            user_id: User ID for Google credentials
+            character_id: Character ID for sync config check
+            db: Database session
+            conversation_context: Recent conversation messages for context
+
+        Returns:
+            List of created event info dicts
+        """
+        if not self.should_extract_calendar_events(message):
+            logger.debug(f"No calendar trigger in message: {message[:50]}...")
+            return []
+
+        logger.info(f"Calendar trigger detected in message: {message[:100]}...")
+
+        # Check if calendar is enabled for this persona
+        from ...database.models import PersonaGoogleSyncConfig
+        sync_config = db.query(PersonaGoogleSyncConfig).filter_by(
+            user_id=user_id,
+            character_id=character_id
+        ).first()
+
+        if not sync_config:
+            logger.info(f"No sync config found for persona {character_id}")
+            return []
+
+        if not sync_config.calendar_sync_enabled:
+            logger.info(f"Calendar not enabled for persona {character_id}")
+            return []
+
+        logger.info(f"Calendar enabled, proceeding with event extraction")
+
+        try:
+            from .google_calendar_service import google_calendar_service
+            from .google_auth_service import google_auth_service
+            from datetime import datetime, timedelta
+            import dateparser
+
+            llm = self._get_llm_client()
+
+            # Get current date/time for context
+            now = datetime.now()
+            current_context = f"Today is {now.strftime('%A, %B %d, %Y')}. Current time is {now.strftime('%I:%M %p')}."
+
+            extraction_prompt = f"""{current_context}
+
+Extract calendar event information from this message:
+"{message}"
+
+Return a JSON object with event details. Example:
+{{"title": "Meeting with John", "date": "2024-01-15", "time": "14:00", "duration_minutes": 60, "description": "Discuss project"}}
+
+Rules:
+- title: Event name (required)
+- date: Date in YYYY-MM-DD format (required). Use today's date if "today", tomorrow if "tomorrow", etc.
+- time: Time in 24h HH:MM format (required for timed events, omit for all-day)
+- duration_minutes: Length in minutes (default 60)
+- description: Brief note (optional)
+- all_day: true for all-day events (optional)
+- If message doesn't specify a calendar event, return {{}}
+
+Return ONLY the JSON object, nothing else."""
+
+            response_text = llm.generate_response(
+                messages=[{"role": "user", "content": extraction_prompt}],
+                model="llama3.1:latest",
+                temperature=0.1,
+                max_tokens=300
+            ).strip()
+
+            logger.info(f"LLM extraction response: {response_text[:200]}...")
+
+            # Parse JSON
+            event_data = self._parse_json_object(response_text)
+            logger.info(f"Parsed event data: {event_data}")
+
+            if not event_data or not event_data.get('title') or not event_data.get('date'):
+                logger.info("No valid calendar event extracted from message (missing title or date)")
+                return []
+
+            logger.info(f"Extracted event: {event_data.get('title')} on {event_data.get('date')} at {event_data.get('time')}")
+
+            # Get Google credentials
+            credentials = google_auth_service.get_credentials(user_id, db)
+            if not credentials:
+                logger.warning("No Google credentials for user, cannot create calendar event")
+                return []
+
+            logger.info("Got Google credentials, creating event...")
+
+            # Parse date and time
+            try:
+                event_date = datetime.strptime(event_data['date'], '%Y-%m-%d')
+            except ValueError:
+                # Try dateparser as fallback
+                parsed = dateparser.parse(event_data['date'])
+                if parsed:
+                    event_date = parsed
+                else:
+                    logger.warning(f"Could not parse date: {event_data['date']}")
+                    return []
+
+            # Determine start/end times
+            all_day = event_data.get('all_day', False)
+            if event_data.get('time') and not all_day:
+                try:
+                    time_parts = event_data['time'].split(':')
+                    start_time = event_date.replace(hour=int(time_parts[0]), minute=int(time_parts[1]))
+                except (ValueError, IndexError):
+                    start_time = event_date.replace(hour=12, minute=0)
+            else:
+                start_time = event_date
+                all_day = True
+
+            duration = event_data.get('duration_minutes', 60)
+            end_time = start_time + timedelta(minutes=duration)
+
+            # Create the event
+            created_event = google_calendar_service.create_event(
+                credentials=credentials,
+                summary=event_data['title'],
+                description=event_data.get('description'),
+                start_time=start_time,
+                end_time=end_time,
+                all_day=all_day
+            )
+
+            logger.info(f"Created calendar event: {event_data['title']}")
+            return [created_event]
+
+        except Exception as e:
+            logger.error(f"Error extracting/creating calendar event: {str(e)}")
+            return []
+
+    def _parse_json_object(self, text: str) -> Optional[Dict]:
+        """Parse JSON object from text, handling markdown code blocks."""
+        import json
+        # Try direct parse first
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+        # Try to find JSON in code blocks
+        import re
+        code_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        if code_block_match:
+            try:
+                data = json.loads(code_block_match.group(1))
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find JSON object pattern
+        json_match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
+        if json_match:
+            try:
+                data = json.loads(json_match.group())
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError:
+                pass
+
+        return None
+
     def _parse_json_array(self, text: str) -> Optional[List[Dict]]:
         """Parse JSON array from text, handling markdown code blocks."""
         # Try direct parse first
@@ -592,7 +797,8 @@ Return ONLY the JSON array, nothing else."""
             'todos': [],
             'life_areas': [],
             'goals': [],
-            'habits': []
+            'habits': [],
+            'calendar_events': []
         }
 
         logger.info(f"Processing message for extractions. Category: {category}")
@@ -617,6 +823,12 @@ Return ONLY the JSON array, nothing else."""
             extractions['habits'] = await self.extract_habits(
                 message, user_id, character_id, db, conversation_context
             )
+
+        # Extract calendar events for any category if calendar is enabled for persona
+        # (The extract_calendar_events method checks calendar_sync_enabled internally)
+        extractions['calendar_events'] = await self.extract_calendar_events(
+            message, user_id, character_id, db, conversation_context
+        )
 
         return extractions
 

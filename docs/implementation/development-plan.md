@@ -12,8 +12,8 @@ Phased feature rollout to improve chat experience and enable persona capabilitie
 | 2a | Export Functionality | ✅ COMPLETE |
 | 2b | Per-Persona Tracking | ✅ COMPLETE |
 | 3 | Interactive Documents | ✅ COMPLETE |
-| 4 | Web Search (DuckDuckGo) | 🔜 NEXT |
-| 5 | Google Calendar + Reminders | Planned |
+| 4 | Web Search (DuckDuckGo) | ✅ COMPLETE |
+| 5 | Google Calendar + Tasks | ✅ COMPLETE |
 
 ---
 
@@ -62,6 +62,60 @@ Phased feature rollout to improve chat experience and enable persona capabilitie
   - `src/miachat/api/core/sidebar_extraction_service.py` - Goal/habit trigger patterns and LLM extraction
   - `src/miachat/api/main.py` - tracking_cards field in ChatResponse
   - `src/miachat/api/templates/chat/index.html` - Card CSS, rendering functions, event handlers
+
+### Phase 4: Web Search (DuckDuckGo) ✅
+- Privacy-focused web search using DuckDuckGo (no API key needed)
+- Search capability enabled per-persona via `capabilities.web_search` field
+- Automatic search intent detection in messages (e.g., "search for...", "what's the latest on...")
+- Manual search button in chat input (visible only for personas with capability)
+- Search results displayed in dropdown panel with clickable links
+- Search results automatically included in chat context for LLM responses
+- Default capabilities by category:
+  - Assistant: web_search=true, calendar_access=true, goal_tracking=true
+  - Coach: web_search=false, calendar_access=true, goal_tracking=true
+  - Friend: all capabilities=false
+  - Creative: all capabilities=false
+- Files created:
+  - `src/miachat/api/core/web_search_service.py` - DuckDuckGo integration
+  - `src/miachat/api/routes/web_search.py` - REST API endpoints
+- Files modified:
+  - `src/miachat/api/core/enhanced_context_service.py` - Web search context injection
+  - `src/miachat/api/main.py` - Router registration
+  - `src/miachat/api/templates/chat/index.html` - Search button, results panel, JavaScript
+  - `character_cards/*.json` - Added capabilities field
+  - `requirements.txt` - Added ddgs>=9.0.0
+
+### Phase 5: Google Calendar + Tasks ✅
+- Two-way sync between MinouChat todos and Google Tasks
+- Per-persona sync control (user chooses which personas sync)
+- Separate Google Tasks list per synced persona (e.g., "MinouChat - Coach")
+- Google Calendar read access with events injected into chat context
+- Calendar event creation from chat
+- OAuth2 flow with token refresh
+- Last-write-wins conflict resolution for two-way sync
+- Database models:
+  - `GoogleCredentials` - OAuth2 tokens per user
+  - `PersonaGoogleSyncConfig` - Per-persona sync settings
+  - `TodoGoogleTaskMapping` - Maps todos to Google Tasks for sync tracking
+- Files created:
+  - `src/miachat/api/core/google_auth_service.py` - OAuth2 flow, token management
+  - `src/miachat/api/core/google_tasks_service.py` - Google Tasks API operations
+  - `src/miachat/api/core/google_sync_service.py` - Two-way sync logic
+  - `src/miachat/api/core/google_calendar_service.py` - Calendar read/write
+  - `src/miachat/api/routes/google_auth.py` - OAuth endpoints
+  - `src/miachat/api/routes/google_tasks.py` - Sync config endpoints
+  - `src/miachat/api/routes/google_calendar.py` - Calendar endpoints
+- Files modified:
+  - `src/miachat/database/models.py` - 3 new models
+  - `src/miachat/api/core/tracking_service.py` - Sync hooks on todo CRUD
+  - `src/miachat/api/core/enhanced_context_service.py` - Calendar context injection
+  - `src/miachat/api/templates/settings.html` - Google connection UI
+  - `src/miachat/api/main.py` - Router registration
+  - `requirements.txt` - Added google-auth, google-auth-oauthlib, google-api-python-client
+- Environment variables required:
+  - `GOOGLE_CLIENT_ID` - OAuth client ID
+  - `GOOGLE_CLIENT_SECRET` - OAuth client secret
+  - `GOOGLE_REDIRECT_URI` - OAuth callback URL
 
 ---
 
