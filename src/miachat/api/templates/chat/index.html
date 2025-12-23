@@ -4226,7 +4226,7 @@
                             }
                             llmDismiss.style.display = 'inline';
                             llmBanner.classList.add('show', 'warning');
-                        } else if (data.llm_provider && data.llm_model) {
+                        } else if (data.llm_provider && data.llm_model && !wasDismissed) {
                             // Show current LLM info (non-warning)
                             llmText.textContent = `Using ${data.llm_provider}/${data.llm_model}`;
                             if (currentCharacterId) {
@@ -4236,7 +4236,7 @@
                             } else {
                                 llmLink.style.display = 'none';
                             }
-                            llmDismiss.style.display = 'none';
+                            llmDismiss.style.display = 'inline';
                             llmBanner.classList.remove('warning');
                             llmBanner.classList.add('show');
                         }

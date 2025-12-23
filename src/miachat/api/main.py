@@ -1792,18 +1792,16 @@ You should be proactive about offering to create documents when it would be help
             # Don't fail the chat if sidebar extraction fails
             logger.warning(f"Sidebar extraction hook failed: {e}")
 
-        # Save additional reasoning context if available
+        # Log reasoning context for debugging (don't save to conversation)
         if reasoning_chain:
             try:
-                reasoning_summary = "AI Reasoning: " + " → ".join([
-                    f"{step['step']}: {step['thought'][:100]}..." if len(step['thought']) > 100
-                    else f"{step['step']}: {step['thought']}"
-                    for step in reasoning_chain[-3:]  # Save last 3 reasoning steps
+                reasoning_summary = " → ".join([
+                    f"{step['step']}: {step['thought'][:50]}"
+                    for step in reasoning_chain[-3:]
                 ])
-                conversation_service.save_message(session_id, "system", reasoning_summary, db)
-                logger.info(f"Saved reasoning chain for {character['name']}")
+                logger.debug(f"Reasoning chain for {character['name']}: {reasoning_summary}")
             except Exception as e:
-                logger.warning(f"Failed to save reasoning chain: {e}")
+                logger.warning(f"Failed to log reasoning chain: {e}")
         
         # Update character usage
         character_manager.update_character(request.character_id, {

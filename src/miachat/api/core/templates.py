@@ -3,6 +3,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from typing import Dict, Any
 from .flash import get_flashed_messages
+from .clerk_auth import get_clerk_publishable_key, is_clerk_configured
 
 # Get the templates directory path
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -56,6 +57,9 @@ def get_template_context(request: Request, **kwargs) -> Dict[str, Any]:
         "request": request,
         "get_flashed_messages": get_flashed_messages,
         "url_for": url_for_static,
+        # Clerk auth config - available to all templates
+        "clerk_configured": is_clerk_configured(),
+        "clerk_publishable_key": get_clerk_publishable_key(),
     }
     context.update(kwargs)
     return context

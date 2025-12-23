@@ -34,7 +34,7 @@
   "llm_model_config": null,
   "model_config": {
     "provider": "ollama",
-    "model": "dolphin-llama3:8b",
+    "model": "deepseek-r1:14b",
     "temperature": 0.9,
     "top_p": 0.9,
     "top_k": 40,
@@ -53,8 +53,8 @@
     "time_period": "Present DAy",
     "key_facts": []
   },
-  "updated_at": "2025-12-22T02:42:11.490732+00:00",
-  "last_used": "2025-12-22T02:42:11.490498+00:00",
-  "conversation_count": 22,
-  "total_messages": 22
+  "updated_at": "2025-12-23T05:59:14.550134+00:00",
+  "last_used": "2025-12-23T05:59:14.549794+00:00",
+  "conversation_count": 31,
+  "total_messages": 31
 }

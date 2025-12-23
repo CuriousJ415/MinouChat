@@ -452,24 +452,27 @@
     }
 
     .modal {
-        background: var(--bg-primary);
-        border-radius: var(--radius-lg);
+        background: #1e1e1e !important;
+        border: 2px solid #444 !important;
+        border-radius: 12px;
         width: 100%;
         max-width: 420px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        min-height: 300px;
     }
 
     .modal-header {
         padding: var(--space-4) var(--space-5);
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color, #333);
         display: flex;
         align-items: center;
         justify-content: space-between;
     }
 
     .modal-header h3 {
-        font-size: var(--text-lg);
-        font-weight: var(--font-medium);
+        font-size: var(--text-lg, 1.125rem);
+        font-weight: var(--font-medium, 500);
+        color: var(--text-primary, #fff);
     }
 
     .modal-close {
@@ -677,51 +680,39 @@
 
 <!-- Add Fact Modal -->
 <div class="modal-overlay" id="add-modal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>Add New Fact</h3>
-            <button class="modal-close" onclick="closeAddModal()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+    <div class="modal" style="background: #222 !important; border: 2px solid #555 !important; padding: 0; display: block !important; opacity: 1 !important; visibility: visible !important;">
+        <div class="modal-header" style="background: #333; padding: 16px 20px; border-bottom: 1px solid #444;">
+            <h3 style="color: #fff; margin: 0; font-size: 18px;">Remember Something About Me</h3>
+            <button class="modal-close" onclick="closeAddModal()" style="background: transparent; border: none; cursor: pointer; padding: 4px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width: 18px; height: 18px;">
                     <line x1="18" y1="6" x2="6" y2="18"/>
                     <line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
             </button>
         </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="fact-type">Fact Type</label>
-                <select id="fact-type">
-                    <option value="preference">Preference</option>
-                    <option value="name">Name</option>
-                    <option value="occupation">Occupation</option>
-                    <option value="location">Location</option>
-                    <option value="hobby">Hobby</option>
-                    <option value="relationship">Relationship</option>
-                    <option value="goal">Goal</option>
-                    <option value="trait">Trait</option>
-                    <option value="other">Other</option>
+        <div class="modal-body" style="background: #222; padding: 20px;">
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="fact-key" style="color: #fff; display: block; margin-bottom: 8px;">About</label>
+                <input type="text" id="fact-key" placeholder="e.g., favorite color, job, city I live in" style="width: 100%; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; box-sizing: border-box;">
+            </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="fact-value" style="color: #fff; display: block; margin-bottom: 8px;">Is</label>
+                <input type="text" id="fact-value" placeholder="e.g., blue, software engineer, Portland" style="width: 100%; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; box-sizing: border-box;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="fact-persona" style="color: #fff; display: block; margin-bottom: 8px;">For which persona?</label>
+                <select id="fact-persona" style="width: 100%; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px;">
+                    <option value="">All personas</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label for="fact-key">Fact Name</label>
-                <input type="text" id="fact-key" placeholder="e.g., favorite_color, job_title">
-                <div class="form-hint">Use underscores for multi-word names</div>
-            </div>
-            <div class="form-group">
-                <label for="fact-value">Value</label>
-                <input type="text" id="fact-value" placeholder="e.g., blue, Software Engineer">
-            </div>
-            <div class="form-group">
-                <label for="fact-persona">Applies To</label>
-                <select id="fact-persona">
-                    <option value="">Global (all personas)</option>
-                </select>
-                <div class="form-hint">Global facts are shared across all personas</div>
-            </div>
+            <!-- Hidden field for fact type - auto-detected -->
+            <select id="fact-type" style="display: none;">
+                <option value="other" selected>Other</option>
+            </select>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveFact()">Save Fact</button>
+        <div class="modal-footer" style="background: #282828; padding: 16px 20px; border-top: 1px solid #444; display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-secondary" onclick="closeAddModal()" style="padding: 10px 20px; background: #444; color: #fff; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+            <button class="btn btn-primary" onclick="saveFact()" style="padding: 10px 20px; background: #fff; color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Save</button>
         </div>
     </div>
 </div>
@@ -734,14 +725,31 @@
     let characters = [];
     let selectedFacts = new Set();
 
+    // Simple authenticated fetch - uses cookies
+    async function authFetch(url, options = {}) {
+        options.credentials = 'include';
+        const response = await fetch(url, options);
+
+        if (response.status === 401) {
+            console.error('Authentication failed, redirecting to login');
+            window.location.href = '/auth/login';
+        }
+
+        return response;
+    }
+
     document.addEventListener('DOMContentLoaded', async function() {
-        await loadCharacters();
-        await loadFacts();
+        try {
+            await loadCharacters();
+            await loadFacts();
+        } catch (e) {
+            console.error('Failed to initialize page:', e);
+        }
     });
 
     async function loadCharacters() {
         try {
-            const response = await fetch('/api/characters', { credentials: 'include' });
+            const response = await authFetch('/api/characters');
             if (response.ok) {
                 characters = await response.json();
                 renderCharacterList();
@@ -802,7 +810,7 @@
                 url += `?character_id=${currentCharacterId}`;
             }
 
-            const response = await fetch(url, { credentials: 'include' });
+            const response = await authFetch(url);
             if (response.ok) {
                 const data = await response.json();
                 allFacts = data.facts || [];
@@ -984,9 +992,8 @@
         let deleted = 0;
         for (const factId of selectedFacts) {
             try {
-                const response = await fetch(`/api/facts/${factId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
+                const response = await authFetch(`/api/facts/${factId}`, {
+                    method: 'DELETE'
                 });
                 if (response.ok) deleted++;
             } catch (e) {
@@ -1005,9 +1012,8 @@
         if (!confirm('Delete this fact?')) return;
 
         try {
-            const response = await fetch(`/api/facts/${factId}`, {
-                method: 'DELETE',
-                credentials: 'include'
+            const response = await authFetch(`/api/facts/${factId}`, {
+                method: 'DELETE'
             });
 
             if (response.ok) {
@@ -1052,11 +1058,10 @@
         }
 
         try {
-            const response = await fetch(`/api/facts/${factId}`, {
+            const response = await authFetch(`/api/facts/${factId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fact_value: newValue }),
-                credentials: 'include'
+                body: JSON.stringify({ fact_value: newValue })
             });
 
             if (response.ok) {
@@ -1073,39 +1078,66 @@
 
     // Add fact modal
     function openAddModal() {
-        document.getElementById('add-modal').classList.add('visible');
-        document.getElementById('fact-key').value = '';
-        document.getElementById('fact-value').value = '';
-        document.getElementById('fact-type').value = 'preference';
-        document.getElementById('fact-persona').value = '';
+        console.log('openAddModal called');
+        try {
+            const modal = document.getElementById('add-modal');
+            if (!modal) {
+                console.error('Modal element not found!');
+                return;
+            }
+            modal.classList.add('visible');
+            document.getElementById('fact-key').value = '';
+            document.getElementById('fact-value').value = '';
+            document.getElementById('fact-type').value = 'preference';
+            document.getElementById('fact-persona').value = '';
+            console.log('Modal opened successfully');
+        } catch (e) {
+            console.error('Error opening modal:', e);
+        }
     }
 
     function closeAddModal() {
         document.getElementById('add-modal').classList.remove('visible');
     }
 
+    // Auto-detect fact type from the "About" field
+    function detectFactType(about) {
+        const lower = about.toLowerCase();
+        if (lower.includes('name') || lower.includes('call me')) return 'name';
+        if (lower.includes('job') || lower.includes('work') || lower.includes('occupation') || lower.includes('career')) return 'occupation';
+        if (lower.includes('live') || lower.includes('city') || lower.includes('country') || lower.includes('location') || lower.includes('from')) return 'location';
+        if (lower.includes('hobby') || lower.includes('like to') || lower.includes('enjoy') || lower.includes('fun')) return 'hobby';
+        if (lower.includes('favorite') || lower.includes('prefer') || lower.includes('love')) return 'preference';
+        if (lower.includes('goal') || lower.includes('want to') || lower.includes('trying to')) return 'goal';
+        if (lower.includes('relationship') || lower.includes('married') || lower.includes('partner') || lower.includes('family')) return 'relationship';
+        if (lower.includes('personality') || lower.includes('trait') || lower.includes('am a')) return 'trait';
+        return 'other';
+    }
+
     async function saveFact() {
-        const factType = document.getElementById('fact-type').value;
+        console.log('saveFact called');
         const factKey = document.getElementById('fact-key').value.trim();
         const factValue = document.getElementById('fact-value').value.trim();
         const characterId = document.getElementById('fact-persona').value || null;
+        const factType = detectFactType(factKey);
+
+        console.log('Saving fact:', { factType, factKey, factValue, characterId });
 
         if (!factKey || !factValue) {
-            showToast('Please fill in all fields', 'error');
+            showToast('Please fill in both fields', 'error');
             return;
         }
 
         try {
-            const response = await fetch('/api/facts', {
+            const response = await authFetch('/api/facts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fact_type: factType,
-                    fact_key: factKey,
+                    fact_key: factKey.replace(/\s+/g, '_').toLowerCase(),
                     fact_value: factValue,
                     character_id: characterId
-                }),
-                credentials: 'include'
+                })
             });
 
             if (response.ok) {

@@ -1165,50 +1165,95 @@
 <div class="modal-backdrop" id="add-fact-modal-backdrop" onclick="hideAddFactModal()"></div>
 <div class="modal" id="add-fact-modal">
     <div class="modal-header">
-        <h3 class="modal-title">Add Memory</h3>
+        <h3 class="modal-title">Remember Something About Me</h3>
         <button class="modal-close" onclick="hideAddFactModal()">
             <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         </button>
     </div>
     <div class="modal-body">
         <div class="form-group">
-            <label class="form-label">What to remember</label>
-            <input type="text" class="form-input" id="new-fact-value" placeholder="e.g., I have a golden retriever named Max">
-            <p class="form-hint">Enter the fact or detail you want remembered.</p>
+            <label class="form-label">About</label>
+            <input type="text" class="form-input" id="new-fact-key" placeholder="e.g., favorite color, job, city I live in">
         </div>
         <div class="form-group">
-            <label class="form-label">Label</label>
-            <input type="text" class="form-input" id="new-fact-key" placeholder="e.g., pet_name">
-            <p class="form-hint">A short identifier for this memory (snake_case recommended).</p>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Category</label>
-            <select class="form-select" id="new-fact-type">
-                <option value="preference">Preference</option>
-                <option value="name">Name</option>
-                <option value="relationship">Relationship</option>
-                <option value="location">Location</option>
-                <option value="occupation">Occupation</option>
-                <option value="hobby">Hobby</option>
-                <option value="goal">Goal</option>
-                <option value="trait">Trait</option>
-                <option value="event">Event</option>
-                <option value="other">Other</option>
-            </select>
+            <label class="form-label">Is</label>
+            <input type="text" class="form-input" id="new-fact-value" placeholder="e.g., blue, software engineer, Portland">
         </div>
     </div>
     <div class="modal-footer">
         <button class="btn btn-secondary" onclick="hideAddFactModal()">Cancel</button>
         <button class="btn btn-primary" onclick="createFact()" id="create-fact-btn">
-            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
-            Add Memory
+            Save
         </button>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+{% if clerk_configured %}
+<!-- Clerk SDK for session token management -->
+<script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="{{ clerk_publishable_key }}"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+></script>
+{% endif %}
 <script>
+    // Clerk auth handling
+    let clerkReady = false;
+    let clerkReadyPromise = new Promise((resolve) => {
+        if (window.Clerk) {
+            window.Clerk.load().then(() => { clerkReady = true; resolve(); }).catch(() => resolve());
+        } else {
+            const checkClerk = setInterval(() => {
+                if (window.Clerk) {
+                    clearInterval(checkClerk);
+                    window.Clerk.load().then(() => { clerkReady = true; resolve(); }).catch(() => resolve());
+                }
+            }, 100);
+            setTimeout(() => { clearInterval(checkClerk); resolve(); }, 3000);
+        }
+    });
+
+    async function getFreshToken() {
+        if (window.Clerk && window.Clerk.session) {
+            try { return await window.Clerk.session.getToken(); }
+            catch (e) { return null; }
+        }
+        return null;
+    }
+
+    async function authFetch(url, options = {}) {
+        await Promise.race([clerkReadyPromise, new Promise(r => setTimeout(r, 2000))]);
+        options.credentials = 'include';
+        const token = await getFreshToken();
+        if (token) {
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            window.location.href = '/auth/login';
+        }
+        return response;
+    }
+
+    // Proactive token refresh every 45 seconds
+    let tokenRefreshInterval = null;
+    function startTokenRefresh() {
+        if (tokenRefreshInterval) return;
+        tokenRefreshInterval = setInterval(async () => {
+            if (window.Clerk && window.Clerk.session) {
+                try { await window.Clerk.session.touch(); }
+                catch (e) { console.warn('Token refresh failed:', e); }
+            }
+        }, 45000);
+    }
+    clerkReadyPromise.then(() => {
+        if (window.Clerk && window.Clerk.session) startTokenRefresh();
+    });
+
     // Category defaults for style overrides
     const CATEGORY_DEFAULTS = {
         "Coach": { warmth: "neutral", formality: "formal", directness: "direct", humor: "minimal" },
@@ -1743,8 +1788,8 @@
         if (!list) return;
 
         try {
-            const resp = await fetch(`/api/facts?character_id=${PERSONA_ID}`);
-            if (!resp.ok) throw new Error('Failed to load facts');
+            const resp = await authFetch(`/api/facts?character_id=${PERSONA_ID}`);
+            if (!resp || !resp.ok) throw new Error('Failed to load facts');
 
             const data = await resp.json();
             const facts = data.facts || [];
@@ -1896,11 +1941,9 @@
     function showAddFactModal() {
         document.getElementById('add-fact-modal-backdrop').classList.add('show');
         document.getElementById('add-fact-modal').classList.add('show');
-        document.getElementById('new-fact-value').value = '';
         document.getElementById('new-fact-key').value = '';
-        document.getElementById('new-fact-type').value = 'preference';
-        document.getElementById('new-fact-value').focus();
-        lucide.createIcons();
+        document.getElementById('new-fact-value').value = '';
+        document.getElementById('new-fact-key').focus();
     }
 
     function hideAddFactModal() {
@@ -1908,40 +1951,54 @@
         document.getElementById('add-fact-modal').classList.remove('show');
     }
 
-    async function createFact() {
-        const factValue = document.getElementById('new-fact-value').value.trim();
-        const factKey = document.getElementById('new-fact-key').value.trim();
-        const factType = document.getElementById('new-fact-type').value;
+    // Auto-detect fact type from the "About" field
+    function detectFactType(about) {
+        const lower = about.toLowerCase();
+        if (lower.includes('name') || lower.includes('call me')) return 'name';
+        if (lower.includes('job') || lower.includes('work') || lower.includes('occupation') || lower.includes('career')) return 'occupation';
+        if (lower.includes('live') || lower.includes('city') || lower.includes('country') || lower.includes('location') || lower.includes('from')) return 'location';
+        if (lower.includes('hobby') || lower.includes('like to') || lower.includes('enjoy') || lower.includes('fun')) return 'hobby';
+        if (lower.includes('favorite') || lower.includes('prefer') || lower.includes('love')) return 'preference';
+        if (lower.includes('goal') || lower.includes('want to') || lower.includes('trying to')) return 'goal';
+        if (lower.includes('relationship') || lower.includes('married') || lower.includes('partner') || lower.includes('family')) return 'relationship';
+        if (lower.includes('personality') || lower.includes('trait') || lower.includes('am a')) return 'trait';
+        return 'other';
+    }
 
-        if (!factValue) {
-            showToast('Please enter what to remember', 'error');
+    async function createFact() {
+        const factKey = document.getElementById('new-fact-key').value.trim();
+        const factValue = document.getElementById('new-fact-value').value.trim();
+        const factType = detectFactType(factKey);
+
+        if (!factKey) {
+            showToast('Please fill in the About field', 'error');
             return;
         }
 
-        if (!factKey) {
-            showToast('Please enter a label', 'error');
+        if (!factValue) {
+            showToast('Please fill in the Is field', 'error');
             return;
         }
 
         const btn = document.getElementById('create-fact-btn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner spinner-sm"></span> Adding...';
+        btn.innerHTML = '<span class="spinner spinner-sm"></span> Saving...';
 
         try {
-            const resp = await fetch('/api/facts', {
+            const resp = await authFetch('/api/facts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fact_type: factType,
-                    fact_key: factKey,
+                    fact_key: factKey.replace(/\s+/g, '_').toLowerCase(),
                     fact_value: factValue,
                     character_id: PERSONA_ID
                 })
             });
 
-            if (!resp.ok) {
-                const errorData = await resp.json().catch(() => ({}));
-                throw new Error(errorData.detail || 'Failed to create memory');
+            if (!resp || !resp.ok) {
+                const errorData = await resp?.json().catch(() => ({}));
+                throw new Error(errorData?.detail || 'Failed to create memory');
             }
 
             showToast('Memory added successfully', 'success');
@@ -1951,8 +2008,7 @@
             showToast('Error: ' + e.message, 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i data-lucide="plus" style="width: 16px; height: 16px;"></i> Add Memory';
-            lucide.createIcons();
+            btn.innerHTML = 'Save';
         }
     }
 
