@@ -18,6 +18,8 @@ TEMPLATE_MAPPING = {
     "dashboard": "dashboard.html",
     "chat/index": "chat/index.html",
     "documents": "documents.html",
+    "memory": "memory.html",
+    "help": "help.html",
     "settings": "settings.html",
     "config": "config.html",
     "first_time_setup": "first_time_setup.html",

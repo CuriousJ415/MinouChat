@@ -794,6 +794,17 @@ async def memory_page(request: Request, db = Depends(get_db)):
 
     return await render_template(request, "memory", user=current_user)
 
+
+@app.get("/help")
+async def help_page(request: Request, db = Depends(get_db)):
+    """Help & User Guide page."""
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    return await render_template(request, "help", user=current_user)
+
+
 @app.get("/test-image")
 async def test_image_page(request: Request):
     """Test page for hero image."""
@@ -1672,11 +1683,12 @@ You should be proactive about offering to create documents when it would be help
                     # Check if conversation needs a title (only on first exchange)
                     conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
                     msg_count = db.query(Message).filter(Message.conversation_id == conv_id).count()
+                    logger.warning(f"[TITLE DEBUG] conv_id={conv_id}, msg_count={msg_count}, title='{conv.title if conv else None}'")
                     # Generate title if this is the first exchange (2 messages) and no custom title set
-                    if conv and msg_count == 2 and (not conv.title or conv.title.startswith("Session with")):
+                    if conv and msg_count == 2 and (not conv.title or conv.title == "New conversation" or conv.title.startswith("Session with")):
                         # Use character's model config for title generation
+                        logger.warning(f"[TITLE DEBUG] Triggering async title generation for conversation {conv_id}")
                         conversation_service.generate_title_async(conv_id, model_config)
-                        logger.debug(f"Triggered async title generation for conversation {conv_id}")
         except Exception as e:
             logger.warning(f"Title generation trigger failed: {e}")
 
@@ -1946,6 +1958,104 @@ async def get_personalized_greeting(character_id: str, request: Request, db = De
             "has_profile": False,
             "is_returning_user": False
         }
+
+
+@app.get("/api/characters/{character_id}/context-summary")
+async def get_context_summary(character_id: str, request: Request, db = Depends(get_db)):
+    """Get a summary of what context/memory a persona has for the current user.
+
+    Returns information about what the persona "knows" including:
+    - User profile (About You)
+    - Setting (world/location/time)
+    - Learned facts
+    - Backstory chunks
+    - Documents
+    """
+    try:
+        current_user = await get_current_user_from_session(request, db)
+        if not current_user:
+            return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
+        # Get character
+        character = character_manager.get_character(character_id)
+        if not character:
+            return JSONResponse(status_code=404, content={"error": "Character not found"})
+
+        # Build context summary
+        summary = {
+            "character_name": character.get('name', 'Unknown'),
+            "user_profile": None,
+            "setting": None,
+            "facts": [],
+            "backstory_available": False,
+            "documents_count": 0
+        }
+
+        # Get user profile
+        user_profile = user_profile_service.get_user_profile(character_id)
+        if user_profile:
+            profile_items = []
+            if user_profile.get('preferred_name'):
+                profile_items.append(f"Name: {user_profile['preferred_name']}")
+            if user_profile.get('brief_intro'):
+                profile_items.append(user_profile['brief_intro'][:100] + ('...' if len(user_profile.get('brief_intro', '')) > 100 else ''))
+            if user_profile.get('communication_style'):
+                profile_items.append(f"Style: {user_profile['communication_style']}")
+            if profile_items:
+                summary['user_profile'] = profile_items
+
+        # Get setting
+        setting = setting_service.get_setting(character_id)
+        if setting:
+            setting_items = []
+            if setting.get('world_name'):
+                setting_items.append(f"World: {setting['world_name']}")
+            if setting.get('current_location'):
+                setting_items.append(f"Location: {setting['current_location']}")
+            if setting.get('time_period'):
+                setting_items.append(f"Time: {setting['time_period']}")
+            if setting_items:
+                summary['setting'] = setting_items
+
+        # Get facts (limit to 10 most recent)
+        facts = fact_extraction_service.get_user_facts(
+            user_id=current_user.id,
+            character_id=character_id,
+            db=db,
+            include_global=True
+        )
+        # Format facts as simple key:value pairs
+        summary['facts'] = [
+            {
+                'key': f.get('fact_key', 'Unknown'),
+                'value': f.get('fact_value', ''),
+                'type': f.get('fact_type', 'other'),
+                'is_global': f.get('character_id') is None
+            }
+            for f in facts[:15]  # Limit to 15 facts for display
+        ]
+        summary['facts_total'] = len(facts)
+
+        # Check backstory availability
+        backstory = backstory_service.get_backstory(character_id)
+        if backstory and backstory.get('entries'):
+            summary['backstory_available'] = True
+            summary['backstory_count'] = len(backstory.get('entries', []))
+
+        # Get documents count
+        from .core.document_service import document_service
+        docs = document_service.list_documents(
+            user_id=current_user.id,
+            character_id=character_id,
+            db=db
+        )
+        summary['documents_count'] = len(docs) if docs else 0
+
+        return summary
+
+    except Exception as e:
+        logger.error(f"Error getting context summary: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/chat/with-document")
 async def chat_with_document(
@@ -2262,7 +2372,7 @@ You should be proactive about offering to create documents when it would be help
                 if conv_id:
                     conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
                     msg_count = db.query(Message).filter(Message.conversation_id == conv_id).count()
-                    if conv and msg_count == 2 and (not conv.title or conv.title.startswith("Session with")):
+                    if conv and msg_count == 2 and (not conv.title or conv.title == "New conversation" or conv.title.startswith("Session with")):
                         conversation_service.generate_title_async(conv_id, model_config)
         except Exception as e:
             logger.warning(f"Title generation trigger failed: {e}")

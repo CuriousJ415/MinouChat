@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Guide - MinouChat{% endblock %}
+
+{% set active_page = 'help' %}
+
+{% block head %}
+<style>
+    .help-wrapper {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: var(--space-8) var(--space-4);
+    }
+
+    .help-header {
+        text-align: center;
+        margin-bottom: var(--space-10);
+    }
+
+    .help-title {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: var(--font-light);
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        margin-bottom: var(--space-3);
+    }
+
+    .help-subtitle {
+        font-size: var(--text-lg);
+        color: var(--text-muted);
+        font-weight: var(--font-light);
+    }
+
+    /* Navigation */
+    .help-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        justify-content: center;
+        margin-bottom: var(--space-8);
+        padding-bottom: var(--space-6);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .help-nav a {
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-full);
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        text-decoration: none;
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+    }
+
+    .help-nav a:hover {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border-color: var(--text-secondary);
+    }
+
+    /* Sections */
+    .help-section {
+        margin-bottom: var(--space-10);
+    }
+
+    .section-title {
+        font-size: var(--text-xl);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-2);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-content {
+        color: var(--text-secondary);
+        line-height: 1.7;
+    }
+
+    .section-content p {
+        margin-bottom: var(--space-4);
+    }
+
+    .section-content ul {
+        margin-bottom: var(--space-4);
+        padding-left: var(--space-6);
+    }
+
+    .section-content li {
+        margin-bottom: var(--space-2);
+    }
+
+    .section-content strong {
+        color: var(--text-primary);
+    }
+
+    /* Info boxes */
+    .info-box {
+        background: var(--bg-secondary);
+        border-left: 3px solid var(--text-muted);
+        padding: var(--space-4);
+        margin: var(--space-4) 0;
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    }
+
+    .info-box.tip {
+        border-left-color: #22c55e;
+    }
+
+    .info-box.privacy {
+        border-left-color: #3b82f6;
+    }
+
+    .info-box-title {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .info-box-title svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Memory layers diagram */
+    .memory-layers {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        margin: var(--space-6) 0;
+    }
+
+    .memory-layer {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-4);
+        background: var(--bg-secondary);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+    }
+
+    .layer-priority {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--text-primary);
+        color: var(--bg-primary);
+        border-radius: var(--radius-full);
+        font-weight: var(--font-medium);
+        font-size: var(--text-sm);
+        flex-shrink: 0;
+    }
+
+    .layer-info h4 {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-1);
+    }
+
+    .layer-info p {
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+        margin: 0;
+    }
+
+    /* FAQ accordion */
+    .faq-item {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-3);
+        overflow: hidden;
+    }
+
+    .faq-question {
+        width: 100%;
+        padding: var(--space-4);
+        background: var(--bg-primary);
+        border: none;
+        text-align: left;
+        font-size: var(--text-base);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s ease;
+    }
+
+    .faq-question:hover {
+        background: var(--bg-secondary);
+    }
+
+    .faq-question svg {
+        width: 20px;
+        height: 20px;
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .faq-item.open .faq-question svg {
+        transform: rotate(180deg);
+    }
+
+    .faq-answer {
+        display: none;
+        padding: 0 var(--space-4) var(--space-4);
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .faq-item.open .faq-answer {
+        display: block;
+    }
+
+    /* Table styles */
+    .help-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: var(--space-4) 0;
+        font-size: var(--text-sm);
+    }
+
+    .help-table th,
+    .help-table td {
+        padding: var(--space-3);
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .help-table th {
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        background: var(--bg-secondary);
+    }
+
+    .help-table td {
+        color: var(--text-secondary);
+    }
+
+    /* Back to top */
+    .back-to-top {
+        display: block;
+        text-align: center;
+        padding: var(--space-4);
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: var(--text-sm);
+    }
+
+    .back-to-top:hover {
+        color: var(--text-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="help-wrapper" id="top">
+    <!-- Header -->
+    <div class="help-header">
+        <h1 class="help-title">Help & User Guide</h1>
+        <p class="help-subtitle">Learn how to get the most out of MinouChat</p>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="help-nav">
+        <a href="#memory">Memory System</a>
+        <a href="#facts">Learned Facts</a>
+        <a href="#best-practices">Best Practices</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#faq">FAQ</a>
+    </nav>
+
+    <!-- Memory System -->
+    <section class="help-section" id="memory">
+        <h2 class="section-title">How Memory Works</h2>
+        <div class="section-content">
+            <p>
+                MinouChat uses a <strong>3-layer memory system</strong> to personalize your conversations.
+                Each layer has a different purpose and priority level.
+            </p>
+
+            <div class="memory-layers">
+                <div class="memory-layer">
+                    <div class="layer-priority">1</div>
+                    <div class="layer-info">
+                        <h4>User Profile (Highest Priority)</h4>
+                        <p>Information you explicitly set in "About You" - your name, intro, feedback preferences, topics to avoid.</p>
+                    </div>
+                </div>
+                <div class="memory-layer">
+                    <div class="layer-priority">2</div>
+                    <div class="layer-info">
+                        <h4>Backstory</h4>
+                        <p>The persona's character background. Relevant parts are retrieved based on what you're discussing.</p>
+                    </div>
+                </div>
+                <div class="memory-layer">
+                    <div class="layer-priority">3</div>
+                    <div class="layer-info">
+                        <h4>Learned Facts</h4>
+                        <p>Things the AI learns about you from conversations - your job, hobbies, preferences, goals.</p>
+                    </div>
+                </div>
+            </div>
+
+            <p>
+                When you chat, all three layers are combined into context that the persona can reference.
+                Higher priority layers are always included first.
+            </p>
+        </div>
+    </section>
+
+    <!-- Learned Facts -->
+    <section class="help-section" id="facts">
+        <h2 class="section-title">Learned Facts</h2>
+        <div class="section-content">
+            <p>
+                As you chat, MinouChat <strong>automatically extracts facts</strong> about you. For example, if you mention
+                "I'm a software engineer in Seattle", the system learns:
+            </p>
+            <ul>
+                <li><strong>occupation:</strong> software engineer</li>
+                <li><strong>location:</strong> Seattle</li>
+            </ul>
+
+            <div class="info-box tip">
+                <div class="info-box-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 16v-4"/>
+                        <path d="M12 8h.01"/>
+                    </svg>
+                    Self-Correcting
+                </div>
+                <p>
+                    If the AI learns something wrong, just correct it naturally in conversation.
+                    Say "Actually, I moved to Portland" and the old fact will be updated.
+                </p>
+            </div>
+
+            <h3>Fact Types</h3>
+            <table class="help-table">
+                <tr>
+                    <th>Type</th>
+                    <th>Examples</th>
+                </tr>
+                <tr>
+                    <td>Name</td>
+                    <td>Preferred name, nicknames</td>
+                </tr>
+                <tr>
+                    <td>Preference</td>
+                    <td>Favorite color, food preferences, likes/dislikes</td>
+                </tr>
+                <tr>
+                    <td>Occupation</td>
+                    <td>Job title, industry, company</td>
+                </tr>
+                <tr>
+                    <td>Location</td>
+                    <td>City, country, timezone</td>
+                </tr>
+                <tr>
+                    <td>Hobby</td>
+                    <td>Interests, activities, sports</td>
+                </tr>
+                <tr>
+                    <td>Relationship</td>
+                    <td>Family members, friends, pets</td>
+                </tr>
+                <tr>
+                    <td>Goal</td>
+                    <td>Aspirations, plans, objectives</td>
+                </tr>
+                <tr>
+                    <td>Trait</td>
+                    <td>Personality characteristics</td>
+                </tr>
+            </table>
+
+            <h3>Managing Facts</h3>
+            <p>
+                Visit the <a href="/memory"><strong>Memory & Facts</strong></a> page to:
+            </p>
+            <ul>
+                <li>View all facts the AI has learned about you</li>
+                <li>Edit any fact to correct it</li>
+                <li>Delete facts you don't want remembered</li>
+                <li>Filter by persona to see character-specific facts</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Best Practices -->
+    <section class="help-section" id="best-practices">
+        <h2 class="section-title">Best Practices</h2>
+        <div class="section-content">
+            <h3>Building Rich Memory</h3>
+            <ul>
+                <li>Have natural conversations - mention your name, job, hobbies, and preferences</li>
+                <li>Share context about your life - the more the AI knows, the better it can help</li>
+                <li>Correct mistakes naturally: "Actually, I prefer X" will update the fact</li>
+            </ul>
+
+            <h3>Controlling Memory</h3>
+            <ul>
+                <li>Visit <a href="/memory">/memory</a> regularly to review what's been learned</li>
+                <li>Delete any incorrect or unwanted facts</li>
+                <li>Edit facts to be more accurate</li>
+            </ul>
+
+            <h3>Personalizing Personas</h3>
+            <ul>
+                <li>Fill out the "About You" section for each persona you use frequently</li>
+                <li>This gives the persona explicit context about you (not guessed)</li>
+                <li>Set your preferred feedback style: supportive, direct, or balanced</li>
+                <li>List topics to avoid if there are sensitive subjects</li>
+            </ul>
+
+            <h3>Per-Persona vs Global Facts</h3>
+            <div class="info-box">
+                <div class="info-box-title">Understanding Scope</div>
+                <p>
+                    <strong>Global facts</strong> apply to all personas - like your name or occupation.<br>
+                    <strong>Character-specific facts</strong> only apply to that persona - like topics discussed
+                    with a particular coach.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="help-section" id="privacy">
+        <h2 class="section-title">Privacy</h2>
+        <div class="section-content">
+            <div class="info-box privacy">
+                <div class="info-box-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    Privacy-First Design
+                </div>
+                <p>
+                    MinouChat is designed with your privacy in mind. When using Ollama (local), all your
+                    conversations and fact extraction happen <strong>entirely on your machine</strong>.
+                    Nothing is sent to external servers.
+                </p>
+            </div>
+
+            <h3>How Your Data is Stored</h3>
+            <ul>
+                <li><strong>Conversations:</strong> Stored locally in SQLite database</li>
+                <li><strong>Facts:</strong> Stored locally, never sent to cloud services</li>
+                <li><strong>Documents:</strong> Stored and processed locally</li>
+            </ul>
+
+            <h3>Cloud Providers (Optional)</h3>
+            <p>
+                If you choose to use cloud providers (OpenAI, Anthropic, OpenRouter), your conversations
+                are sent to those services. Check each provider's privacy policy for details.
+            </p>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="help-section" id="faq">
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <div class="section-content">
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    How do I correct a fact the AI got wrong?
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <p>
+                        You can correct facts in two ways:
+                    </p>
+                    <ol>
+                        <li><strong>In conversation:</strong> Just say "Actually, [correct info]" and the AI will update its memory.</li>
+                        <li><strong>On the Memory page:</strong> Visit <a href="/memory">/memory</a>, find the fact, and click to edit or delete it.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    Why doesn't the persona remember something I told it?
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <p>
+                        Fact extraction is designed to capture <strong>personal information about you</strong>, not every detail
+                        of conversation. If you mentioned something in passing, it may not have been extracted.
+                    </p>
+                    <p>
+                        To ensure something is remembered, you can manually add it on the <a href="/memory">Memory page</a>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    What's the difference between personas?
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <p>
+                        Each persona has a different personality, backstory, and purpose:
+                    </p>
+                    <ul>
+                        <li><strong>Assistant:</strong> General-purpose helper with web search capabilities</li>
+                        <li><strong>Coach:</strong> Goal-focused with tracking features for habits and objectives</li>
+                        <li><strong>Friend/Companion:</strong> Casual conversation and emotional support</li>
+                        <li><strong>Creative:</strong> Writing, roleplay, and creative projects</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    How do I delete all my data?
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <p>
+                        You can delete individual conversations from the chat sidebar and individual facts from the
+                        <a href="/memory">Memory page</a>. For complete data deletion, contact the administrator.
+                    </p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    Can personas see my conversations with other personas?
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <p>
+                        <strong>No.</strong> Each persona only sees its own conversation history. However,
+                        <strong>global facts</strong> (like your name or occupation) are shared across all personas.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <a href="#top" class="back-to-top">Back to top</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleFaq(button) {
+        const item = button.closest('.faq-item');
+        item.classList.toggle('open');
+    }
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+</script>
+{% endblock %}

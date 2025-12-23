@@ -34,34 +34,54 @@ FACT_TYPES = {
 
 # Patterns for detecting fact deletion/correction intent
 FACT_DELETION_PATTERNS = [
+    # Direct deletion requests
     r'\b(forget|remove|delete|erase|clear)\b.*(that|about|memory|fact)',
+    r'\bplease\s+(forget|stop|remove)',
+    r'\b(stop|quit)\s+(thinking|saying|mentioning|bringing up)',
+
+    # Negative corrections (explicit denials)
     r'\bthat\'?s?\s+(not|isn\'?t)\s+(true|right|correct|accurate)',
     r'\bi\s+(wasn\'?t|didn\'?t|never|don\'?t)\b',
-    r'\b(stop|quit)\s+(thinking|saying|mentioning|bringing up)',
     r'\b(you\'?re|that\'?s)\s+wrong\s+about',
     r'\bno,?\s+i\s+(didn\'?t|wasn\'?t|never|don\'?t)',
     r'\bactually,?\s+(i|that)\s+(didn\'?t|wasn\'?t|never)',
-    r'\bplease\s+(forget|stop|remove)',
-    r'\bmy\s+\w+\s+(is\s+not|isn\'?t)\b',  # "my X isn't Y" or "my X is not Y"
-    r'\b(is\s+not|isn\'?t)\s+\w+',  # "isn't purple", "is not correct"
+    r'\bmy\s+\w+\s+(is\s+not|isn\'?t)\b',  # "my X isn't Y"
+    r'\b(is\s+not|isn\'?t)\s+\w+',  # "isn't purple"
+
+    # Positive corrections (providing new information that replaces old)
+    r'\bactually,?\s+i\s+(live|work|am|moved|have|go|went)\b',  # "Actually, I live in..."
+    r'\bno,?\s+i\s+(live|work|am|have|moved)\b',  # "No, I live in..."
+    r'\bwell,?\s+actually,?\s+i\b',  # "Well, actually, I..."
+    r'\bi\s+should\s+(mention|say|clarify|note)\b',  # "I should mention..."
+    r'\bto\s+(be\s+)?(clear|clarify|correct\s+that)\b',  # "To be clear..."
+    r'\bi\s+(now|recently)\s+(live|work|moved|have)\b',  # "I now live in..."
+    r'\b(not\s+anymore|no\s+longer)\b',  # "I don't work there anymore"
+    r'\bi\'?ve\s+(moved|changed|switched|quit|left)\b',  # "I've moved to..."
+    r'\blet\s+me\s+(correct|clarify|update)\b',  # "Let me correct that"
 ]
 
 # Prompt for fact deletion - identifies which facts to remove
-FACT_DELETION_PROMPT = """You are a fact management system. The user wants to correct or remove incorrect information you have about them.
+FACT_DELETION_PROMPT = """You are a fact management system. Identify which facts are outdated or incorrect based on the user's message.
 
 KNOWN FACTS ABOUT USER:
 {known_facts}
 
-USER'S CORRECTION: "{user_message}"
+USER'S MESSAGE: "{user_message}"
 
-TASK: Identify which facts should be DELETED based on the user's correction.
+TASK: Identify which facts should be DELETED because they are:
+1. Explicitly denied by the user (e.g., "I don't like X", "I'm not a Y")
+2. Outdated/replaced by new information (e.g., "I moved to Portland" replaces old location facts)
+3. Corrections to previous information (e.g., "Actually, I'm a doctor" replaces occupation facts)
 
 Return a JSON array of fact IDs to delete. Example: [5, 12]
-If no facts match, return: []
+If no facts need deletion, return: []
 
 RULES:
-- Only delete facts the user explicitly says are wrong
-- Match the user's correction to specific facts above
+- Delete facts that CONFLICT with the user's new statement
+- If user says "I live in Portland", delete any facts about them living elsewhere
+- If user says "I work at Google", delete any facts about working at other companies
+- If user says "I don't have pets", delete pet-related facts
+- Match the correction intent, not just exact words
 - Return fact IDs only, nothing else
 
 JSON ARRAY:"""

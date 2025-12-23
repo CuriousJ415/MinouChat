@@ -3,14 +3,14 @@
 ## Current Status
 
 **Last Updated**: December 2025
-**Current Phase**: Production Ready - Active Maintenance
-**Status**: Application running in Docker with Clerk authentication
+**Current Phase**: Phase 14 - Polish & Quality
+**Status**: Production Ready - Active Development
 
 ---
 
 ## Completed Phases
 
-### Phase 1-5: Core Infrastructure (COMPLETED)
+### Phases 1-9: Core Infrastructure (COMPLETED)
 - FastAPI migration from Flask
 - Database setup with SQLAlchemy (SQLite)
 - User authentication (migrated to Clerk)
@@ -20,38 +20,53 @@
 - Personality framework with XML support
 - Memory system and conversation history
 - Full personality editing with AI-powered suggestions
+- Luxury UI with dark theme
 
-### Phase 6: LLM Provider Integration (COMPLETED)
-- User settings page with LLM provider selection
-- Multi-provider support: Ollama (local), OpenAI, Anthropic, OpenRouter
-- API key management with secure storage
-- Privacy mode selection (local_only, cloud_allowed, hybrid)
-- Connection testing functionality
-- Dynamic model discovery
+### Phase 10: Chat History & Export (COMPLETED)
+- ChatGPT-style sidebar with conversation history
+- Conversations grouped by date (Today, Yesterday, etc.)
+- LLM-generated conversation titles
+- Delete conversations with confirmation
+- Export to PDF, Word (.docx), Markdown, Plain text
+- Export AI-generated summaries
 
-### Phase 7: Simplified Context System (COMPLETED)
-- Setting service (world/location/time context)
-- Backstory service with semantic embeddings
-- Fact extraction service (auto-learn from conversations)
-- User profile service (per-character preferences)
-- Token service for budget allocation
-- PromptSanitizer for injection protection
-- Enhanced context service integrating all sources
+### Phase 11: Per-Persona Tracking (COMPLETED)
+- Goals with numeric targets and progress bars
+- Habits with streak tracking
+- Todos with priority levels
+- Sidebar panels for all tracking types
+- Context injection so personas know user's goals/habits
+- Interactive tracking cards in chat messages
+- Auto-extraction of goals/habits from conversations
 
-### Phase 8: Authentication Migration (COMPLETED)
-- Migrated from bcrypt/JWT to Clerk authentication
-- Google SSO support
-- 60-second token refresh handling with proactive refresh
-- authFetch() helper with automatic 401 retry
-- Session management with Bearer token priority
+### Phase 12: Web Search (COMPLETED)
+- DuckDuckGo integration (privacy-focused, no API key)
+- Per-persona `web_search` capability toggle
+- Automatic search intent detection
+- Manual search button in chat input
+- Clickable source links in responses
+- Search results injected into chat context
 
-### Phase 9: UI/UX Improvements (COMPLETED)
-- Luxury landing page design (Aura.build inspired)
-- Dark theme as default (obsidian #050505)
-- Frosted glass card styling
-- Responsive chat interface
-- Memory management UI
-- Settings consolidation
+### Phase 13: Google Calendar + Tasks (COMPLETED)
+- OAuth2 flow for Google account connection
+- Two-way sync between MinouChat todos and Google Tasks
+- Per-persona sync configuration
+- Separate Google Tasks list per synced persona
+- Calendar event reading from all user calendars
+- Calendar event creation from natural language in chat
+- Timezone-aware event creation (PST/PDT → America/Los_Angeles)
+- Last-write-wins conflict resolution
+
+---
+
+## Current Phase
+
+### Phase 14: Polish & Quality (IN PROGRESS)
+- [ ] Dashboard redesign (match landing page aesthetic)
+- [ ] Comprehensive tests for context services
+- [ ] UX polish - animations, micro-interactions
+- [ ] Code optimization and cleanup
+- [ ] Template consolidation
 
 ---
 
@@ -64,6 +79,14 @@
 - Document upload and RAG search
 - Automatic fact extraction from conversations
 
+### Tracking
+| Feature | Description |
+|---------|-------------|
+| Goals | Numeric targets, progress bars, due dates |
+| Habits | Daily/weekly tracking, streak counts |
+| Todos | Priority levels, due dates, Google Tasks sync |
+| Calendar | Read/create events, multi-calendar support |
+
 ### Context System
 | Component | Purpose |
 |-----------|---------|
@@ -71,30 +94,21 @@
 | Backstory | Semantic retrieval of character background |
 | Learned Facts | Auto-extracted user information |
 | Documents | RAG-powered document search |
+| Tracking | Goals, habits, todos injected into context |
+| Calendar | Upcoming events visible to persona |
+
+### Integrations
+| Service | Features |
+|---------|----------|
+| Google Calendar | Read events, create events from chat |
+| Google Tasks | Two-way sync with MinouChat todos |
+| DuckDuckGo | Privacy-focused web search |
 
 ### Security
 - Clerk authentication with JWT verification
 - PromptSanitizer for injection protection
 - API keys masked in responses
 - User ownership verified on all operations
-
----
-
-## Technical Debt & Future Work
-
-### High Priority
-- [ ] Add comprehensive tests for context services
-- [ ] Template organization - consolidate duplicates
-
-### Medium Priority
-- [ ] LLM Provider Abstraction (formal abstract interface)
-- [ ] Enhanced trait suggestions (provider-specific prompts)
-- [ ] Performance optimization for large conversations
-
-### Low Priority
-- [ ] Character avatar/icon system
-- [ ] Chat bubble animations
-- [ ] WebSocket support for real-time updates
 
 ---
 
@@ -111,6 +125,9 @@ src/miachat/
 │   │   ├── fact_extraction_service.py
 │   │   ├── setting_service.py
 │   │   ├── enhanced_context_service.py
+│   │   ├── tracking_service.py
+│   │   ├── web_search_service.py
+│   │   ├── google_*.py         # Google integrations
 │   │   └── security/
 │   │       └── prompt_sanitizer.py
 │   ├── routes/

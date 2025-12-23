@@ -151,100 +151,6 @@
             padding: 0;
         }
 
-        /* Sidebar Feature Settings */
-        .sidebar-features-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--space-2) var(--space-3);
-            border-bottom: 1px solid var(--border-subtle);
-            background: var(--bg-secondary);
-        }
-
-        .sidebar-features-header h4 {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--text-primary);
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-        }
-
-        .feature-settings-btn {
-            background: none;
-            border: none;
-            padding: 4px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            border-radius: var(--radius-sm);
-            transition: all var(--transition-fast);
-        }
-
-        .feature-settings-btn:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-        }
-
-        .feature-settings-dropdown {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-lg);
-            padding: var(--space-2);
-            min-width: 200px;
-            z-index: 100;
-            display: none;
-        }
-
-        .feature-settings-dropdown.show {
-            display: block;
-        }
-
-        .feature-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--space-2);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: background var(--transition-fast);
-        }
-
-        .feature-toggle:hover {
-            background: var(--bg-secondary);
-        }
-
-        .feature-toggle label {
-            font-size: var(--text-sm);
-            color: var(--text-primary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-        }
-
-        .feature-toggle input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        .feature-settings-footer {
-            margin-top: var(--space-2);
-            padding-top: var(--space-2);
-            border-top: 1px solid var(--border-subtle);
-            text-align: center;
-        }
-
-        .feature-settings-footer button {
-            font-size: var(--text-xs);
-            color: var(--text-secondary);
-        }
-
         .sidebar-section-header {
             display: flex;
             align-items: center;
@@ -1920,54 +1826,6 @@
                 </select>
             </div>
 
-            <!-- Feature Settings Header -->
-            <div class="sidebar-features-header" id="featureSettingsHeader" style="display: none;">
-                <h4>
-                    <i data-lucide="layout-grid" style="width: 16px; height: 16px;"></i>
-                    Tracking
-                </h4>
-                <div style="position: relative;">
-                    <button class="feature-settings-btn" onclick="toggleFeatureSettings(event)" title="Configure visible sections">
-                        <i data-lucide="settings" style="width: 16px; height: 16px;"></i>
-                    </button>
-                    <div class="feature-settings-dropdown" id="featureSettingsDropdown">
-                        <div class="feature-toggle">
-                            <label>
-                                <input type="checkbox" id="featureGoals" onchange="updateFeaturePreference('goals', this.checked)">
-                                <i data-lucide="target" style="width: 14px; height: 14px;"></i>
-                                Goals
-                            </label>
-                        </div>
-                        <div class="feature-toggle">
-                            <label>
-                                <input type="checkbox" id="featureHabits" onchange="updateFeaturePreference('habits', this.checked)">
-                                <i data-lucide="repeat" style="width: 14px; height: 14px;"></i>
-                                Habits
-                            </label>
-                        </div>
-                        <div class="feature-toggle">
-                            <label>
-                                <input type="checkbox" id="featureTodos" onchange="updateFeaturePreference('todos', this.checked)">
-                                <i data-lucide="check-square" style="width: 14px; height: 14px;"></i>
-                                Todo List
-                            </label>
-                        </div>
-                        <div class="feature-toggle">
-                            <label>
-                                <input type="checkbox" id="featureLifeAreas" onchange="updateFeaturePreference('life_areas', this.checked)">
-                                <i data-lucide="pie-chart" style="width: 14px; height: 14px;"></i>
-                                Life Areas
-                            </label>
-                        </div>
-                        <div class="feature-settings-footer">
-                            <button class="btn btn-ghost btn-sm" onclick="resetFeaturePreferences()">
-                                Reset to Defaults
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Sidebar Documents Section -->
             <div class="sidebar-documents" id="sidebarDocuments" style="display: none;">
                 <!-- Todo List -->
@@ -3348,13 +3206,6 @@
                 if (!response.ok) throw new Error('Failed to load feature preferences');
                 const data = await response.json();
                 currentFeaturePreferences = data.effective;
-
-                // Update checkboxes
-                document.getElementById('featureGoals').checked = data.effective.goals;
-                document.getElementById('featureHabits').checked = data.effective.habits;
-                document.getElementById('featureTodos').checked = data.effective.todos;
-                document.getElementById('featureLifeAreas').checked = data.effective.life_areas;
-
                 return data.effective;
             } catch (e) {
                 console.error('Failed to load feature preferences:', e);
@@ -3396,28 +3247,10 @@
                 // Reload preferences (now using defaults)
                 await loadFeaturePreferences(currentCharacterId);
                 applyFeatureVisibility();
-
-                // Close dropdown
-                document.getElementById('featureSettingsDropdown').classList.remove('show');
             } catch (e) {
                 console.error('Failed to reset feature preferences:', e);
             }
         }
-
-        function toggleFeatureSettings(event) {
-            event.stopPropagation();
-            const dropdown = document.getElementById('featureSettingsDropdown');
-            dropdown.classList.toggle('show');
-        }
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            const dropdown = document.getElementById('featureSettingsDropdown');
-            const btn = e.target.closest('.feature-settings-btn');
-            if (!btn && dropdown && !dropdown.contains(e.target)) {
-                dropdown.classList.remove('show');
-            }
-        });
 
         function applyFeatureVisibility() {
             const todoSection = document.getElementById('todoSection');
@@ -3425,11 +3258,9 @@
             const habitsSection = document.getElementById('habitsSection');
             const lifeAreasSection = document.getElementById('lifeAreasSection');
             const sidebarDocs = document.getElementById('sidebarDocuments');
-            const featureHeader = document.getElementById('featureSettingsHeader');
 
             if (!currentFeaturePreferences || !currentCharacterId) {
                 sidebarDocs.style.display = 'none';
-                featureHeader.style.display = 'none';
                 return;
             }
 
@@ -3439,7 +3270,6 @@
                                currentFeaturePreferences.todos ||
                                currentFeaturePreferences.life_areas;
 
-            featureHeader.style.display = 'block';
             sidebarDocs.style.display = anyEnabled ? 'block' : 'none';
 
             // Apply visibility based on preferences
@@ -3461,11 +3291,9 @@
 
         async function updateSidebarDocuments(category) {
             const sidebarDocs = document.getElementById('sidebarDocuments');
-            const featureHeader = document.getElementById('featureSettingsHeader');
 
             if (!currentCharacterId) {
                 sidebarDocs.style.display = 'none';
-                featureHeader.style.display = 'none';
                 return;
             }
 
@@ -4364,10 +4192,14 @@
                         // Refresh conversation history if this is a new conversation
                         if (isNewConversation && currentCharacterId) {
                             loadConversationHistory(currentCharacterId);
-                            // Refresh again after delay to pick up LLM-generated title
+                        }
+
+                        // Refresh again after delay to pick up LLM-generated title
+                        // Title is generated after 2nd message, so always check after a short delay
+                        if (currentCharacterId) {
                             setTimeout(() => {
                                 loadConversationHistory(currentCharacterId);
-                            }, 3000);
+                            }, 4000);
                         }
 
                         // Show LLM info banner if using default LLM

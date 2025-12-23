@@ -38,7 +38,7 @@ class ConversationService:
 
         conversation = Conversation(
             personality_id=None,
-            title=f"Session with {character_id}",
+            title="New conversation",
             conversation_data={
                 "character_id": character_id,
                 "session_id": session_id,
@@ -720,16 +720,23 @@ Reply with ONLY the title, no quotes, no explanation, no punctuation at the end.
         import threading
         from ...database.config import db_config
 
+        logger.warning(f"[TITLE] Starting async title generation for conversation {conversation_id}")
+
         def _generate():
+            logger.warning(f"[TITLE] Thread started for conversation {conversation_id}")
             # Create a new database session for this thread
             db = db_config.get_session()
             try:
-                self.generate_title_with_llm(conversation_id, db, model_config)
+                result = self.generate_title_with_llm(conversation_id, db, model_config)
+                logger.warning(f"[TITLE] Title generation result for {conversation_id}: {result}")
+            except Exception as e:
+                logger.error(f"[TITLE] Exception in title generation thread: {e}")
             finally:
                 db.close()
 
         thread = threading.Thread(target=_generate, daemon=True)
         thread.start()
+        logger.warning(f"[TITLE] Thread started for conversation {conversation_id}")
 
     def update_conversation_title(self, conversation_id: int, title: str, db: Session) -> bool:
         """Update a conversation's title.

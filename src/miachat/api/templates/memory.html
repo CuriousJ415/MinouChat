@@ -6,29 +6,38 @@
 
 {% block head %}
 <style>
-    .memory-content {
-        padding: var(--space-8) 0;
+    .memory-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--space-8) var(--space-4);
     }
 
-    .page-header {
+    /* Header */
+    .memory-header {
+        text-align: center;
         margin-bottom: var(--space-8);
     }
 
-    .page-title {
-        font-size: var(--text-2xl);
+    .memory-title {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
         font-weight: var(--font-light);
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
         margin-bottom: var(--space-2);
-        letter-spacing: 0.02em;
     }
 
-    .page-subtitle {
+    .memory-subtitle {
+        font-size: var(--text-base);
         color: var(--text-muted);
         font-weight: var(--font-light);
+        max-width: 500px;
+        margin: 0 auto;
     }
 
+    /* Grid layout */
     .memory-grid {
         display: grid;
-        grid-template-columns: 300px 1fr;
+        grid-template-columns: 280px 1fr;
         gap: var(--space-6);
     }
 
@@ -42,23 +51,26 @@
     .persona-selector {
         background: var(--bg-primary);
         border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-lg);
         padding: var(--space-4);
+        height: fit-content;
+        position: sticky;
+        top: var(--space-4);
     }
 
-    .persona-selector-title {
-        font-size: var(--text-sm);
+    .selector-title {
+        font-size: var(--text-xs);
         font-weight: var(--font-medium);
-        margin-bottom: var(--space-3);
         color: var(--text-muted);
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.1em;
+        margin-bottom: var(--space-3);
     }
 
     .persona-list {
         display: flex;
         flex-direction: column;
-        gap: var(--space-2);
+        gap: var(--space-1);
     }
 
     .persona-item {
@@ -66,10 +78,10 @@
         align-items: center;
         gap: var(--space-3);
         padding: var(--space-3);
-        border: 1px solid transparent;
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-md);
         cursor: pointer;
-        transition: all var(--transition-fast);
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
     }
 
     .persona-item:hover {
@@ -82,10 +94,11 @@
     }
 
     .persona-avatar {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
         border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -101,11 +114,12 @@
     }
 
     .persona-name {
-        font-weight: var(--font-medium);
         font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
     }
 
-    .persona-fact-count {
+    .persona-count {
         font-size: var(--text-xs);
         color: var(--text-muted);
     }
@@ -114,31 +128,125 @@
     .facts-panel {
         background: var(--bg-primary);
         border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
     }
 
     .facts-header {
-        padding: var(--space-4);
-        border-bottom: 1px solid var(--border-subtle);
+        padding: var(--space-4) var(--space-5);
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--space-3);
     }
 
-    .facts-title {
+    .facts-title-section h2 {
         font-size: var(--text-lg);
         font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-1);
     }
 
-    .facts-subtitle {
+    .facts-title-section p {
         font-size: var(--text-sm);
         color: var(--text-muted);
     }
 
-    .facts-body {
-        padding: var(--space-4);
+    .facts-actions {
+        display: flex;
+        gap: var(--space-2);
     }
 
+    .btn-add, .btn-delete-selected {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+    }
+
+    .btn-add {
+        background: var(--text-primary);
+        color: var(--bg-primary);
+    }
+
+    .btn-add:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+
+    .btn-delete-selected {
+        background: #ef4444;
+        color: white;
+        display: none;
+    }
+
+    .btn-delete-selected.visible {
+        display: inline-flex;
+    }
+
+    .btn-delete-selected:hover {
+        background: #dc2626;
+    }
+
+    .btn-add svg, .btn-delete-selected svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Selection bar */
+    .selection-bar {
+        display: none;
+        padding: var(--space-3) var(--space-5);
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        align-items: center;
+        gap: var(--space-4);
+    }
+
+    .selection-bar.visible {
+        display: flex;
+    }
+
+    .selection-info {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+    }
+
+    .selection-actions {
+        display: flex;
+        gap: var(--space-2);
+    }
+
+    .btn-select-all, .btn-clear-selection {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0;
+    }
+
+    .btn-select-all:hover, .btn-clear-selection:hover {
+        color: var(--text-primary);
+    }
+
+    /* Facts body */
+    .facts-body {
+        padding: var(--space-4) var(--space-5);
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    /* Fact groups */
     .fact-group {
         margin-bottom: var(--space-6);
     }
@@ -152,7 +260,7 @@
         font-weight: var(--font-medium);
         color: var(--text-muted);
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.1em;
         margin-bottom: var(--space-3);
         display: flex;
         align-items: center;
@@ -170,18 +278,34 @@
         gap: var(--space-2);
     }
 
+    /* Fact items */
     .fact-item {
         display: flex;
         align-items: flex-start;
         gap: var(--space-3);
-        padding: var(--space-3);
+        padding: var(--space-3) var(--space-4);
         background: var(--bg-secondary);
-        border-radius: var(--radius-sm);
-        transition: all var(--transition-fast);
+        border-radius: var(--radius-md);
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
     }
 
     .fact-item:hover {
-        background: var(--bg-tertiary);
+        border-color: var(--border-color);
+    }
+
+    .fact-item.selected {
+        background: rgba(99, 102, 241, 0.1);
+        border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .fact-checkbox {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+        cursor: pointer;
+        accent-color: var(--text-primary);
+        flex-shrink: 0;
     }
 
     .fact-content {
@@ -192,12 +316,14 @@
     .fact-key {
         font-weight: var(--font-medium);
         font-size: var(--text-sm);
+        color: var(--text-primary);
         margin-bottom: var(--space-1);
     }
 
     .fact-value {
         font-size: var(--text-sm);
         color: var(--text-secondary);
+        line-height: 1.5;
     }
 
     .fact-value-edit {
@@ -224,89 +350,378 @@
         font-size: var(--text-xs);
         color: var(--text-muted);
         margin-top: var(--space-1);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .global-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        font-size: 10px;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-sm);
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
     .fact-actions {
         display: flex;
         gap: var(--space-1);
         flex-shrink: 0;
+        opacity: 0;
+        transition: opacity 0.2s ease;
     }
 
+    .fact-item:hover .fact-actions {
+        opacity: 1;
+    }
+
+    .btn-icon {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-icon:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .btn-icon.danger:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .btn-icon svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* Empty state */
     .empty-state {
         text-align: center;
-        padding: var(--space-8);
+        padding: var(--space-12) var(--space-4);
         color: var(--text-muted);
     }
 
     .empty-state svg {
-        width: 48px;
-        height: 48px;
+        width: 64px;
+        height: 64px;
         margin-bottom: var(--space-4);
-        opacity: 0.5;
+        opacity: 0.3;
+        stroke-width: 1;
+    }
+
+    .empty-state h3 {
+        font-size: var(--text-lg);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
     }
 
     .empty-state p {
+        max-width: 300px;
+        margin: 0 auto var(--space-4);
+        line-height: 1.5;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: var(--space-4);
+    }
+
+    .modal-overlay.visible {
+        display: flex;
+    }
+
+    .modal {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-header {
+        padding: var(--space-4) var(--space-5);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-header h3 {
+        font-size: var(--text-lg);
+        font-weight: var(--font-medium);
+    }
+
+    .modal-close {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+
+    .modal-close:hover {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    .modal-body {
+        padding: var(--space-5);
+    }
+
+    .form-group {
         margin-bottom: var(--space-4);
     }
 
-    /* Global facts badge */
-    .global-badge {
-        display: inline-block;
-        padding: 2px var(--space-2);
+    .form-group label {
+        display: block;
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+        margin-bottom: var(--space-2);
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: var(--space-3);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--text-primary);
+    }
+
+    .form-hint {
         font-size: var(--text-xs);
-        background: var(--bg-tertiary);
-        border-radius: var(--radius-sm);
         color: var(--text-muted);
+        margin-top: var(--space-1);
+    }
+
+    .modal-footer {
+        padding: var(--space-4) var(--space-5);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-2);
+    }
+
+    .btn {
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary {
+        background: transparent;
+        color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+        background: var(--bg-secondary);
+    }
+
+    .btn-primary {
+        background: var(--text-primary);
+        color: var(--bg-primary);
+        border-color: var(--text-primary);
+    }
+
+    .btn-primary:hover {
+        opacity: 0.9;
+    }
+
+    /* Toast */
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        color: white;
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+    }
+
+    .toast.success { background: #22c55e; }
+    .toast.error { background: #ef4444; }
+    .toast.info { background: #3b82f6; }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container memory-content">
-    <div class="page-header">
-        <h1 class="page-title">Memory & Facts</h1>
-        <p class="page-subtitle">View and manage what your AI companions have learned about you</p>
+<div class="memory-wrapper">
+    <!-- Header -->
+    <div class="memory-header">
+        <h1 class="memory-title">Memory & Facts</h1>
+        <p class="memory-subtitle">
+            View, edit, and manage what your personas remember about you.
+            Facts are learned automatically from your conversations.
+        </p>
     </div>
 
     <div class="memory-grid">
         <!-- Persona Selector -->
         <div class="persona-selector">
-            <div class="persona-selector-title">Select Persona</div>
+            <div class="selector-title">Filter by Persona</div>
             <div class="persona-list" id="persona-list">
-                <div class="persona-item active" data-character-id="all">
+                <div class="persona-item active" data-character-id="all" onclick="selectCharacter('all', 'All Personas')">
                     <div class="persona-avatar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 16px; height: 16px;">
                             <circle cx="12" cy="12" r="10"/>
                         </svg>
                     </div>
                     <div class="persona-info">
                         <div class="persona-name">All Personas</div>
-                        <div class="persona-fact-count"><span id="all-fact-count">0</span> facts</div>
+                        <div class="persona-count"><span id="all-fact-count">0</span> facts</div>
                     </div>
                 </div>
-                <!-- Personas will be loaded here -->
             </div>
         </div>
 
         <!-- Facts Panel -->
         <div class="facts-panel">
             <div class="facts-header">
-                <div>
-                    <div class="facts-title" id="facts-panel-title">All Learned Facts</div>
-                    <div class="facts-subtitle" id="facts-panel-subtitle">Facts learned from your conversations</div>
+                <div class="facts-title-section">
+                    <h2 id="facts-panel-title">All Learned Facts</h2>
+                    <p>Facts learned from your conversations</p>
+                </div>
+                <div class="facts-actions">
+                    <button class="btn-delete-selected" id="btn-delete-selected" onclick="deleteSelected()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Delete Selected (<span id="selected-count">0</span>)
+                    </button>
+                    <button class="btn-add" onclick="openAddModal()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Fact
+                    </button>
                 </div>
             </div>
+
+            <!-- Selection bar -->
+            <div class="selection-bar" id="selection-bar">
+                <span class="selection-info"><span id="selection-count">0</span> selected</span>
+                <div class="selection-actions">
+                    <button class="btn-select-all" onclick="selectAll()">Select All</button>
+                    <button class="btn-clear-selection" onclick="clearSelection()">Clear</button>
+                </div>
+            </div>
+
             <div class="facts-body" id="facts-container">
                 <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                         <path d="M2 17l10 5 10-5"/>
                         <path d="M2 12l10 5 10-5"/>
                     </svg>
-                    <p>No facts learned yet</p>
-                    <p class="text-sm">Have conversations with your personas to start learning facts!</p>
+                    <h3>No facts learned yet</h3>
+                    <p>Have conversations with your personas to start learning facts, or add one manually.</p>
+                    <button class="btn btn-primary" onclick="openAddModal()">Add Your First Fact</button>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Fact Modal -->
+<div class="modal-overlay" id="add-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Add New Fact</h3>
+            <button class="modal-close" onclick="closeAddModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="fact-type">Fact Type</label>
+                <select id="fact-type">
+                    <option value="preference">Preference</option>
+                    <option value="name">Name</option>
+                    <option value="occupation">Occupation</option>
+                    <option value="location">Location</option>
+                    <option value="hobby">Hobby</option>
+                    <option value="relationship">Relationship</option>
+                    <option value="goal">Goal</option>
+                    <option value="trait">Trait</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="fact-key">Fact Name</label>
+                <input type="text" id="fact-key" placeholder="e.g., favorite_color, job_title">
+                <div class="form-hint">Use underscores for multi-word names</div>
+            </div>
+            <div class="form-group">
+                <label for="fact-value">Value</label>
+                <input type="text" id="fact-value" placeholder="e.g., blue, Software Engineer">
+            </div>
+            <div class="form-group">
+                <label for="fact-persona">Applies To</label>
+                <select id="fact-persona">
+                    <option value="">Global (all personas)</option>
+                </select>
+                <div class="form-hint">Global facts are shared across all personas</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveFact()">Save Fact</button>
         </div>
     </div>
 </div>
@@ -317,6 +732,7 @@
     let currentCharacterId = 'all';
     let allFacts = [];
     let characters = [];
+    let selectedFacts = new Set();
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadCharacters();
@@ -325,10 +741,11 @@
 
     async function loadCharacters() {
         try {
-            const response = await fetch('/api/characters');
+            const response = await fetch('/api/characters', { credentials: 'include' });
             if (response.ok) {
                 characters = await response.json();
                 renderCharacterList();
+                populatePersonaSelect();
             }
         } catch (e) {
             console.error('Failed to load characters:', e);
@@ -337,38 +754,44 @@
 
     function renderCharacterList() {
         const container = document.getElementById('persona-list');
-        const allItem = container.querySelector('[data-character-id="all"]');
 
-        // Add persona items
         characters.forEach(char => {
             const item = document.createElement('div');
             item.className = 'persona-item';
             item.dataset.characterId = char.id;
+            item.onclick = () => selectCharacter(char.id, char.name);
             item.innerHTML = `
                 <div class="persona-avatar">${(char.name || 'A')[0].toUpperCase()}</div>
                 <div class="persona-info">
                     <div class="persona-name">${escapeHtml(char.name)}</div>
-                    <div class="persona-fact-count"><span class="fact-count-${char.id}">0</span> facts</div>
+                    <div class="persona-count"><span class="fact-count-${char.id}">0</span> facts</div>
                 </div>
             `;
-            item.addEventListener('click', () => selectCharacter(char.id, char.name));
             container.appendChild(item);
+        });
+    }
+
+    function populatePersonaSelect() {
+        const select = document.getElementById('fact-persona');
+        characters.forEach(char => {
+            const option = document.createElement('option');
+            option.value = char.id;
+            option.textContent = char.name;
+            select.appendChild(option);
         });
     }
 
     function selectCharacter(characterId, characterName) {
         currentCharacterId = characterId;
+        clearSelection();
 
-        // Update active state
         document.querySelectorAll('.persona-item').forEach(item => {
             item.classList.toggle('active', item.dataset.characterId === characterId);
         });
 
-        // Update header
         const title = characterId === 'all' ? 'All Learned Facts' : `Facts for ${characterName}`;
         document.getElementById('facts-panel-title').textContent = title;
 
-        // Reload facts
         loadFacts();
     }
 
@@ -379,7 +802,7 @@
                 url += `?character_id=${currentCharacterId}`;
             }
 
-            const response = await fetch(url);
+            const response = await fetch(url, { credentials: 'include' });
             if (response.ok) {
                 const data = await response.json();
                 allFacts = data.facts || [];
@@ -392,10 +815,8 @@
     }
 
     function updateFactCounts() {
-        // Update "All" count
         document.getElementById('all-fact-count').textContent = allFacts.length;
 
-        // Update per-character counts
         characters.forEach(char => {
             const count = allFacts.filter(f => f.character_id === char.id).length;
             const el = document.querySelector(`.fact-count-${char.id}`);
@@ -409,19 +830,19 @@
         if (allFacts.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                         <path d="M2 17l10 5 10-5"/>
                         <path d="M2 12l10 5 10-5"/>
                     </svg>
-                    <p>No facts learned yet</p>
-                    <p class="text-sm">Have conversations with your personas to start learning facts!</p>
+                    <h3>No facts learned yet</h3>
+                    <p>Have conversations with your personas to start learning facts, or add one manually.</p>
+                    <button class="btn btn-primary" onclick="openAddModal()">Add Your First Fact</button>
                 </div>
             `;
             return;
         }
 
-        // Group facts by type
         const factsByType = {};
         allFacts.forEach(fact => {
             const type = fact.fact_type || 'other';
@@ -429,18 +850,17 @@
             factsByType[type].push(fact);
         });
 
-        // Type labels and icons
         const typeInfo = {
-            name: { label: 'Name', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
-            preference: { label: 'Preferences', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' },
-            occupation: { label: 'Occupation', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>' },
-            location: { label: 'Location', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' },
-            hobby: { label: 'Hobbies', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>' },
-            relationship: { label: 'Relationships', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
-            goal: { label: 'Goals', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>' },
-            trait: { label: 'Traits', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' },
-            event: { label: 'Events', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
-            other: { label: 'Other', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' }
+            name: { label: 'Name', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
+            preference: { label: 'Preferences', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' },
+            occupation: { label: 'Occupation', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>' },
+            location: { label: 'Location', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' },
+            hobby: { label: 'Hobbies', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>' },
+            relationship: { label: 'Relationships', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+            goal: { label: 'Goals', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>' },
+            trait: { label: 'Traits', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' },
+            event: { label: 'Events', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+            other: { label: 'Other', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' }
         };
 
         let html = '';
@@ -460,42 +880,43 @@
         }
 
         container.innerHTML = html;
-
-        // Re-initialize icons if using Lucide
-        if (window.lucide) lucide.createIcons();
     }
 
     function renderFactItem(fact) {
         const charName = fact.character_id
             ? (characters.find(c => c.id === fact.character_id)?.name || 'Unknown')
             : 'Global';
+        const isSelected = selectedFacts.has(fact.id);
 
         return `
-            <div class="fact-item" id="fact-${fact.id}">
+            <div class="fact-item ${isSelected ? 'selected' : ''}" id="fact-${fact.id}">
+                <input type="checkbox" class="fact-checkbox"
+                       ${isSelected ? 'checked' : ''}
+                       onchange="toggleFactSelection(${fact.id})">
                 <div class="fact-content">
                     <div class="fact-key">${escapeHtml(formatFactKey(fact.fact_key))}</div>
                     <div class="fact-value" data-fact-id="${fact.id}">${escapeHtml(fact.fact_value)}</div>
                     <div class="fact-value-edit" data-fact-id="${fact.id}">
                         <input type="text" value="${escapeHtml(fact.fact_value)}">
                         <div class="edit-actions">
-                            <button class="btn btn-sm btn-primary" onclick="saveFact(${fact.id})">Save</button>
-                            <button class="btn btn-sm btn-secondary" onclick="cancelEdit(${fact.id})">Cancel</button>
+                            <button class="btn btn-primary" onclick="updateFact(${fact.id})">Save</button>
+                            <button class="btn btn-secondary" onclick="cancelEdit(${fact.id})">Cancel</button>
                         </div>
                     </div>
                     <div class="fact-meta">
-                        ${fact.is_global ? '<span class="global-badge">Global</span>' : `Learned with ${escapeHtml(charName)}`}
-                        ${fact.created_at ? ` &middot; ${formatDate(fact.created_at)}` : ''}
+                        ${!fact.character_id ? '<span class="global-badge">Global</span>' : `<span>${escapeHtml(charName)}</span>`}
+                        ${fact.created_at ? `<span>&middot; ${formatDate(fact.created_at)}</span>` : ''}
                     </div>
                 </div>
                 <div class="fact-actions">
-                    <button class="btn-icon-sm" onclick="editFact(${fact.id})" title="Edit">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                    <button class="btn-icon" onclick="editFact(${fact.id})" title="Edit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                     </button>
-                    <button class="btn-icon-sm danger" onclick="deleteFact(${fact.id})" title="Delete">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                    <button class="btn-icon danger" onclick="deleteSingleFact(${fact.id})" title="Delete">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"/>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                         </svg>
@@ -505,21 +926,98 @@
         `;
     }
 
-    function formatFactKey(key) {
-        return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    // Selection functions
+    function toggleFactSelection(factId) {
+        if (selectedFacts.has(factId)) {
+            selectedFacts.delete(factId);
+            document.getElementById(`fact-${factId}`)?.classList.remove('selected');
+        } else {
+            selectedFacts.add(factId);
+            document.getElementById(`fact-${factId}`)?.classList.add('selected');
+        }
+        updateSelectionUI();
     }
 
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        const now = new Date();
-        const diff = now - date;
+    function selectAll() {
+        allFacts.forEach(fact => {
+            selectedFacts.add(fact.id);
+            document.getElementById(`fact-${fact.id}`)?.classList.add('selected');
+            const checkbox = document.querySelector(`#fact-${fact.id} .fact-checkbox`);
+            if (checkbox) checkbox.checked = true;
+        });
+        updateSelectionUI();
+    }
 
-        if (diff < 86400000) {
-            return 'Today';
-        } else if (diff < 172800000) {
-            return 'Yesterday';
+    function clearSelection() {
+        selectedFacts.forEach(factId => {
+            document.getElementById(`fact-${factId}`)?.classList.remove('selected');
+            const checkbox = document.querySelector(`#fact-${factId} .fact-checkbox`);
+            if (checkbox) checkbox.checked = false;
+        });
+        selectedFacts.clear();
+        updateSelectionUI();
+    }
+
+    function updateSelectionUI() {
+        const count = selectedFacts.size;
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('selection-count').textContent = count;
+
+        const deleteBtn = document.getElementById('btn-delete-selected');
+        const selectionBar = document.getElementById('selection-bar');
+
+        if (count > 0) {
+            deleteBtn.classList.add('visible');
+            selectionBar.classList.add('visible');
         } else {
-            return date.toLocaleDateString();
+            deleteBtn.classList.remove('visible');
+            selectionBar.classList.remove('visible');
+        }
+    }
+
+    async function deleteSelected() {
+        if (selectedFacts.size === 0) return;
+
+        const count = selectedFacts.size;
+        if (!confirm(`Delete ${count} selected fact${count > 1 ? 's' : ''}?`)) return;
+
+        let deleted = 0;
+        for (const factId of selectedFacts) {
+            try {
+                const response = await fetch(`/api/facts/${factId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                if (response.ok) deleted++;
+            } catch (e) {
+                console.error(`Failed to delete fact ${factId}:`, e);
+            }
+        }
+
+        showToast(`Deleted ${deleted} fact${deleted > 1 ? 's' : ''}`, 'success');
+        selectedFacts.clear();
+        updateSelectionUI();
+        loadFacts();
+    }
+
+    // Single fact operations
+    async function deleteSingleFact(factId) {
+        if (!confirm('Delete this fact?')) return;
+
+        try {
+            const response = await fetch(`/api/facts/${factId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                showToast('Fact deleted', 'success');
+                loadFacts();
+            } else {
+                showToast('Failed to delete fact', 'error');
+            }
+        } catch (e) {
+            showToast('Error deleting fact', 'error');
         }
     }
 
@@ -539,18 +1037,14 @@
         if (display && edit) {
             display.style.display = 'block';
             edit.style.display = 'none';
-            // Reset input value
             const fact = allFacts.find(f => f.id === factId);
-            if (fact) {
-                edit.querySelector('input').value = fact.fact_value;
-            }
+            if (fact) edit.querySelector('input').value = fact.fact_value;
         }
     }
 
-    async function saveFact(factId) {
+    async function updateFact(factId) {
         const edit = document.querySelector(`.fact-value-edit[data-fact-id="${factId}"]`);
-        const input = edit.querySelector('input');
-        const newValue = input.value.trim();
+        const newValue = edit.querySelector('input').value.trim();
 
         if (!newValue) {
             showToast('Value cannot be empty', 'error');
@@ -561,7 +1055,8 @@
             const response = await fetch(`/api/facts/${factId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fact_value: newValue })
+                body: JSON.stringify({ fact_value: newValue }),
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -576,23 +1071,68 @@
         }
     }
 
-    async function deleteFact(factId) {
-        if (!confirm('Are you sure you want to delete this fact?')) return;
+    // Add fact modal
+    function openAddModal() {
+        document.getElementById('add-modal').classList.add('visible');
+        document.getElementById('fact-key').value = '';
+        document.getElementById('fact-value').value = '';
+        document.getElementById('fact-type').value = 'preference';
+        document.getElementById('fact-persona').value = '';
+    }
+
+    function closeAddModal() {
+        document.getElementById('add-modal').classList.remove('visible');
+    }
+
+    async function saveFact() {
+        const factType = document.getElementById('fact-type').value;
+        const factKey = document.getElementById('fact-key').value.trim();
+        const factValue = document.getElementById('fact-value').value.trim();
+        const characterId = document.getElementById('fact-persona').value || null;
+
+        if (!factKey || !factValue) {
+            showToast('Please fill in all fields', 'error');
+            return;
+        }
 
         try {
-            const response = await fetch(`/api/facts/${factId}`, {
-                method: 'DELETE'
+            const response = await fetch('/api/facts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fact_type: factType,
+                    fact_key: factKey,
+                    fact_value: factValue,
+                    character_id: characterId
+                }),
+                credentials: 'include'
             });
 
             if (response.ok) {
-                showToast('Fact deleted', 'success');
+                showToast('Fact added', 'success');
+                closeAddModal();
                 loadFacts();
             } else {
-                showToast('Failed to delete fact', 'error');
+                const data = await response.json();
+                showToast(data.detail || 'Failed to add fact', 'error');
             }
         } catch (e) {
-            showToast('Error deleting fact', 'error');
+            showToast('Error adding fact', 'error');
         }
+    }
+
+    // Utilities
+    function formatFactKey(key) {
+        return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now - date;
+        if (diff < 86400000) return 'Today';
+        if (diff < 172800000) return 'Yesterday';
+        return date.toLocaleDateString();
     }
 
     function escapeHtml(text) {
@@ -602,22 +1142,19 @@
     }
 
     function showToast(message, type = 'info') {
-        // Simple toast notification
         const toast = document.createElement('div');
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#22c55e' : '#3b82f6'};
-            color: white;
-            border-radius: 8px;
-            z-index: 9999;
-            animation: fadeIn 0.3s;
-        `;
+        toast.className = `toast ${type}`;
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
+
+    // Close modal on escape or outside click
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeAddModal();
+    });
+    document.getElementById('add-modal').addEventListener('click', e => {
+        if (e.target.id === 'add-modal') closeAddModal();
+    });
 </script>
 {% endblock %}

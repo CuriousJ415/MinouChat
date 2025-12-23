@@ -13,7 +13,7 @@ This document outlines the implementation roadmap for MinouChat, a privacy-focus
 ### Phase 1: Core Infrastructure (COMPLETED)
 - FastAPI migration from Flask
 - Database setup with SQLAlchemy (SQLite)
-- Authentication system (now Clerk-based)
+- Authentication system (Clerk-based)
 - Basic routing and template system
 - Character management with JSON cards
 - LLM integration with Ollama
@@ -77,46 +77,50 @@ This document outlines the implementation roadmap for MinouChat, a privacy-focus
 - Memory management UI
 - Settings consolidation
 
+### Phase 10: Chat History & Export (COMPLETED)
+- Persona dropdown at top of sidebar
+- "New Chat" button
+- Conversation history grouped by date
+- Delete conversations with confirmation modal
+- LLM-generated titles (async, 3-6 words)
+- Export to PDF, Word, Markdown, Plain text
+- Export AI-generated summaries
+
+### Phase 11: Per-Persona Tracking (COMPLETED)
+- Goals with progress tracking (numeric targets, progress bars)
+- Habits with streak tracking (daily completion, streak counts)
+- Todos with priority levels
+- Sidebar sections for Goals, Habits, Todos
+- Tracking context injected into chat
+- Interactive tracking cards in chat messages
+
+### Phase 12: Web Search Integration (COMPLETED)
+- Privacy-focused DuckDuckGo integration (no API key)
+- Per-persona capability toggle
+- Automatic search intent detection
+- Manual search button in chat
+- Clickable source links in responses
+- Search results context injection
+
+### Phase 13: Google Calendar + Tasks (COMPLETED)
+- OAuth2 flow for Google account connection
+- Two-way sync with Google Tasks
+- Per-persona sync configuration
+- Calendar event reading (multi-calendar)
+- Calendar event creation from natural language
+- Last-write-wins conflict resolution
+- Timezone-aware event creation
+
 ---
 
-## Future Phases (Planned)
+## Current Phase
 
-### Phase 10: Advanced Personality Features
-- [ ] Personality templates and presets
-- [ ] Bulk import/export operations
-- [ ] Community sharing features
-- [ ] Advanced trait customization
-- [ ] Character avatar/icon system
-
-### Phase 11: Memory and Context Enhancements
-- [ ] Improved memory retrieval algorithms
-- [ ] Long-term memory management
-- [ ] Memory visualization tools
-- [ ] Context-aware response optimization
-
-### Phase 12: Performance & Scale
-- [ ] WebSocket support for real-time chat
-- [ ] Response streaming optimization
-- [ ] Database query optimization
-- [ ] Caching layer (Redis)
-
----
-
-## Technical Debt
-
-### High Priority
+### Phase 14: Polish & Quality (IN PROGRESS)
+- [ ] Dashboard redesign (match landing page aesthetic)
 - [ ] Comprehensive tests for context services
-- [ ] Template consolidation (remove duplicates)
-
-### Medium Priority
-- [ ] Formal LLM provider abstraction interface
-- [ ] Provider-specific trait suggestion prompts
-- [ ] Performance profiling
-
-### Low Priority
-- [ ] Chat bubble animations
-- [ ] Form auto-save functionality
-- [ ] Keyboard shortcuts
+- [ ] UX polish - animations, micro-interactions
+- [ ] Code optimization and cleanup
+- [ ] Template consolidation
 
 ---
 
@@ -128,6 +132,9 @@ This document outlines the implementation roadmap for MinouChat, a privacy-focus
 - [x] Clerk authentication working
 - [x] Simplified context system operational
 - [x] Security layer (PromptSanitizer) active
+- [x] Google Calendar/Tasks integration
+- [x] Web search capability
+- [x] Goal/habit/todo tracking
 
 ---
 
@@ -145,8 +152,12 @@ src/miachat/
 │   │   ├── setting_service.py     # World/location/time
 │   │   ├── enhanced_context_service.py
 │   │   ├── conversation_service.py
-│   │   ├── document_service.py
-│   │   ├── embedding_service.py
+│   │   ├── tracking_service.py    # Goals, habits, todos
+│   │   ├── web_search_service.py  # DuckDuckGo integration
+│   │   ├── google_auth_service.py
+│   │   ├── google_calendar_service.py
+│   │   ├── google_tasks_service.py
+│   │   ├── google_sync_service.py
 │   │   └── security/
 │   │       └── prompt_sanitizer.py
 │   ├── routes/
