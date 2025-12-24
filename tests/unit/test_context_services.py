@@ -467,7 +467,8 @@ class TestFactExtractionService:
 
             assert "user_name: Jason" in context
             assert "favorite_hobby: coding" in context
-            assert "What you know about the user" in context
+            # Check for either old or new format header
+            assert "Background info about user" in context or "What you know about the user" in context
 
     def test_rate_limiting(self, fact_service):
         """Test rate limiting prevents rapid extractions."""

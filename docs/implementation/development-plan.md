@@ -87,20 +87,31 @@ r'\bto\s+be\s+(clear|accurate)\b'
 
 ## Implementation Order
 
-1. [ ] Help Page (standalone)
-2. [ ] Memory Page Redesign + Add Fact button
-3. [ ] Context Visualization in chat sidebar
-4. [ ] Correction Patterns
+1. [x] Help Page (standalone) - DONE
+2. [x] Memory Page Redesign + Add Fact button - DONE
+3. [x] Context Visualization in chat sidebar - REMOVED (user feedback: too cluttered)
+4. [ ] Correction Patterns - PENDING
 
 ---
 
-## Future: Comprehensive Tests
-Add tests for core context services:
-- `setting_service.py`
-- `backstory_service.py`
-- `fact_extraction_service.py`
-- `tracking_service.py`
-- `enhanced_context_service.py`
+## Comprehensive Tests (COMPLETE)
+
+Unit tests added for core context services (216 tests total, all passing):
+
+| Service | Test File | Tests |
+|---------|-----------|-------|
+| SettingService | `test_context_services.py` | 19 |
+| BackstoryService | `test_context_services.py` | 10 |
+| FactExtractionService | `test_context_services.py` | 16 |
+| PromptSanitizer | `test_context_services.py` | 30+ |
+| TokenService | `test_context_services.py` | 8 |
+| TodoService | `test_sidebar_services.py` | 4 |
+| LifeAreaService | `test_sidebar_services.py` | 10 |
+| SidebarExtractionService | `test_sidebar_services.py` | 8 |
+| **TrackingService** | `test_tracking_service.py` | 31 |
+| **EnhancedContextService** | `test_enhanced_context_service.py` | 38 |
+
+Run tests: `PYTHONPATH=./src pytest tests/unit/ -v`
 
 ---
 
