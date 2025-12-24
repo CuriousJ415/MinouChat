@@ -821,7 +821,99 @@
 {% endblock %}
 
 {% block scripts %}
+{% if clerk_publishable_key %}
+<script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="{{ clerk_publishable_key }}"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    type="text/javascript"
+></script>
+{% endif %}
+
 <script>
+    // Clerk authentication helpers
+    let clerkReady = false;
+    let tokenRefreshInterval = null;
+
+    const clerkReadyPromise = new Promise((resolve) => {
+        if (typeof Clerk !== 'undefined') {
+            Clerk.load().then(() => {
+                clerkReady = true;
+                resolve();
+            });
+        } else {
+            window.addEventListener('load', () => {
+                if (typeof Clerk !== 'undefined') {
+                    Clerk.load().then(() => {
+                        clerkReady = true;
+                        resolve();
+                    });
+                } else {
+                    resolve(); // No Clerk, resolve anyway
+                }
+            });
+        }
+    });
+
+    async function getFreshToken() {
+        if (!clerkReady || !window.Clerk || !window.Clerk.session) return null;
+        try {
+            return await window.Clerk.session.getToken();
+        } catch (e) {
+            console.warn('Failed to get Clerk token:', e);
+            return null;
+        }
+    }
+
+    async function authFetch(url, options = {}, retried = false) {
+        await Promise.race([clerkReadyPromise, new Promise(r => setTimeout(r, 2000))]);
+
+        const token = await getFreshToken();
+        if (token) {
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, options);
+
+        if (response.status === 401 && !retried) {
+            console.log('Got 401 - refreshing token and retrying...');
+            if (window.Clerk && window.Clerk.session) {
+                try {
+                    await window.Clerk.session.touch();
+                } catch (e) {
+                    console.warn('Session touch failed:', e);
+                    window.location.href = '/auth/login?return_to=' + encodeURIComponent(window.location.pathname);
+                    return response;
+                }
+            }
+            return authFetch(url, { ...options, headers: { ...options.headers } }, true);
+        }
+
+        return response;
+    }
+
+    function startTokenRefresh() {
+        if (tokenRefreshInterval) return;
+        tokenRefreshInterval = setInterval(async () => {
+            if (window.Clerk && window.Clerk.session) {
+                try {
+                    await window.Clerk.session.touch();
+                    console.log('Session refreshed proactively');
+                } catch (e) {
+                    console.warn('Proactive session refresh failed:', e);
+                }
+            }
+        }, 45000);
+    }
+
+    clerkReadyPromise.then(() => {
+        if (window.Clerk && window.Clerk.session) {
+            startTokenRefresh();
+        }
+    });
+
     // Model lists for providers
     const PROVIDER_MODELS = {
         'ollama': [], // Populated dynamically
@@ -859,7 +951,7 @@
     // Load all settings from server
     async function loadSettings() {
         try {
-            const response = await fetch('/api/settings/llm');
+            const response = await authFetch('/api/settings/llm');
             if (!response.ok) return;
 
             const config = await response.json();
@@ -896,7 +988,7 @@
         if (provider === 'ollama') {
             // Load Ollama models dynamically
             try {
-                const response = await fetch('/api/models');
+                const response = await authFetch('/api/models');
                 if (!response.ok) {
                     select.innerHTML = '<option value="">Failed to load models</option>';
                     return;
@@ -932,7 +1024,7 @@
             if (apiKey) {
                 select.innerHTML = '<option value="">Loading models...</option>';
                 try {
-                    const response = await fetch('/api/models/openrouter/discover', {
+                    const response = await authFetch('/api/models/openrouter/discover', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ api_key: apiKey })
@@ -1014,7 +1106,7 @@
         statusDot.style.animation = 'pulse 1s infinite';
 
         try {
-            const response = await fetch('/api/settings/llm/test', {
+            const response = await authFetch('/api/settings/llm/test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ provider: providerName, config })
@@ -1097,7 +1189,7 @@
         }
 
         try {
-            const response = await fetch('/api/settings/llm', {
+            const response = await authFetch('/api/settings/llm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
@@ -1143,7 +1235,7 @@
 
     async function resetFull() {
         try {
-            const response = await fetch('/api/reset/full', {
+            const response = await authFetch('/api/reset/full', {
                 method: 'DELETE'
             });
 
@@ -1168,7 +1260,7 @@
 
     async function resetUserData() {
         try {
-            const response = await fetch('/api/reset/user-data', {
+            const response = await authFetch('/api/reset/user-data', {
                 method: 'DELETE'
             });
 
@@ -1192,7 +1284,7 @@
 
     async function clearAllConversations() {
         try {
-            const response = await fetch('/api/conversations', {
+            const response = await authFetch('/api/conversations', {
                 method: 'DELETE'
             });
 
@@ -1246,7 +1338,7 @@
         submitBtn.textContent = 'Updating...';
 
         try {
-            const response = await fetch('/auth/change-password', {
+            const response = await authFetch('/auth/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ new_password: newPassword })
@@ -1287,7 +1379,7 @@
 
     async function loadGoogleStatus() {
         try {
-            const response = await fetch('/api/google/auth/status');
+            const response = await authFetch('/api/google/auth/status');
             const status = await response.json();
 
             const disconnectedEl = document.getElementById('google-disconnected');
@@ -1310,7 +1402,7 @@
 
     async function connectGoogle() {
         try {
-            const response = await fetch('/api/google/auth/url');
+            const response = await authFetch('/api/google/auth/url');
             const data = await response.json();
 
             if (data.auth_url) {
@@ -1329,7 +1421,7 @@
         }
 
         try {
-            const response = await fetch('/api/google/auth/disconnect', {
+            const response = await authFetch('/api/google/auth/disconnect', {
                 method: 'POST'
             });
 
@@ -1348,7 +1440,7 @@
         const listEl = document.getElementById('persona-google-list');
 
         try {
-            const response = await fetch('/api/google/tasks/personas');
+            const response = await authFetch('/api/google/tasks/personas');
             const data = await response.json();
 
             if (!data.personas || data.personas.length === 0) {
@@ -1398,7 +1490,7 @@
                 ? { tasks_sync_enabled: enabled }
                 : { calendar_sync_enabled: enabled };
 
-            const response = await fetch(`/api/google/tasks/sync-config/${characterId}`, {
+            const response = await authFetch(`/api/google/tasks/sync-config/${characterId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
