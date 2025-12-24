@@ -825,9 +825,9 @@
     // Model lists for providers
     const PROVIDER_MODELS = {
         'ollama': [], // Populated dynamically
-        'openai': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
-        'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-        'openrouter': ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5']
+        'openai': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'o1-preview', 'o1-mini'],
+        'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-sonnet-4-5-20250514'],
+        'openrouter': [] // Populated dynamically from API
     };
 
     // Initialize
@@ -835,6 +835,25 @@
         await loadSettings();
         loadThemeSetting();
         lucide.createIcons();
+
+        // Auto-refresh OpenRouter models when API key changes
+        const openrouterKeyInput = document.getElementById('openrouter-api-key');
+        if (openrouterKeyInput) {
+            openrouterKeyInput.addEventListener('blur', async function() {
+                const provider = document.getElementById('active-provider')?.value;
+                if (provider === 'openrouter' && this.value) {
+                    await updateActiveModels();
+                }
+            });
+        }
+
+        // Refresh models when provider changes
+        const providerSelect = document.getElementById('active-provider');
+        if (providerSelect) {
+            providerSelect.addEventListener('change', async function() {
+                await updateActiveModels();
+            });
+        }
     });
 
     // Load all settings from server
@@ -907,8 +926,56 @@
                 console.error('Error loading Ollama models:', error);
                 select.innerHTML = '<option value="">Error loading models</option>';
             }
+        } else if (provider === 'openrouter') {
+            // Fetch OpenRouter models dynamically using API key
+            const apiKey = document.getElementById('openrouter-api-key')?.value;
+            if (apiKey) {
+                select.innerHTML = '<option value="">Loading models...</option>';
+                try {
+                    const response = await fetch('/api/models/openrouter/discover', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ api_key: apiKey })
+                    });
+                    const data = await response.json();
+                    if (data.success && data.models.length > 0) {
+                        select.innerHTML = data.models.map(model =>
+                            `<option value="${model}">${model}</option>`
+                        ).join('');
+                        // Set saved model if provided
+                        if (savedModel) {
+                            if (![...select.options].some(opt => opt.value === savedModel)) {
+                                const option = new Option(savedModel, savedModel);
+                                select.add(option);
+                            }
+                            select.value = savedModel;
+                        }
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error fetching OpenRouter models:', error);
+                }
+            }
+            // Fallback to popular models if no API key or fetch failed
+            const fallbackModels = [
+                'deepseek/deepseek-chat',
+                'anthropic/claude-3.5-sonnet',
+                'openai/gpt-4o',
+                'google/gemini-pro-1.5',
+                'meta-llama/llama-3.1-70b-instruct'
+            ];
+            select.innerHTML = fallbackModels.map(model =>
+                `<option value="${model}">${model}</option>`
+            ).join('');
+            if (savedModel) {
+                if (![...select.options].some(opt => opt.value === savedModel)) {
+                    const option = new Option(savedModel, savedModel);
+                    select.add(option);
+                }
+                select.value = savedModel;
+            }
         } else {
-            // Use hardcoded model list for cloud providers
+            // Use hardcoded model list for other cloud providers
             const models = PROVIDER_MODELS[provider] || [];
             select.innerHTML = models.map(model =>
                 `<option value="${model}">${model}</option>`

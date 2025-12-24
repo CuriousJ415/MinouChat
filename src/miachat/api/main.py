@@ -1324,6 +1324,42 @@ async def get_openrouter_models():
         "privacy_note": "OpenRouter processes data through cloud providers. Use Ollama for complete privacy."
     }
 
+@app.post("/api/models/openrouter/discover")
+async def discover_openrouter_models(request: Request):
+    """Dynamically fetch available models from OpenRouter using provided API key."""
+    import requests as http_requests
+
+    try:
+        body = await request.json()
+        api_key = body.get("api_key", "")
+
+        if not api_key:
+            return {"success": False, "error": "API key required", "models": []}
+
+        response = http_requests.get(
+            'https://openrouter.ai/api/v1/models',
+            headers={'Authorization': f'Bearer {api_key}'},
+            timeout=15
+        )
+
+        if response.ok:
+            data = response.json()
+            models = sorted([model['id'] for model in data.get('data', [])])
+            return {
+                "success": True,
+                "models": models,
+                "count": len(models)
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"OpenRouter API returned {response.status_code}",
+                "models": []
+            }
+    except Exception as e:
+        logger.error(f"Error discovering OpenRouter models: {e}")
+        return {"success": False, "error": str(e), "models": []}
+
 @app.get("/api/categories")
 async def get_categories():
     """Get all available categories."""
