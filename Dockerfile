@@ -21,8 +21,8 @@ RUN chmod +x /app/entrypoint.sh
 RUN python -c "import fastapi; import uvicorn"
 
 # Set environment variables
-ENV PYTHONPATH=/app
-ENV FASTAPI_ENV=development
+ENV PYTHONPATH=/app/src
+ENV FASTAPI_ENV=production
 
 # Run the application
 ENTRYPOINT ["/app/entrypoint.sh"]
