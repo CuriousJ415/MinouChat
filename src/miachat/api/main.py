@@ -1809,46 +1809,35 @@ You should be proactive about offering to create documents when it would be help
             # Don't fail the chat if fact extraction fails
             logger.warning(f"Fact extraction hook failed: {e}")
 
-        # Sidebar extraction hook - extract todos, life areas, goals, habits, calendar events
+        # Calendar extraction hook - ONLY calendar events (todos/goals/habits/life areas are manual-only)
         sidebar_extractions = None
         try:
-            category = character.get('category', '')
-            # Process for any category if message is long enough
-            # (Each extraction type checks its own category requirements internally)
             if len(request.message) >= 10:
                 from .core.sidebar_extraction_service import sidebar_extraction_service
 
-                # Get recent conversation context for "add this to todo" style requests
-                conversation_context = []
-                if enhanced_context:
-                    recent = enhanced_context.get('recent_interactions', [])
-                    conversation_context = [
-                        {'role': msg.get('role', 'user'), 'content': msg.get('content', '')}
-                        for msg in recent[-6:]  # Last 6 messages
-                    ]
+                # Only check for calendar extraction
+                if sidebar_extraction_service.should_extract_calendar_events(request.message):
+                    conversation_context = []
+                    if enhanced_context:
+                        recent = enhanced_context.get('recent_interactions', [])
+                        conversation_context = [
+                            {'role': msg.get('role', 'user'), 'content': msg.get('content', '')}
+                            for msg in recent[-6:]
+                        ]
 
-                extractions = await sidebar_extraction_service.process_message(
-                    message=request.message,
-                    user_id=current_user.id,
-                    character_id=request.character_id,
-                    category=category,
-                    db=db,
-                    conversation_context=conversation_context
-                )
+                    calendar_events = await sidebar_extraction_service.extract_calendar_events(
+                        message=request.message,
+                        user_id=current_user.id,
+                        character_id=request.character_id,
+                        db=db,
+                        conversation_context=conversation_context
+                    )
 
-                # Only include if something was extracted
-                if (extractions.get('todos') or extractions.get('life_areas') or
-                    extractions.get('goals') or extractions.get('habits') or
-                    extractions.get('calendar_events')):
-                    sidebar_extractions = extractions
-                    logger.info(f"Sidebar extractions: {len(extractions.get('todos', []))} todos, "
-                              f"{len(extractions.get('life_areas', []))} life areas, "
-                              f"{len(extractions.get('goals', []))} goals, "
-                              f"{len(extractions.get('habits', []))} habits, "
-                              f"{len(extractions.get('calendar_events', []))} calendar events")
+                    if calendar_events:
+                        sidebar_extractions = {'calendar_events': calendar_events}
+                        logger.info(f"Created {len(calendar_events)} calendar event(s)")
         except Exception as e:
-            # Don't fail the chat if sidebar extraction fails
-            logger.warning(f"Sidebar extraction hook failed: {e}")
+            logger.warning(f"Calendar extraction failed: {e}")
 
         # Log reasoning context for debugging (don't save to conversation)
         if reasoning_chain:

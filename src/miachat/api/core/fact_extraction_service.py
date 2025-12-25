@@ -15,8 +15,17 @@ from sqlalchemy.orm import Session
 
 from ...database.models import ConversationFact
 from .llm_client import llm_client
+from .settings_service import settings_service
 
 logger = logging.getLogger(__name__)
+
+# Cheap/fast models for extraction tasks per provider
+EXTRACTION_MODELS = {
+    'openrouter': 'deepseek/deepseek-chat',  # Fast, cheap, good at JSON
+    'openai': 'gpt-4o-mini',                  # Cheap
+    'anthropic': 'claude-3-haiku-20240307',   # Cheap
+    'ollama': 'llama3.1:8b'                   # Local fallback
+}
 
 # Fact types and their descriptions
 FACT_TYPES = {
@@ -169,15 +178,31 @@ class FactExtractionService:
                 user_message=user_message[:500]  # Limit input size
             )
 
-            # Use default Ollama for fact extraction (privacy: uses local model)
+            # Use user's configured LLM provider for fact extraction
             messages = [{"role": "user", "content": prompt}]
+
+            # Get user's LLM config
+            llm_config = settings_service.get_llm_config(user_id, db)
+            provider = llm_config.get('provider', 'openrouter')
+
+            # Use a cheap/fast model for extraction (not the user's expensive chat model)
+            extraction_model = EXTRACTION_MODELS.get(provider, 'deepseek/deepseek-chat')
+
             model_config = {
-                'provider': 'ollama',
-                'model': 'llama3.1:8b',
+                'provider': provider,
+                'model': extraction_model,
                 'temperature': 0.0,  # Zero temp for deterministic JSON output
                 'max_tokens': 300,
                 'top_p': 0.1  # Very focused output
             }
+
+            # Add provider-specific API key
+            if provider == 'openrouter':
+                model_config['openrouter_api_key'] = llm_config.get('api_key')
+            elif provider == 'openai':
+                model_config['openai_api_key'] = llm_config.get('api_key')
+            elif provider == 'anthropic':
+                model_config['anthropic_api_key'] = llm_config.get('api_key')
 
             response = llm_client.generate_response_with_config(
                 messages=messages,
@@ -459,12 +484,28 @@ class FactExtractionService:
 
             # Use LLM to identify which facts to delete
             messages = [{"role": "user", "content": prompt}]
+
+            # Get user's LLM config
+            llm_config = settings_service.get_llm_config(user_id, db)
+            provider = llm_config.get('provider', 'openrouter')
+
+            # Use a cheap/fast model for deletion analysis
+            extraction_model = EXTRACTION_MODELS.get(provider, 'deepseek/deepseek-chat')
+
             model_config = {
-                'provider': 'ollama',
-                'model': 'llama3.1:latest',
+                'provider': provider,
+                'model': extraction_model,
                 'temperature': 0.0,
                 'max_tokens': 100,
             }
+
+            # Add provider-specific API key
+            if provider == 'openrouter':
+                model_config['openrouter_api_key'] = llm_config.get('api_key')
+            elif provider == 'openai':
+                model_config['openai_api_key'] = llm_config.get('api_key')
+            elif provider == 'anthropic':
+                model_config['anthropic_api_key'] = llm_config.get('api_key')
 
             response = llm_client.generate_response_with_config(
                 messages=messages,

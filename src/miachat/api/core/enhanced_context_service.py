@@ -1053,7 +1053,14 @@ class EnhancedContextService:
         # SECTION 3: Tracking Context (goals, todos, habits)
         # ============================================
         if tracking_context:
-            truncated_tracking = self._truncate_to_budget(tracking_context, budgets['tracking'])
+            # Add guidance header so persona references tracking items only when relevant
+            tracking_header = (
+                "=== User's Tracking Info (for reference only) ===\n"
+                "(Reference when the user asks about goals/habits/todos. "
+                "Otherwise, stay focused on the current conversation topic.)\n"
+            )
+            tracking_with_header = tracking_header + tracking_context
+            truncated_tracking = self._truncate_to_budget(tracking_with_header, budgets['tracking'])
             context_parts.append(truncated_tracking)
             context_parts.append("")
 
