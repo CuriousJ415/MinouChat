@@ -213,8 +213,6 @@ class LLMClient:
             }
         }
 
-        logger.info(f"[Ollama/LOCAL] Using model {model}")
-
         try:
             response = requests.post(
                 f"{self.ollama_url}/api/chat",

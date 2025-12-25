@@ -58,6 +58,17 @@ class SidebarExtractionService:
         r'\b(my\s+)?contribution.*(?:is|at|feels?|rate).*\d',
         r'\brate\s+(my\s+)?\w+.*(?:as|at)\s*\d',
         r'\b\d+\s*(?:out\s+of\s+10|/10)\s*(?:for|on)\s+\w+',
+        # List-style ratings (Career=9, Finances=6 format)
+        r'\b(?:career|work)\s*[=:]\s*\d+',
+        r'\b(?:finances?|money)\s*[=:]\s*\d+',
+        r'\b(?:health|fitness)\s*[=:]\s*\d+',
+        r'\b(?:relationships?)\s*[=:]\s*\d+',
+        r'\b(?:family)\s*[=:]\s*\d+',
+        r'\b(?:friendships?|friends)\s*[=:]\s*\d+',
+        r'\b(?:growth|personal[\s-]?growth)\s*[=:]\s*\d+',
+        r'\b(?:fun|recreation)\s*[=:]\s*\d+',
+        r'\b(?:environment|home)\s*[=:]\s*\d+',
+        r'\b(?:contribution|giving)\s*[=:]\s*\d+',
     ]
 
     # Trigger phrases for goal extraction
@@ -306,6 +317,11 @@ Return ONLY the JSON array, nothing else."""
 
             extraction_prompt = f"""Extract any life area self-ratings from this message.
 Valid life areas: {', '.join(LIFE_AREAS)}
+
+Common formats to recognize:
+- "Career=9, Finances=6, Health=7" (list format with = or :)
+- "My career is at 7" or "I rate my health at 8"
+- "7/10 for career" or "8 out of 10 for health"
 
 Return a JSON array of objects with:
 - "area": One of the valid life areas above

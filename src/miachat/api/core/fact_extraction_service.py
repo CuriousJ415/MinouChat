@@ -53,7 +53,7 @@ FACT_DELETION_PATTERNS = [
     r'\bno,?\s+i\s+(live|work|am|have|moved)\b',  # "No, I live in..."
     r'\bwell,?\s+actually,?\s+i\b',  # "Well, actually, I..."
     r'\bi\s+should\s+(mention|say|clarify|note)\b',  # "I should mention..."
-    r'\bto\s+(be\s+)?(clear|clarify|correct\s+that)\b',  # "To be clear..."
+    r'\bto\s+(be\s+)?(clear|accurate|clarify|correct\s+that)\b',  # "To be clear/accurate..."
     r'\bi\s+(now|recently)\s+(live|work|moved|have)\b',  # "I now live in..."
     r'\b(not\s+anymore|no\s+longer)\b',  # "I don't work there anymore"
     r'\bi\'?ve\s+(moved|changed|switched|quit|left)\b',  # "I've moved to..."

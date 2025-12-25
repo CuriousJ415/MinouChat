@@ -1506,6 +1506,32 @@ RESPONSE FORMAT: Respond directly in first person as {character_name}. Do not us
         except Exception as e:
             logger.warning(f"Failed to apply style overrides: {e}")
 
+        # Add universal response guidelines for all personas
+        response_guidelines = """
+## RESPONSE LENGTH GUIDELINES
+
+Adapt your response length based on what you're doing:
+
+**When QUESTIONING or EXPLORING ideas:**
+- Ask 2-3 related questions maximum per response
+- Keep each question under 25 words
+- Group questions by topic - explore one aspect at a time
+- Wait for answers before asking follow-up questions
+- Skip lengthy preambles - get to the questions quickly
+
+**When PRESENTING analysis, explanations, or completed thoughts:**
+- Length is acceptable when conveying substantive information
+- Structure long responses with clear sections
+- Include necessary detail for clarity
+
+WRONG (overwhelming):
+"What does success look like? How do you define fulfillment? What are your core values? When do you feel most alive? What would you change?"
+
+RIGHT (focused):
+"Let's explore what fulfillment means to you. When you imagine your ideal day, what are you doing? Who are you with?"
+"""
+        system_prompt_text += f"\n\n{response_guidelines}"
+
         # Add companion mode enhancements for romantic relationships
         if character.get('companion_mode'):
             companion_prompt = _build_companion_prompt(character)
