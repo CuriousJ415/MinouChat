@@ -6,11 +6,16 @@
 const OnboardingManager = {
   STORAGE_KEY: 'minouchat-onboarding-complete',
   HINTS_KEY: 'minouchat-hints-dismissed',
+  LLM_CONFIGURED_KEY: 'minouchat-llm-configured',
 
   currentStep: 0,
-  totalSteps: 3,
+  totalSteps: 4,  // Welcome, LLM Config, Persona Selection, Completion
   selectedPersonaId: null,
   personas: [],
+
+  // LLM Configuration State
+  selectedProvider: null,
+  llmConfigured: false,
 
   /**
    * Initialize the onboarding system
@@ -162,6 +167,7 @@ const OnboardingManager = {
 
     switch (this.currentStep) {
       case 0:
+        // Welcome Step
         content.innerHTML = `
           ${stepsHtml}
           <div class="wizard-content">
@@ -184,6 +190,44 @@ const OnboardingManager = {
         break;
 
       case 1:
+        // LLM Configuration Step (NEW)
+        content.innerHTML = `
+          ${stepsHtml}
+          <div class="wizard-content">
+            <h2 class="wizard-title">Configure Your AI</h2>
+            <p class="wizard-description">
+              Choose an AI provider to power your conversations. You'll need an API key.
+            </p>
+            <div class="provider-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-top: var(--space-4); text-align: left;">
+              ${this.renderProviderCards()}
+            </div>
+            <div id="llm-api-key-section" style="display: ${this.selectedProvider ? 'block' : 'none'}; margin-top: var(--space-4);">
+              <div class="form-group">
+                <label class="form-label">API Key for <span id="selected-provider-name">${this.selectedProvider || ''}</span></label>
+                <div style="display: flex; gap: var(--space-2);">
+                  <input type="password" class="form-input" id="onboarding-api-key" placeholder="Enter your API key" style="flex: 1;">
+                  <button class="btn btn-secondary" onclick="OnboardingManager.testApiKey()" id="test-key-btn">
+                    Test
+                  </button>
+                </div>
+              </div>
+              <div id="api-test-result" style="margin-top: var(--space-2); font-size: var(--text-sm);"></div>
+            </div>
+            <p class="text-sm text-muted" style="margin-top: var(--space-4);">
+              Don't have an API key? <a href="https://openrouter.ai/keys" target="_blank" style="color: var(--pop-primary);">Get one from OpenRouter</a> (recommended)
+            </p>
+          </div>
+        `;
+        footer.innerHTML = `
+          <button class="btn btn-secondary" onclick="OnboardingManager.prevStep()">Back</button>
+          <button class="btn btn-primary" onclick="OnboardingManager.nextStep()" id="llm-next-btn" ${!this.llmConfigured ? 'disabled' : ''}>
+            Continue
+          </button>
+        `;
+        break;
+
+      case 2:
+        // Persona Selection Step
         content.innerHTML = `
           ${stepsHtml}
           <div class="wizard-content">
@@ -204,7 +248,8 @@ const OnboardingManager = {
         `;
         break;
 
-      case 2:
+      case 3:
+        // Completion Step
         const persona = this.personas.find(p => p.id === this.selectedPersonaId);
         content.innerHTML = `
           ${stepsHtml}
@@ -234,6 +279,113 @@ const OnboardingManager = {
           </button>
         `;
         break;
+    }
+  },
+
+  /**
+   * Render provider selection cards
+   */
+  renderProviderCards() {
+    const providers = [
+      { id: 'openrouter', name: 'OpenRouter', desc: '100+ models', recommended: true },
+      { id: 'openai', name: 'OpenAI', desc: 'GPT-4, GPT-4o' },
+      { id: 'anthropic', name: 'Anthropic', desc: 'Claude 3.5' }
+    ];
+
+    return providers.map(p => {
+      const isSelected = this.selectedProvider === p.id;
+      return `
+        <div class="card card-clickable provider-card ${isSelected ? 'selected' : ''}"
+             onclick="OnboardingManager.selectProvider('${p.id}')"
+             style="padding: var(--space-3); text-align: center; cursor: pointer; ${isSelected ? 'border-color: var(--pop-primary);' : ''}">
+          <div style="font-weight: 500; margin-bottom: 4px;">${p.name}</div>
+          <div class="text-sm text-muted">${p.desc}</div>
+          ${p.recommended ? '<div style="font-size: 10px; color: var(--pop-primary); margin-top: 4px;">Recommended</div>' : ''}
+        </div>
+      `;
+    }).join('');
+  },
+
+  /**
+   * Select an LLM provider
+   */
+  selectProvider(providerId) {
+    this.selectedProvider = providerId;
+    this.llmConfigured = false;  // Reset until API key is tested
+    this.renderStep();
+  },
+
+  /**
+   * Test API key with selected provider
+   */
+  async testApiKey() {
+    const apiKey = document.getElementById('onboarding-api-key').value.trim();
+    const resultEl = document.getElementById('api-test-result');
+    const testBtn = document.getElementById('test-key-btn');
+    const nextBtn = document.getElementById('llm-next-btn');
+
+    if (!apiKey) {
+      resultEl.innerHTML = '<span style="color: var(--pop-danger);">Please enter an API key</span>';
+      return;
+    }
+
+    testBtn.disabled = true;
+    testBtn.textContent = 'Testing...';
+    resultEl.innerHTML = '<span style="color: var(--text-muted);">Connecting...</span>';
+
+    try {
+      const response = await fetch('/api/settings/llm/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: this.selectedProvider,
+          config: { api_key: apiKey }
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.llmConfigured = true;
+        resultEl.innerHTML = '<span style="color: var(--pop-success);">Connected successfully!</span>';
+        nextBtn.disabled = false;
+
+        // Save the configuration
+        await this.saveLLMConfig(apiKey);
+      } else {
+        resultEl.innerHTML = `<span style="color: var(--pop-danger);">Failed: ${result.message || 'Connection error'}</span>`;
+        nextBtn.disabled = true;
+      }
+    } catch (e) {
+      console.error('API test error:', e);
+      resultEl.innerHTML = '<span style="color: var(--pop-danger);">Connection error. Please try again.</span>';
+      nextBtn.disabled = true;
+    }
+
+    testBtn.disabled = false;
+    testBtn.textContent = 'Test';
+  },
+
+  /**
+   * Save LLM configuration
+   */
+  async saveLLMConfig(apiKey) {
+    try {
+      const credentials = {};
+      credentials[`${this.selectedProvider}_api_key`] = apiKey;
+
+      await fetch('/api/settings/llm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: this.selectedProvider,
+          ...credentials
+        })
+      });
+
+      localStorage.setItem(this.LLM_CONFIGURED_KEY, 'true');
+    } catch (e) {
+      console.error('Failed to save LLM config:', e);
     }
   },
 

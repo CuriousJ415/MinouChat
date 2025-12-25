@@ -341,29 +341,6 @@
                     <h3 class="subsection-title">API Keys & Connections</h3>
                     <p class="text-sm text-muted mb-4">Store your API credentials here to enable LLM providers. These credentials give you access to models—select your active model below.</p>
 
-                    <!-- Ollama -->
-                    <div class="credential-card">
-                        <div class="credential-header">
-                            <div class="credential-info">
-                                <span class="credential-name">Ollama</span>
-                                <span class="privacy-badge local">Local</span>
-                            </div>
-                            <div class="credential-status" id="ollama-status-indicator">
-                                <span class="status-dot status-dot-muted"></span>
-                            </div>
-                        </div>
-                        <div class="credential-fields">
-                            <div class="form-group" style="flex: 1;">
-                                <label class="form-label">API URL</label>
-                                <input type="url" class="form-input" id="ollama-url"
-                                       value="http://localhost:11434" placeholder="http://localhost:11434">
-                            </div>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('ollama')">
-                                Test
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- OpenAI -->
                     <div class="credential-card">
                         <div class="credential-header">
@@ -457,17 +434,16 @@
 
                 <!-- Active Model Subsection -->
                 <div class="subsection" style="margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--border-subtle);">
-                    <h3 class="subsection-title">Active Model</h3>
+                    <h3 class="subsection-title">Default Model</h3>
                     <p class="text-sm text-muted mb-4">Select which LLM to use for chat and utility tasks across the application.</p>
 
                     <div class="config-row">
                         <div class="form-group">
                             <label class="form-label">Provider</label>
                             <select class="form-select" id="active-provider" onchange="updateActiveModels()">
-                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openrouter">OpenRouter (Recommended)</option>
                                 <option value="openai">OpenAI</option>
                                 <option value="anthropic">Anthropic</option>
-                                <option value="openrouter">OpenRouter</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -518,20 +494,6 @@
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
                         <option value="system">System</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="preference-row">
-                <div class="preference-info">
-                    <div class="preference-label">Privacy Mode</div>
-                    <div class="preference-desc">Control how your data is processed</div>
-                </div>
-                <div class="preference-control">
-                    <select class="form-select" id="privacy-mode">
-                        <option value="local_only">Local Only</option>
-                        <option value="cloud_allowed">Allow Cloud</option>
-                        <option value="hybrid">Hybrid</option>
                     </select>
                 </div>
             </div>
@@ -639,12 +601,24 @@
                 </div>
             </div>
 
-            <div class="preference-row">
+            <!-- SSO Provider Indicator (populated by JavaScript) -->
+            <div class="preference-row" id="sso-provider-row" style="display: none;">
+                <div class="preference-info">
+                    <div class="preference-label">Sign-in Method</div>
+                    <div class="preference-desc">
+                        <span id="sso-badge" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); font-size: 0.875rem;">
+                            <span id="sso-provider-name"></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="preference-row" id="password-row">
                 <div class="preference-info">
                     <div class="preference-label">Change Password</div>
-                    <div class="preference-desc">Update your account password</div>
+                    <div class="preference-desc" id="password-desc">Update your account password</div>
                 </div>
-                <div class="preference-control">
+                <div class="preference-control" id="password-control">
                     <button class="btn btn-secondary" onclick="showPasswordModal()">Change</button>
                 </div>
             </div>
@@ -855,6 +829,52 @@
             });
         }
     });
+
+    // Detect SSO provider from Clerk and update UI
+    async function detectSSOProvider() {
+        await clerkReadyPromise;
+        if (!window.Clerk || !window.Clerk.user) return;
+
+        try {
+            const user = window.Clerk.user;
+            const externalAccounts = user.externalAccounts || [];
+
+            if (externalAccounts.length > 0) {
+                const account = externalAccounts[0];
+                const provider = account.provider || account.verification?.strategy || '';
+
+                const providerNames = {
+                    'google': 'Google',
+                    'oauth_google': 'Google',
+                    'apple': 'Apple',
+                    'oauth_apple': 'Apple'
+                };
+
+                const displayName = providerNames[provider] || provider;
+
+                // Show SSO indicator
+                const ssoRow = document.getElementById('sso-provider-row');
+                const ssoName = document.getElementById('sso-provider-name');
+                if (ssoRow && ssoName) {
+                    ssoName.textContent = `Signed in with ${displayName}`;
+                    ssoRow.style.display = 'flex';
+                }
+
+                // Update password section for SSO users
+                const passwordDesc = document.getElementById('password-desc');
+                const passwordControl = document.getElementById('password-control');
+                if (passwordDesc && passwordControl) {
+                    passwordDesc.textContent = `Password is managed by ${displayName}`;
+                    passwordControl.innerHTML = `<span class="text-muted text-sm">Managed externally</span>`;
+                }
+            }
+        } catch (e) {
+            console.log('Could not detect SSO provider:', e);
+        }
+    }
+
+    // Run SSO detection when Clerk is ready
+    clerkReadyPromise.then(detectSSOProvider);
 
     async function getFreshToken() {
         if (!clerkReady || !window.Clerk || !window.Clerk.session) return null;

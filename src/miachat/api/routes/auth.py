@@ -22,12 +22,16 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, db: Session = Depends(get_db)):
+async def login_page(request: Request, return_to: Optional[str] = None, db: Session = Depends(get_db)):
     """Login page with Clerk sign-in component"""
     # Check if user is already logged in
     current_user = await get_current_user_from_session(request, db)
     if current_user:
-        return RedirectResponse(url="/dashboard", status_code=302)
+        # Redirect to return_to if provided and safe, otherwise dashboard
+        redirect_url = "/dashboard"
+        if return_to and return_to.startswith("/") and not return_to.startswith("//"):
+            redirect_url = return_to
+        return RedirectResponse(url=redirect_url, status_code=302)
 
     # Pass Clerk publishable key to template
     return await render_template(

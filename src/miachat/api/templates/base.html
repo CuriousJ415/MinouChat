@@ -29,7 +29,7 @@
     <header class="nav-header" style="position: sticky; top: 0; z-index: 200; background: var(--bg-primary); border-bottom: 1px solid var(--border-color);">
         <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 1rem;">
             <nav class="nav" style="display: flex; align-items: center; justify-content: space-between; height: 60px;">
-                <a href="/chat" class="nav-brand" style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 300; color: var(--text-primary); text-decoration: none; letter-spacing: 0.05em;">
+                <a href="/dashboard" class="nav-brand" style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 300; color: var(--text-primary); text-decoration: none; letter-spacing: 0.05em;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;">
                         <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/>
                         <path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>
@@ -38,6 +38,12 @@
                 </a>
 
                 <ul class="nav-links hide-mobile" style="display: flex; align-items: center; gap: 1.5rem; list-style: none; margin: 0; padding: 0;">
+                    <li style="list-style: none;">
+                        <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text-secondary); font-weight: 300;">
+                            <i data-lucide="layout-dashboard" style="width: 16px; height: 16px;"></i>
+                            Dashboard
+                        </a>
+                    </li>
                     <li style="list-style: none;">
                         <a href="/chat" class="nav-link {% if active_page == 'chat' %}active{% endif %}" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text-secondary); font-weight: 300;">
                             <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
@@ -132,6 +138,7 @@
             </button>
         </div>
         <ul class="mobile-nav-links">
+            <li><a href="/dashboard" class="{% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a></li>
             <li><a href="/chat" class="{% if active_page == 'chat' %}active{% endif %}">Chat</a></li>
             <li><a href="/documents" class="{% if active_page == 'documents' %}active{% endif %}">Documents</a></li>
             <li><a href="/personas" class="{% if active_page == 'personas' %}active{% endif %}">Personas</a></li>

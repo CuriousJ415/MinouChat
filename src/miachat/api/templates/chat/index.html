@@ -498,6 +498,90 @@
             border-radius: var(--radius-sm);
         }
 
+        /* Life Area Score Modal */
+        .life-area-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .life-area-modal {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            min-width: 280px;
+            max-width: 320px;
+            box-shadow: var(--shadow-lg);
+            animation: slideUp 0.2s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .life-area-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-2);
+        }
+
+        .life-area-modal-header h4 {
+            margin: 0;
+            font-size: var(--text-base);
+            font-weight: var(--font-medium);
+        }
+
+        .life-area-score-boxes {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: var(--space-2);
+        }
+
+        .life-area-score-box {
+            width: 44px;
+            height: 44px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            font-size: var(--text-base);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .life-area-score-box:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--text-muted);
+            transform: scale(1.05);
+        }
+
+        .life-area-score-box.selected {
+            border-color: var(--pop-primary);
+            background: rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+
+        .life-area-score-box.score-low {
+            color: var(--pop-danger);
+        }
+
+        .life-area-score-box.score-medium {
+            color: var(--pop-warning);
+        }
+
+        .life-area-score-box.score-high {
+            color: var(--pop-success);
+        }
+
         .conversation-history-wrapper {
             flex: 1;
             display: flex;
@@ -915,6 +999,15 @@
 
         .llm-info-banner.show {
             display: block;
+        }
+
+        .llm-info-banner.auto-collapsed {
+            animation: bannerSlideUp 0.5s ease forwards;
+        }
+
+        @keyframes bannerSlideUp {
+            from { max-height: 50px; opacity: 1; padding: var(--space-2) var(--space-4); }
+            to { max-height: 0; opacity: 0; padding: 0 var(--space-4); overflow: hidden; }
         }
 
         .llm-info-banner a {
@@ -1828,23 +1921,23 @@
 
             <!-- Sidebar Documents Section -->
             <div class="sidebar-documents" id="sidebarDocuments" style="display: none;">
-                <!-- Todo List -->
+                <!-- Todo List (Collapsible) -->
                 <div class="sidebar-todo-section" id="todoSection" style="display: none;">
-                    <div class="sidebar-section-header">
+                    <div class="sidebar-section-header sidebar-section-collapsible" onclick="toggleTodoCollapse(event)">
                         <h4>
-                            <i data-lucide="check-square" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="chevron-down" class="collapse-icon" style="width: 14px; height: 14px;"></i>
                             Todo List
                         </h4>
                         <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-ghost btn-sm" onclick="exportTodos()" title="Export/Print">
+                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exportTodos()" title="Export/Print">
                                 <i data-lucide="printer" style="width: 14px; height: 14px;"></i>
                             </button>
-                            <button class="btn btn-ghost btn-sm" onclick="addTodoInline()" title="Add todo">
+                            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); addTodoInline()" title="Add todo">
                                 <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="todo-list" id="todoList">
+                    <div class="todo-list sidebar-section-content" id="todoList">
                         <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
                     </div>
                     <div class="todo-add-form" id="todoAddForm" style="display: none;">
@@ -1858,48 +1951,48 @@
                     </div>
                 </div>
 
-                <!-- Goals Section -->
+                <!-- Goals Section (Collapsible) -->
                 <div class="sidebar-goals-section" id="goalsSection" style="display: none;">
-                    <div class="sidebar-section-header">
+                    <div class="sidebar-section-header sidebar-section-collapsible" onclick="toggleGoalsCollapse(event)">
                         <h4>
-                            <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="chevron-down" class="collapse-icon" style="width: 14px; height: 14px;"></i>
                             Goals
                         </h4>
-                        <button class="btn btn-ghost btn-sm" onclick="showAddGoalModal()" title="Add goal">
+                        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); showAddGoalModal()" title="Add goal">
                             <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
                         </button>
                     </div>
-                    <div class="goals-list" id="goalsList">
+                    <div class="goals-list sidebar-section-content" id="goalsList">
                         <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
                     </div>
                 </div>
 
-                <!-- Habits Section -->
+                <!-- Habits Section (Collapsible) -->
                 <div class="sidebar-habits-section" id="habitsSection" style="display: none;">
-                    <div class="sidebar-section-header">
+                    <div class="sidebar-section-header sidebar-section-collapsible" onclick="toggleHabitsCollapse(event)">
                         <h4>
-                            <i data-lucide="repeat" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="chevron-down" class="collapse-icon" style="width: 14px; height: 14px;"></i>
                             Habits
                         </h4>
-                        <button class="btn btn-ghost btn-sm" onclick="showAddHabitModal()" title="Add habit">
+                        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); showAddHabitModal()" title="Add habit">
                             <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
                         </button>
                     </div>
-                    <div class="habits-list" id="habitsList">
+                    <div class="habits-list sidebar-section-content" id="habitsList">
                         <p class="text-muted text-sm text-center" style="padding: var(--space-2);">Loading...</p>
                     </div>
                 </div>
 
-                <!-- Life Areas Scorecard (for Coach personas) -->
+                <!-- Life Areas Scorecard (Collapsible, for Coach personas) -->
                 <div class="sidebar-life-areas" id="lifeAreasSection" style="display: none;">
-                    <div class="sidebar-section-header">
+                    <div class="sidebar-section-header sidebar-section-collapsible" onclick="toggleLifeAreasCollapse(event)">
                         <h4>
-                            <i data-lucide="pie-chart" style="width: 16px; height: 16px;"></i>
+                            <i data-lucide="chevron-down" class="collapse-icon" style="width: 14px; height: 14px;"></i>
                             Life Areas
                         </h4>
                         <span class="life-areas-average" id="lifeAreasAverage">--</span>
                     </div>
-                    <div class="life-areas-grid" id="lifeAreasGrid">
+                    <div class="life-areas-grid sidebar-section-content" id="lifeAreasGrid">
                         <p class="text-muted text-sm text-center" style="padding: var(--space-2); grid-column: 1/-1;">Loading...</p>
                     </div>
                 </div>
@@ -2176,7 +2269,8 @@
                         console.warn('Session touch failed:', e);
                         // If touch fails, session might be invalid - redirect to login
                         if (authError !== 'token_expired') {
-                            window.location.href = '/auth/login';
+                            const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                            window.location.href = `/auth/login?return_to=${returnTo}`;
                             return response;
                         }
                     }
@@ -2188,7 +2282,8 @@
             // If still 401 after retry, redirect to login
             if (response.status === 401 && retried) {
                 console.error('Authentication failed after retry, redirecting to login');
-                window.location.href = '/auth/login';
+                const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/auth/login?return_to=${returnTo}`;
             }
 
             return response;
@@ -2412,6 +2507,7 @@
         let currentSessionId = localStorage.getItem('currentSessionId');
         let chatHistory = [];
         let selectedFile = null;
+        let userMessageCount = 0;  // Track user messages for auto-collapse of LLM banner
         // Initialize sidebar state based on screen size
         let sidebarCollapsed = window.innerWidth <= 768;
         let documentPanelOpen = false;
@@ -2623,6 +2719,7 @@
             currentCharacterId = characterId;
             currentSessionId = null;  // Clear session for new persona
             localStorage.removeItem('currentSessionId');
+            userMessageCount = 0;  // Reset message counter for LLM banner
 
             document.getElementById('currentPersona').textContent = name;
 
@@ -2678,6 +2775,7 @@
 
             currentSessionId = null;
             localStorage.removeItem('currentSessionId');
+            userMessageCount = 0;  // Reset message counter for LLM banner
             clearChat();
             showPersonalizedGreeting(currentCharacterId, currentPersona);
 
@@ -3480,31 +3578,69 @@
             }).join('');
         }
 
+        const lifeAreaNames = {
+            'career': 'Career/Work',
+            'finances': 'Finances',
+            'health': 'Health',
+            'relationships': 'Relationships',
+            'family': 'Family',
+            'friendships': 'Friendships',
+            'growth': 'Personal Growth',
+            'recreation': 'Fun/Recreation',
+            'environment': 'Environment',
+            'contribution': 'Contribution'
+        };
+
         function editLifeArea(area) {
-            const areaNames = {
-                'career': 'Career/Work',
-                'finances': 'Finances',
-                'health': 'Health',
-                'relationships': 'Relationships',
-                'family': 'Family',
-                'friendships': 'Friendships',
-                'growth': 'Personal Growth',
-                'recreation': 'Fun/Recreation',
-                'environment': 'Environment',
-                'contribution': 'Contribution'
+            const current = currentLifeAreas[area]?.score || 5;
+            showLifeAreaModal(area, lifeAreaNames[area] || area, current);
+        }
+
+        function showLifeAreaModal(area, areaName, currentScore) {
+            // Remove any existing modal
+            closeLifeAreaModal();
+
+            // Create overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'life-area-modal-overlay';
+            overlay.id = 'lifeAreaModalOverlay';
+            overlay.onclick = function(e) {
+                if (e.target === overlay) closeLifeAreaModal();
             };
 
-            const current = currentLifeAreas[area]?.score || 5;
-            const newScore = prompt(`Rate your ${areaNames[area] || area} (1-10):`, current);
-
-            if (newScore !== null) {
-                const score = parseInt(newScore, 10);
-                if (score >= 1 && score <= 10) {
-                    updateLifeAreaScore(area, score);
-                } else {
-                    showToast('Please enter a number between 1 and 10', 'error');
-                }
+            // Build numbered boxes HTML (1-10)
+            let boxesHtml = '';
+            for (let i = 1; i <= 10; i++) {
+                const selected = i === currentScore ? 'selected' : '';
+                const colorClass = i <= 3 ? 'score-low' : i <= 6 ? 'score-medium' : 'score-high';
+                boxesHtml += `<button class="life-area-score-box ${selected} ${colorClass}"
+                                      data-score="${i}" onclick="selectLifeAreaScore('${area}', ${i})">${i}</button>`;
             }
+
+            overlay.innerHTML = `
+                <div class="life-area-modal">
+                    <div class="life-area-modal-header">
+                        <h4>Rate your ${areaName}</h4>
+                        <button class="btn btn-ghost btn-sm" onclick="closeLifeAreaModal()" style="padding: 4px;">
+                            <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-muted" style="margin-bottom: var(--space-3);">Click a number to set your rating</p>
+                    <div class="life-area-score-boxes">${boxesHtml}</div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function selectLifeAreaScore(area, score) {
+            updateLifeAreaScore(area, score);
+            closeLifeAreaModal();
+        }
+
+        function closeLifeAreaModal() {
+            const overlay = document.getElementById('lifeAreaModalOverlay');
+            if (overlay) overlay.remove();
         }
 
         async function updateLifeAreaScore(area, score) {
@@ -4021,6 +4157,54 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
+        function toggleTodoCollapse(event) {
+            if (event) event.stopPropagation();
+            const section = document.getElementById('todoSection');
+            const header = section.querySelector('.sidebar-section-collapsible');
+            const content = section.querySelector('.todo-list');
+
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function toggleGoalsCollapse(event) {
+            if (event) event.stopPropagation();
+            const section = document.getElementById('goalsSection');
+            const header = section.querySelector('.sidebar-section-collapsible');
+            const content = section.querySelector('.goals-list');
+
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function toggleHabitsCollapse(event) {
+            if (event) event.stopPropagation();
+            const section = document.getElementById('habitsSection');
+            const header = section.querySelector('.sidebar-section-collapsible');
+            const content = section.querySelector('.habits-list');
+
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function toggleLifeAreasCollapse(event) {
+            if (event) event.stopPropagation();
+            const section = document.getElementById('lifeAreasSection');
+            const header = section.querySelector('.sidebar-section-collapsible');
+            const content = section.querySelector('.life-areas-grid');
+
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
         function toggleSidebar() {
             sidebarCollapsed = !sidebarCollapsed;
             const sidebar = document.getElementById('chatSidebar');
@@ -4154,6 +4338,20 @@
             addMessage('user', message || '[Document uploaded]');
             input.value = '';
             addTypingIndicator();
+
+            // Track user messages for auto-collapse of LLM banner
+            userMessageCount++;
+            if (userMessageCount >= 2) {
+                const llmBanner = document.getElementById('llmInfoBanner');
+                if (llmBanner && llmBanner.classList.contains('show')) {
+                    // Auto-collapse after 2 user messages
+                    llmBanner.classList.add('auto-collapsed');
+                    setTimeout(() => {
+                        llmBanner.classList.remove('show');
+                        llmBanner.classList.remove('auto-collapsed');
+                    }, 500);
+                }
+            }
 
             if (selectedFile) {
                 document.getElementById('processingStatus').classList.add('show');

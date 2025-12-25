@@ -732,7 +732,8 @@
 
         if (response.status === 401) {
             console.error('Authentication failed, redirecting to login');
-            window.location.href = '/auth/login';
+            const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/auth/login?return_to=${returnTo}`;
         }
 
         return response;

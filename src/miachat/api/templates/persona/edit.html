@@ -1234,7 +1234,8 @@
         }
         const response = await fetch(url, options);
         if (response.status === 401) {
-            window.location.href = '/auth/login';
+            const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/auth/login?return_to=${returnTo}`;
         }
         return response;
     }
