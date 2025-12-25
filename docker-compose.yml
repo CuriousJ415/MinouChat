@@ -1,86 +1,34 @@
 services:
-  # MinouChat FastAPI Application
   minouchat:
     build: .
-    container_name: minouchat-app
+    container_name: minouchat-web
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8085:8080"
     volumes:
-      - ./src:/app/src                          # Live development code mounting
-      - ./data:/app/data                        # Persistent data directory
+      - ./data:/app/data
       - ./documents:/app/documents
       - ./output_documents:/app/output_documents
-      - ./config:/app/config                    # Configuration files
-      - ./character_cards:/app/character_cards  # User character definitions
-      - ./character_avatars:/app/character_avatars  # Character avatar images
-      - ./character_examples:/app/character_examples  # Example character templates
+      - ./character_cards:/app/character_cards
+    env_file:
+      - .env
     environment:
-      # Application Settings
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - DATABASE_PATH=/app/data/memories.db
-
-      # Security Configuration
-      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY:-}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080,http://localhost:3000}
-
-      # Clerk Authentication
-      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY:-}
-      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
-
-      # LLM Provider Configuration
-      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
-      - OLLAMA_HOST=host.docker.internal
-      - OLLAMA_PORT=11434
-
-      # OpenAI Configuration (optional)
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
-
-      # Anthropic Configuration (optional)
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-sonnet-20240229}
-
-      # OpenRouter Configuration (optional)
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-
-      # Clerk Authentication (required)
-      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY:-}
-      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
+      - APP_ENV=production
+      - PYTHONPATH=/app
     networks:
-      - minouchat-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - web
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
-
-  # Optional Ngrok tunnel for remote access
-  # To use this, add NGROK_AUTH_TOKEN to your .env file and
-  # run with: docker-compose --profile with-ngrok up -d
-  ngrok:
-    image: ngrok/ngrok:alpine
-    container_name: ngrok-tunnel
-    restart: unless-stopped
-    depends_on:
-      - minouchat
-    ports:
-      - "4040:4040"
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTH_TOKEN:-}
-    command: http minouchat:8080
-    networks:
-      - minouchat-network
-    profiles:
-      - with-ngrok
-
-volumes:
-  minouchat_data:
-    name: minouchat-data
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
-  minouchat-network:
-    driver: bridge
+  web:
+    external: true

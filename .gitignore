@@ -161,3 +161,4 @@ documents/*.txt
 
 # Cookies/session files
 cookies.txt cookies.txt
+docker-compose.override.yml

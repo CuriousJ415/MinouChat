@@ -1,0 +1,33 @@
+# Local development overrides
+# Copy this file to docker-compose.override.yml for local development
+# docker-compose.override.yml is gitignored and will auto-merge with docker-compose.yml
+
+services:
+  minouchat:
+    container_name: minouchat-app
+    ports:
+      - "8080:8080"  # Use standard port locally
+    volumes:
+      - ./src:/app/src  # Live code mounting for development
+      - ./data:/app/data
+      - ./documents:/app/documents
+      - ./output_documents:/app/output_documents
+      - ./config:/app/config
+      - ./character_cards:/app/character_cards
+      - ./character_avatars:/app/character_avatars
+      - ./character_examples:/app/character_examples
+    environment:
+      - APP_ENV=development
+      - PYTHONPATH=/app/src
+      - OLLAMA_HOST=host.docker.internal
+      - OLLAMA_PORT=11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - minouchat-network
+
+networks:
+  minouchat-network:
+    driver: bridge
+  web:
+    external: false
