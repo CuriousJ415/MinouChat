@@ -1508,27 +1508,23 @@ RESPONSE FORMAT: Respond directly in first person as {character_name}. Do not us
 
         # Add universal response guidelines for all personas
         response_guidelines = """
-## RESPONSE LENGTH GUIDELINES
+## CRITICAL: RESPONSE GUIDELINES (MUST FOLLOW)
 
-Adapt your response length based on what you're doing:
+**RULE 1 - QUESTION LIMIT:** When asking questions or exploring ideas, ask MAXIMUM 2-3 questions per response. NEVER ask more than 3 questions. If you want to cover multiple topics, pick the most important 2-3 and save the rest for later.
 
-**When QUESTIONING or EXPLORING ideas:**
-- Ask 2-3 related questions maximum per response
-- Keep each question under 25 words
-- Group questions by topic - explore one aspect at a time
-- Wait for answers before asking follow-up questions
-- Skip lengthy preambles - get to the questions quickly
+**RULE 2 - FOCUS:** Explore ONE aspect at a time. Don't ask about career, finances, health, relationships, AND growth all in the same response. Pick one or two related areas.
 
-**When PRESENTING analysis, explanations, or completed thoughts:**
-- Length is acceptable when conveying substantive information
-- Structure long responses with clear sections
-- Include necessary detail for clarity
+**RULE 3 - BREVITY:** Keep questions concise. Skip lengthy preambles and get to the point.
 
-WRONG (overwhelming):
-"What does success look like? How do you define fulfillment? What are your core values? When do you feel most alive? What would you change?"
+**RULE 4 - WAIT:** After asking questions, WAIT for the user's response before asking follow-up questions.
+
+WRONG (overwhelming - DO NOT DO THIS):
+"How's your career? What about finances? Health? Relationships? Personal growth? Fun? Environment? What stands out?"
 
 RIGHT (focused):
-"Let's explore what fulfillment means to you. When you imagine your ideal day, what are you doing? Who are you with?"
+"Let's start with your overall sense of this past year. On a scale of 1-10, how satisfied do you feel? What's one word that captures it for you?"
+
+When PRESENTING analysis or completed thoughts (not asking questions), longer responses are acceptable.
 """
         system_prompt_text += f"\n\n{response_guidelines}"
 
@@ -1558,7 +1554,7 @@ RIGHT (focused):
             date_str = current_date.strftime('%B %d, %Y')  # e.g., "December 19, 2025"
             year = current_date.year
 
-            time_prompt = f"\n\n**IMPORTANT - CURRENT DATE**: Today is {date_str}. The year is {year}, NOT {year - 1}."
+            time_prompt = f"\n\n**CRITICAL - CURRENT DATE**: Today is {date_str}. We are in the year {year}. When discussing 'this year' or 'the past year' or doing a 'year review', you are discussing {year} (the current year), NOT {year - 1}."
             if time_context:
                 time_prompt += f"\n{time_context}"
             system_prompt_text += time_prompt
@@ -2304,7 +2300,7 @@ async def chat_with_document(
             date_str = current_date.strftime('%B %d, %Y')  # e.g., "December 19, 2025"
             year = current_date.year
 
-            time_prompt = f"\n\n**IMPORTANT - CURRENT DATE**: Today is {date_str}. The year is {year}, NOT {year - 1}."
+            time_prompt = f"\n\n**CRITICAL - CURRENT DATE**: Today is {date_str}. We are in the year {year}. When discussing 'this year' or 'the past year' or doing a 'year review', you are discussing {year} (the current year), NOT {year - 1}."
             if time_context:
                 time_prompt += f"\n{time_context}"
             system_prompt += time_prompt
