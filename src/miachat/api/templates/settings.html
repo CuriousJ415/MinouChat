@@ -356,7 +356,7 @@
                             <div class="form-group" style="flex: 1;">
                                 <label class="form-label">API Key</label>
                                 <div class="api-key-field">
-                                    <input type="password" class="form-input" id="openai-api-key" placeholder="sk-...">
+                                    <input type="password" class="form-input" id="openai-api-key" placeholder="sk-..." autocomplete="off">
                                     <button type="button" class="toggle-password" onclick="togglePassword('openai-api-key')">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -386,7 +386,7 @@
                             <div class="form-group" style="flex: 1;">
                                 <label class="form-label">API Key</label>
                                 <div class="api-key-field">
-                                    <input type="password" class="form-input" id="anthropic-api-key" placeholder="sk-ant-...">
+                                    <input type="password" class="form-input" id="anthropic-api-key" placeholder="sk-ant-..." autocomplete="off">
                                     <button type="button" class="toggle-password" onclick="togglePassword('anthropic-api-key')">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -416,7 +416,7 @@
                             <div class="form-group" style="flex: 1;">
                                 <label class="form-label">API Key</label>
                                 <div class="api-key-field">
-                                    <input type="password" class="form-input" id="openrouter-api-key" placeholder="sk-or-...">
+                                    <input type="password" class="form-input" id="openrouter-api-key" placeholder="sk-or-..." autocomplete="off">
                                     <button type="button" class="toggle-password" onclick="togglePassword('openrouter-api-key')">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -719,7 +719,7 @@
                 <div class="form-group">
                     <label class="form-label">New Password</label>
                     <div class="api-key-field">
-                        <input type="password" class="form-input" id="new-password" placeholder="Enter new password" required minlength="6">
+                        <input type="password" class="form-input" id="new-password" placeholder="Enter new password" required minlength="6" autocomplete="new-password">
                         <button type="button" class="toggle-password" onclick="togglePassword('new-password')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -732,7 +732,7 @@
                 <div class="form-group">
                     <label class="form-label">Confirm Password</label>
                     <div class="api-key-field">
-                        <input type="password" class="form-input" id="confirm-password" placeholder="Confirm new password" required minlength="6">
+                        <input type="password" class="form-input" id="confirm-password" placeholder="Confirm new password" required minlength="6" autocomplete="new-password">
                         <button type="button" class="toggle-password" onclick="togglePassword('confirm-password')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -994,27 +994,50 @@
 
             const config = await response.json();
 
-            // Set Ollama URL
-            if (config.api_url) {
-                document.getElementById('ollama-url').value = config.api_url;
-            }
-
-            // Set privacy mode
-            if (config.privacy_mode) {
-                document.getElementById('privacy-mode').value = config.privacy_mode;
-            }
-
             // Set active provider and model
-            const provider = config.provider || 'ollama';
+            const provider = config.provider || 'openrouter';
             const model = config.model || '';
 
-            document.getElementById('active-provider').value = provider;
+            const providerSelect = document.getElementById('active-provider');
+            if (providerSelect) {
+                providerSelect.value = provider;
+            }
             await updateActiveModels(model);
+
+            // Show indicators for saved API keys
+            if (config.credentials_saved) {
+                if (config.credentials_saved.openai) {
+                    showKeySaved('openai');
+                }
+                if (config.credentials_saved.anthropic) {
+                    showKeySaved('anthropic');
+                }
+                if (config.credentials_saved.openrouter) {
+                    showKeySaved('openrouter');
+                }
+            }
 
         } catch (error) {
             console.error('Error loading settings:', error);
-            // Default to Ollama
+            // Default to OpenRouter
             await updateActiveModels();
+        }
+    }
+
+    // Show indicator that an API key is saved (without revealing it)
+    function showKeySaved(provider) {
+        const input = document.getElementById(`${provider}-api-key`);
+        const statusIndicator = document.getElementById(`${provider}-status-indicator`);
+        if (input) {
+            input.placeholder = '••••••••••••••••';
+            input.dataset.hasSavedKey = 'true';
+        }
+        if (statusIndicator) {
+            const statusDot = statusIndicator.querySelector('.status-dot');
+            if (statusDot) {
+                statusDot.className = 'status-dot status-dot-success';
+                statusDot.title = 'API key configured';
+            }
         }
     }
 
@@ -1129,9 +1152,7 @@
 
         let config = {};
 
-        if (providerName === 'ollama') {
-            config.api_url = document.getElementById('ollama-url').value;
-        } else if (providerName === 'openai') {
+        if (providerName === 'openai') {
             config.api_key = document.getElementById('openai-api-key').value;
         } else if (providerName === 'anthropic') {
             config.api_key = document.getElementById('anthropic-api-key').value;
@@ -1202,28 +1223,38 @@
 
         const activeProvider = document.getElementById('active-provider').value;
         const activeModel = document.getElementById('active-model').value;
-        const privacyMode = document.getElementById('privacy-mode').value;
 
-        // Collect all credentials
+        // Get credential values - only include if user entered a new value
+        // (empty field with saved key = keep existing, empty field without saved key = clear)
+        const openaiInput = document.getElementById('openai-api-key');
+        const anthropicInput = document.getElementById('anthropic-api-key');
+        const openrouterInput = document.getElementById('openrouter-api-key');
+
+        const credentials = {};
+        if (openaiInput?.value) {
+            credentials.openai = openaiInput.value;
+        }
+        if (anthropicInput?.value) {
+            credentials.anthropic = anthropicInput.value;
+        }
+        if (openrouterInput?.value) {
+            credentials.openrouter = openrouterInput.value;
+        }
+
+        // Build config
         const config = {
             provider: activeProvider,
             model: activeModel,
-            privacy_mode: privacyMode,
-            api_url: document.getElementById('ollama-url').value,
-            credentials: {
-                openai: document.getElementById('openai-api-key').value,
-                anthropic: document.getElementById('anthropic-api-key').value,
-                openrouter: document.getElementById('openrouter-api-key').value
-            }
+            credentials: credentials
         };
 
         // Also send the appropriate api_key for the active provider
-        if (activeProvider === 'openai') {
-            config.api_key = config.credentials.openai;
-        } else if (activeProvider === 'anthropic') {
-            config.api_key = config.credentials.anthropic;
-        } else if (activeProvider === 'openrouter') {
-            config.api_key = config.credentials.openrouter;
+        if (activeProvider === 'openai' && credentials.openai) {
+            config.api_key = credentials.openai;
+        } else if (activeProvider === 'anthropic' && credentials.anthropic) {
+            config.api_key = credentials.anthropic;
+        } else if (activeProvider === 'openrouter' && credentials.openrouter) {
+            config.api_key = credentials.openrouter;
         }
 
         try {

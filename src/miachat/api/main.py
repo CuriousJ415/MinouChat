@@ -2652,13 +2652,21 @@ async def get_llm_settings(request: Request, db = Depends(get_db)):
         return JSONResponse(status_code=401, content={"error": "Authentication required"})
 
     config = settings_service.get_llm_config(current_user.id, db)
-    
+
     # Create a secure copy without sensitive data for return
     secure_config = config.copy()
     if 'api_key' in secure_config:
         # Just indicate if the API key exists
         secure_config['api_key'] = secure_config['api_key'] is not None
-    
+
+    # Check which credentials are saved (for showing saved indicators in UI)
+    user_settings = settings_service.get_user_settings(current_user.id, db)
+    secure_config['credentials_saved'] = {
+        'openai': bool(user_settings and user_settings.openai_api_key),
+        'anthropic': bool(user_settings and user_settings.anthropic_api_key),
+        'openrouter': bool(user_settings and user_settings.openrouter_api_key)
+    }
+
     return secure_config
 
 @app.post("/api/settings/llm")
