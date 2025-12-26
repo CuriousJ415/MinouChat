@@ -428,6 +428,7 @@ class LLMClient:
         }
 
         logger.info(f"[OpenRouter/CLOUD] Using model {model}")
+        logger.debug(f"[OpenRouter/CLOUD] Payload: {payload}")
 
         try:
             response = requests.post(
@@ -436,9 +437,12 @@ class LLMClient:
                 json=payload,
                 timeout=self.request_timeout
             )
+            logger.info(f"[OpenRouter/CLOUD] Response status: {response.status_code}")
             response.raise_for_status()
             result = response.json()
-            return result['choices'][0]['message']['content']
+            content = result['choices'][0]['message']['content']
+            logger.info(f"[OpenRouter/CLOUD] Response content length: {len(content) if content else 0}")
+            return content
 
         except Timeout:
             logger.error(f"OpenRouter request timed out after {self.request_timeout}s")
