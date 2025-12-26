@@ -513,7 +513,7 @@
     </div>
 
     <!-- Google Integration Section -->
-    <div class="settings-section">
+    <div class="settings-section" id="google-integration">
         <h2 class="section-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -947,6 +947,24 @@
         await loadSettings();
         loadThemeSetting();
         lucide.createIcons();
+
+        // Handle hash anchor scrolling (e.g., from onboarding redirect)
+        if (window.location.hash) {
+            const targetId = window.location.hash.substring(1);
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                // Small delay to ensure page is fully rendered
+                setTimeout(() => {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Add highlight effect
+                    targetElement.style.transition = 'background-color 0.5s ease';
+                    targetElement.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                    setTimeout(() => {
+                        targetElement.style.backgroundColor = '';
+                    }, 2000);
+                }, 100);
+            }
+        }
 
         // Auto-refresh OpenRouter models when API key changes
         const openrouterKeyInput = document.getElementById('openrouter-api-key');
