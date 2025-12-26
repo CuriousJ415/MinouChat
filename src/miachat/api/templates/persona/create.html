@@ -651,7 +651,58 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
 <script>
+// Initialize Clerk for token refresh
+let clerkReadyPromise = new Promise((resolve) => {
+    if (window.Clerk) {
+        window.Clerk.load().then(() => resolve());
+    } else {
+        // Clerk SDK not available, resolve anyway
+        setTimeout(resolve, 100);
+    }
+});
+
+// Get fresh token from Clerk
+async function getFreshToken() {
+    if (window.Clerk && window.Clerk.session) {
+        try {
+            return await window.Clerk.session.getToken();
+        } catch (e) {
+            console.warn('Could not get Clerk token:', e);
+            return null;
+        }
+    }
+    return null;
+}
+
+// Authenticated fetch helper - refreshes token if needed and retries on 401/503
+async function authFetch(url, options = {}, retried = false) {
+    await Promise.race([clerkReadyPromise, new Promise(r => setTimeout(r, 2000))]);
+
+    const token = await getFreshToken();
+    if (token) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, options);
+
+    // If 401 or 503 with auth issue and we haven't retried, refresh token and retry
+    if ((response.status === 401 || response.status === 503) && !retried) {
+        if (window.Clerk && window.Clerk.session) {
+            try {
+                await window.Clerk.session.touch();
+            } catch (e) {
+                console.warn('Session touch failed:', e);
+            }
+        }
+        return authFetch(url, { ...options, headers: {} }, true);
+    }
+
+    return response;
+}
+
 // Category defaults from backend
 const CATEGORY_DEFAULTS = {
     "Coach": { warmth: "neutral", formality: "formal", directness: "direct", humor: "minimal" },
@@ -841,7 +892,7 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     personaData.description = descriptionInput.value.trim();
 
     try {
-        const response = await fetch('/api/suggest_system_prompt', {
+        const response = await authFetch('/api/suggest_system_prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -901,7 +952,7 @@ async function createPersona() {
     };
 
     try {
-        const response = await fetch('/api/characters', {
+        const response = await authFetch('/api/characters', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(finalPersona)
