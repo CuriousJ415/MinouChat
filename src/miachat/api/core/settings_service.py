@@ -78,31 +78,31 @@ class SettingsService:
         """Get LLM configuration for a user (for chat with personas)"""
         settings = self.get_user_settings(user_id, db)
         if not settings:
-            # Return default configuration
-            return {
-                "provider": "ollama",
-                "model": "llama3:8b",
-                "privacy_mode": "local_only",
-                "api_url": f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
-            }
+            # No settings - use fallback logic to find any configured cloud provider
+            return self.get_fallback_llm_config(user_id, db)
+
+        # Check if user has a cloud provider configured
+        provider = settings.default_llm_provider
+        if not provider or provider == "ollama":
+            # No cloud provider set, use fallback
+            return self.get_fallback_llm_config(user_id, db)
 
         config = {
-            "provider": settings.default_llm_provider,
+            "provider": provider,
             "model": settings.default_model,
-            "privacy_mode": settings.privacy_mode,
-            "api_url": settings.ollama_url
+            "privacy_mode": settings.privacy_mode
         }
 
         # Add provider-specific settings
-        if settings.default_llm_provider == "openai":
+        if provider == "openai":
             config["api_key"] = settings.openai_api_key
-            config["model"] = settings.openai_model
-        elif settings.default_llm_provider == "anthropic":
+            config["model"] = settings.openai_model or settings.default_model
+        elif provider == "anthropic":
             config["api_key"] = settings.anthropic_api_key
-            config["model"] = settings.anthropic_model
-        elif settings.default_llm_provider == "openrouter":
+            config["model"] = settings.anthropic_model or settings.default_model
+        elif provider == "openrouter":
             config["api_key"] = settings.openrouter_api_key
-            config["model"] = settings.openrouter_model
+            config["model"] = settings.openrouter_model or settings.default_model
 
         return config
 
@@ -110,27 +110,21 @@ class SettingsService:
         """Get Assistant LLM configuration for utility tasks (prompt generation, trait suggestions, etc.)"""
         settings = self.get_user_settings(user_id, db)
 
-        # Default assistant config
-        default_config = {
-            "provider": "ollama",
-            "model": "llama3.1:8b",
-            "temperature": 0.7,
-            "max_tokens": 512,
-            "api_url": f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
-        }
-
         if not settings:
-            return default_config
+            # No settings - use fallback logic
+            return self.get_fallback_llm_config(user_id, db)
 
-        provider = settings.assistant_llm_provider or "ollama"
-        model = settings.assistant_llm_model or "llama3.1:8b"
+        # Check if assistant LLM is configured with a cloud provider
+        provider = settings.assistant_llm_provider
+        if not provider or provider == "ollama":
+            # No cloud assistant LLM, use fallback
+            return self.get_fallback_llm_config(user_id, db)
 
         config = {
             "provider": provider,
-            "model": model,
+            "model": settings.assistant_llm_model,
             "temperature": 0.7,
-            "max_tokens": 512,
-            "api_url": settings.ollama_url
+            "max_tokens": 512
         }
 
         # Add provider-specific API keys
@@ -145,25 +139,24 @@ class SettingsService:
 
     def get_fallback_llm_config(self, user_id: Optional[int], db: Optional[Session]) -> Dict[str, Any]:
         """
-        Get LLM config with smart fallback logic.
+        Get LLM config with smart fallback logic (cloud providers only).
 
         Priority:
         1. User's configured assistant LLM (if user is logged in)
         2. User's default chat LLM (if user is logged in)
-        3. Check for available cloud providers (API keys in env)
-        4. Fall back to Ollama only if nothing else is available
+        3. Any configured API key in user settings (OpenRouter → OpenAI → Anthropic)
+        4. Environment variable API keys
+        5. Error if no cloud provider configured
 
         Returns a config dict with 'provider', 'model', 'temperature', 'max_tokens', etc.
         If no LLM is available, returns config with 'error' key explaining the issue.
         """
-        import requests
-
         # Try user's configured LLMs first
         if user_id and db:
             settings = self.get_user_settings(user_id, db)
             if settings:
-                # Try assistant LLM first
-                if settings.assistant_llm_provider and settings.assistant_llm_model:
+                # Try assistant LLM first (cloud providers only)
+                if settings.assistant_llm_provider and settings.assistant_llm_provider != "ollama":
                     provider = settings.assistant_llm_provider
                     config = {
                         "provider": provider,
@@ -171,7 +164,6 @@ class SettingsService:
                         "temperature": 0.7,
                         "max_tokens": 512
                     }
-                    # Add API key if needed
                     if provider == "openai" and settings.openai_api_key:
                         config["api_key"] = settings.openai_api_key
                         return config
@@ -181,18 +173,9 @@ class SettingsService:
                     elif provider == "openrouter" and settings.openrouter_api_key:
                         config["api_key"] = settings.openrouter_api_key
                         return config
-                    elif provider == "ollama":
-                        config["api_url"] = settings.ollama_url or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
-                        # Check if Ollama is reachable
-                        try:
-                            resp = requests.get(f"{config['api_url']}/api/tags", timeout=2)
-                            if resp.ok:
-                                return config
-                        except:
-                            pass  # Ollama not available, try other options
 
-                # Try default chat LLM
-                if settings.default_llm_provider:
+                # Try default chat LLM (cloud providers only)
+                if settings.default_llm_provider and settings.default_llm_provider != "ollama":
                     provider = settings.default_llm_provider
                     config = {
                         "provider": provider,
@@ -209,14 +192,6 @@ class SettingsService:
                     elif provider == "openrouter" and settings.openrouter_api_key:
                         config["api_key"] = settings.openrouter_api_key
                         return config
-                    elif provider == "ollama":
-                        config["api_url"] = settings.ollama_url or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
-                        try:
-                            resp = requests.get(f"{config['api_url']}/api/tags", timeout=2)
-                            if resp.ok:
-                                return config
-                        except:
-                            pass
 
                 # Check for any configured API keys in user settings
                 if settings.openrouter_api_key:
@@ -270,29 +245,9 @@ class SettingsService:
                 "max_tokens": 512
             }
 
-        # Check if Ollama is available and get an installed model
-        ollama_url = f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
-        try:
-            resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
-            if resp.ok:
-                data = resp.json()
-                models = data.get('models', [])
-                if models:
-                    # Pick the first available model
-                    model_name = models[0].get('name', 'llama3.1:8b')
-                    return {
-                        "provider": "ollama",
-                        "model": model_name,
-                        "api_url": ollama_url,
-                        "temperature": 0.7,
-                        "max_tokens": 512
-                    }
-        except:
-            pass
-
-        # No LLM available - return error config
+        # No cloud LLM available - return error config
         return {
-            "error": "No LLM provider available. Please configure an API key in Settings or start Ollama.",
+            "error": "No LLM provider configured. Please add an API key (OpenRouter, OpenAI, or Anthropic) in Settings.",
             "provider": None,
             "model": None
         }

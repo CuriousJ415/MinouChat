@@ -228,7 +228,7 @@ def _resolve_model_config(character_model_config: Optional[Dict[str, Any]], user
     """Resolve model configuration with fallback to application LLM settings.
 
     If the character has no model config or has null provider/model,
-    fall back to the user's application LLM settings.
+    fall back to the user's application LLM settings (cloud providers only).
 
     Args:
         character_model_config: The character's model_config dict (may be None or have null values)
@@ -236,33 +236,36 @@ def _resolve_model_config(character_model_config: Optional[Dict[str, Any]], user
         db: Database session
 
     Returns:
-        Resolved model configuration dict with guaranteed 'provider' and 'model' keys
+        Resolved model configuration dict with 'provider' and 'model' keys,
+        or a dict with 'error' key if no cloud provider is available
     """
     # Start with character config or empty dict
     config: Dict[str, Any] = dict(character_model_config) if character_model_config else {}
 
-    # Check if provider or model is missing/null
+    # Check if provider or model is missing/null or is Ollama (skip Ollama)
     provider = config.get('provider')
     model = config.get('model')
 
-    if not provider or not model:
-        # Get application LLM config as fallback
+    if not provider or not model or provider == 'ollama':
+        # Get application LLM config as fallback (cloud providers only)
         app_config = settings_service.get_llm_config(user_id, db)
 
-        if not provider:
-            config['provider'] = app_config.get('provider', 'ollama')
-        if not model:
-            config['model'] = app_config.get('model', 'llama3:8b')
+        # Check if fallback returned an error (no cloud provider configured)
+        if app_config.get('error'):
+            return app_config  # Return error config
 
-        # Also inherit api_url and api_key if needed
-        if 'api_url' not in config and 'api_url' in app_config:
-            config['api_url'] = app_config['api_url']
+        if not provider or provider == 'ollama':
+            config['provider'] = app_config.get('provider')
+        if not model:
+            config['model'] = app_config.get('model')
+
+        # Also inherit api_key if needed
         if 'api_key' not in config and 'api_key' in app_config:
             config['api_key'] = app_config['api_key']
 
-    # Ensure API key is set for the resolved provider (even if character has provider but no api_key)
+    # Ensure API key is set for the resolved provider
     resolved_provider = config.get('provider')
-    if resolved_provider and resolved_provider != 'ollama' and 'api_key' not in config:
+    if resolved_provider and 'api_key' not in config:
         # Fetch user settings to get the appropriate API key for the provider
         user_settings = settings_service.get_user_settings(user_id, db)
         if user_settings:
@@ -979,14 +982,20 @@ async def create_character(request: CharacterCreateRequest, req: Request = None,
     elif 'llm_config' in character_data and character_data['llm_config']:
         character_data['model_config'] = character_data.pop('llm_config')
     else:
-        # Get user's default LLM config instead of hardcoding Ollama
+        # Get user's default LLM config (cloud providers only)
         current_user = await get_current_user_from_session(req, db) if req else None
         user_id = current_user.id if current_user else None
         default_config = settings_service.get_fallback_llm_config(user_id, db)
 
-        # Use user's default LLM if available, otherwise use provided values
-        provider = default_config.get('provider') or character_data.get('llm_provider') or 'ollama'
-        model = default_config.get('model') or character_data.get('model') or 'llama3:8b'
+        # Check if a cloud provider is available
+        if default_config.get('error'):
+            return JSONResponse(
+                status_code=503,
+                content={"error": default_config['error'], "code": "NO_LLM_AVAILABLE"}
+            )
+
+        provider = default_config.get('provider')
+        model = default_config.get('model')
 
         model_config = {
             'provider': provider,
@@ -996,7 +1005,7 @@ async def create_character(request: CharacterCreateRequest, req: Request = None,
             'repeat_penalty': character_data.get('repeat_penalty', 1.1),
             'top_k': character_data.get('top_k', 40)
         }
-        # Add API key if it's a cloud provider
+        # Add API key for cloud provider
         if default_config.get('api_key'):
             model_config['api_key'] = default_config['api_key']
 
@@ -1004,12 +1013,17 @@ async def create_character(request: CharacterCreateRequest, req: Request = None,
         for field in ['llm_provider', 'model', 'temperature', 'top_p', 'repeat_penalty', 'top_k']:
             character_data.pop(field, None)
 
-    # If model_config exists but has no provider, use user's default or fall back to Ollama
+    # If model_config exists but has no provider, use user's default cloud provider
     if 'model_config' in character_data and 'provider' not in character_data['model_config']:
         current_user = await get_current_user_from_session(req, db) if req else None
         user_id = current_user.id if current_user else None
         default_config = settings_service.get_fallback_llm_config(user_id, db)
-        character_data['model_config']['provider'] = default_config.get('provider') or 'ollama'
+        if default_config.get('error'):
+            return JSONResponse(
+                status_code=503,
+                content={"error": default_config['error'], "code": "NO_LLM_AVAILABLE"}
+            )
+        character_data['model_config']['provider'] = default_config.get('provider')
         logger.info(f"Using {character_data['model_config']['provider']} provider from user settings")
 
     character = character_manager.create_character(character_data)
@@ -1647,8 +1661,15 @@ You should be proactive about offering to create documents when it would be help
                 # Use character's config (with fallback logic)
                 model_config = _resolve_model_config(character.get('model_config'), current_user.id, db)
 
-            model = model_config.get('model', 'llama3:8b')
-            provider = model_config.get('provider', 'ollama')
+            # Check if LLM config has an error (no cloud provider configured)
+            if model_config.get('error'):
+                return JSONResponse(
+                    status_code=503,
+                    content={"error": model_config['error'], "needs_llm_setup": True}
+                )
+
+            model = model_config.get('model')
+            provider = model_config.get('provider')
 
             # Calculate token budgets
             budgets = token_service.calculate_budget(model, provider)

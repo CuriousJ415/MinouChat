@@ -159,7 +159,11 @@ class LLMClient:
             No exceptions raised - errors are returned as error message strings
             to maintain backward compatibility with existing code.
         """
-        provider = model_config.get('provider', LLMProvider.OLLAMA.value)
+        provider = model_config.get('provider')
+
+        if not provider:
+            logger.error("No LLM provider specified in model_config")
+            return "No LLM provider configured. Please add an API key (OpenRouter, OpenAI, or Anthropic) in Settings."
 
         # Route to appropriate provider
         provider_handlers = {
@@ -173,8 +177,8 @@ class LLMClient:
         if handler:
             return handler(messages, system_prompt, model_config)
 
-        logger.warning(f"Unknown provider '{provider}', falling back to Ollama")
-        return self._generate_ollama(messages, system_prompt, model_config)
+        logger.error(f"Unknown provider '{provider}'")
+        return f"Unknown LLM provider '{provider}'. Supported providers: OpenRouter, OpenAI, Anthropic."
 
     def _generate_ollama(
         self,
@@ -453,24 +457,46 @@ class LLMClient:
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
+        provider: Optional[str] = None,
         **kwargs: Any
     ) -> str:
         """
-        Simple response generation using default Ollama provider.
+        Simple response generation with provider.
 
-        This is a convenience method for quick generation without
-        specifying full configuration.
+        This is a convenience method for quick generation.
+        Requires either a provider parameter or will check for available cloud providers.
 
         Args:
             messages: Conversation messages
             model: Optional model override
+            provider: LLM provider (openrouter, openai, anthropic, or ollama)
             **kwargs: Additional parameters passed to model config
 
         Returns:
             Generated response text
         """
+        # Determine provider - check kwargs, parameter, or environment
+        resolved_provider = provider or kwargs.get('provider')
+
+        if not resolved_provider:
+            # Check environment for API keys to determine provider
+            if os.getenv('OPENROUTER_API_KEY'):
+                resolved_provider = LLMProvider.OPENROUTER.value
+                kwargs['api_key'] = os.getenv('OPENROUTER_API_KEY')
+                model = model or 'openai/gpt-4o-mini'
+            elif os.getenv('OPENAI_API_KEY'):
+                resolved_provider = LLMProvider.OPENAI.value
+                kwargs['api_key'] = os.getenv('OPENAI_API_KEY')
+                model = model or 'gpt-4o-mini'
+            elif os.getenv('ANTHROPIC_API_KEY'):
+                resolved_provider = LLMProvider.ANTHROPIC.value
+                kwargs['api_key'] = os.getenv('ANTHROPIC_API_KEY')
+                model = model or 'claude-3-5-haiku-20241022'
+            else:
+                return "No LLM provider configured. Please add an API key in Settings."
+
         model_config = {
-            'provider': LLMProvider.OLLAMA.value,
+            'provider': resolved_provider,
             'model': model or self.default_model,
             **kwargs
         }
