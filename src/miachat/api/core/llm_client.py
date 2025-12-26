@@ -440,9 +440,10 @@ class LLMClient:
             logger.info(f"[OpenRouter/CLOUD] Response status: {response.status_code}")
             response.raise_for_status()
             result = response.json()
-            content = result['choices'][0]['message']['content']
+            logger.info(f"[OpenRouter/CLOUD] Full response: {result}")
+            content = result['choices'][0]['message']['content'] if result.get('choices') else ''
             logger.info(f"[OpenRouter/CLOUD] Response content length: {len(content) if content else 0}")
-            return content
+            return content or ''
 
         except Timeout:
             logger.error(f"OpenRouter request timed out after {self.request_timeout}s")
