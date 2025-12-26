@@ -276,6 +276,46 @@ conn.close()
 2. Adjust your data policy settings to allow the models you want to use
 3. Some models require less restrictive privacy settings
 
+### Google OAuth - Users Can't Connect
+
+**Problem:** Users other than the developer get "Access blocked: This app's request is invalid" or can't complete Google sign-in.
+
+**Cause:** Google OAuth app is in "Testing" mode, which only allows explicitly added test users.
+
+**Solution (Option A - Add Test Users):**
+1. Go to https://console.cloud.google.com/apis/credentials/consent
+2. Scroll to "Test users" section
+3. Click "+ ADD USERS"
+4. Add the email addresses of users who need access
+5. Users can connect immediately
+
+**Solution (Option B - Publish App for Everyone):**
+1. Go to https://console.cloud.google.com/apis/credentials/consent
+2. Click "PUBLISH APP" under Publishing status
+3. Google may require verification for Calendar/Tasks scopes (can take days/weeks)
+4. For personal/small team use, Option A is faster
+
+**Redirect URI Mismatch (Error 400):**
+
+If you see "Error 400: redirect_uri_mismatch", the production URI isn't registered:
+1. Go to https://console.cloud.google.com/apis/credentials
+2. Click on the OAuth 2.0 Client ID
+3. Under "Authorized redirect URIs", ensure both are added:
+   - `http://localhost:8080/api/google/auth/callback` (development)
+   - `https://minou.nauhauslabs.com/api/google/auth/callback` (production)
+4. Click Save (changes can take 5 minutes to propagate)
+
+**503 Service Unavailable on /api/google/auth/url:**
+
+Google OAuth credentials not configured on server. Add to `.env`:
+```
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=https://minou.nauhauslabs.com/api/google/auth/callback
+```
+
+**Google Cloud Console:** https://console.cloud.google.com/apis/credentials
+
 ### Docker Container Debugging
 
 ```bash
