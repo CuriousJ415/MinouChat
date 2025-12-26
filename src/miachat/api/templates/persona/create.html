@@ -73,6 +73,12 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
     /* Form elements */
     .form-group {
         margin-bottom: var(--space-6);
@@ -111,6 +117,51 @@
         font-size: var(--text-xs);
         color: var(--text-muted);
         margin-top: var(--space-2);
+    }
+
+    .form-error {
+        font-size: var(--text-xs);
+        color: var(--pop-danger);
+        margin-top: var(--space-2);
+        display: none;
+    }
+
+    .form-error.visible {
+        display: block;
+    }
+
+    .form-input.error {
+        border-color: var(--pop-danger);
+    }
+
+    .error-banner {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid var(--pop-danger);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        margin-bottom: var(--space-4);
+        display: none;
+    }
+
+    .error-banner.visible {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+    }
+
+    .error-banner svg {
+        color: var(--pop-danger);
+        flex-shrink: 0;
+    }
+
+    .error-banner-text {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+    }
+
+    .error-banner-text a {
+        color: var(--pop-primary);
+        text-decoration: underline;
     }
 
     /* Category selection */
@@ -384,9 +435,10 @@
     <!-- Step 1: Basics -->
     <div class="step-panel active" data-step="1">
         <div class="form-group">
-            <label class="form-label">Persona Name</label>
-            <input type="text" id="persona-name" class="form-input" placeholder="e.g., Sage, Alex, or Coach" maxlength="50">
+            <label class="form-label">Persona Name <span style="color: var(--pop-danger);">*</span></label>
+            <input type="text" id="persona-name" class="form-input" placeholder="e.g., Sage, Alex, or Coach" maxlength="50" required>
             <p class="form-hint">Choose a memorable name for your persona</p>
+            <p class="form-error" id="name-error">Please enter a name for your persona</p>
         </div>
 
         <div class="form-group">
@@ -445,6 +497,17 @@
 
     <!-- Step 2: Personality -->
     <div class="step-panel" data-step="2">
+        <!-- Error banner for LLM issues -->
+        <div class="error-banner" id="llm-error-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <div class="error-banner-text" id="llm-error-text">
+                No AI provider is available. <a href="/settings">Configure an API key</a> or start Ollama to generate instructions.
+            </div>
+        </div>
+
         <div class="form-group">
             <label class="form-label">Describe this persona</label>
             <textarea id="persona-description" class="form-input form-textarea" placeholder="Describe the persona's role, expertise, and how they should interact with you..."></textarea>
@@ -635,7 +698,18 @@ categoryOptions.forEach(option => {
 // Step 1: Name input
 nameInput.addEventListener('input', () => {
     personaData.name = nameInput.value.trim();
+    // Clear error state when typing
+    nameInput.classList.remove('error');
+    document.getElementById('name-error').classList.remove('visible');
     validateStep1();
+});
+
+// Also validate on blur (when user leaves the field)
+nameInput.addEventListener('blur', () => {
+    if (!personaData.name && nameInput.value === '') {
+        nameInput.classList.add('error');
+        document.getElementById('name-error').classList.add('visible');
+    }
 });
 
 function validateStep1() {
@@ -643,12 +717,31 @@ function validateStep1() {
     document.getElementById('step1-next').disabled = !valid;
 }
 
-// Navigation
-document.getElementById('step1-next').addEventListener('click', () => {
+// Show validation feedback when clicking Next without valid input
+document.getElementById('step1-next').addEventListener('click', (e) => {
+    if (!personaData.name) {
+        e.preventDefault();
+        e.stopPropagation();
+        nameInput.classList.add('error');
+        document.getElementById('name-error').classList.add('visible');
+        nameInput.focus();
+        return false;
+    }
+    if (!personaData.category) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Visual shake on categories
+        document.querySelector('.category-grid').style.animation = 'shake 0.3s';
+        setTimeout(() => {
+            document.querySelector('.category-grid').style.animation = '';
+        }, 300);
+        return false;
+    }
     goToStep(2);
     initializeStyleDefaults();
 });
 
+// Navigation (step1-next handler is above with validation)
 document.getElementById('step2-back').addEventListener('click', () => goToStep(1));
 document.getElementById('step2-next').addEventListener('click', () => goToStep(3));
 document.getElementById('step3-back').addEventListener('click', () => goToStep(2));
@@ -736,6 +829,12 @@ function updateChangesCount() {
 // Generate instructions
 document.getElementById('generate-btn').addEventListener('click', async () => {
     const btn = document.getElementById('generate-btn');
+    const errorBanner = document.getElementById('llm-error-banner');
+    const errorText = document.getElementById('llm-error-text');
+
+    // Hide any previous error
+    errorBanner.classList.remove('visible');
+
     btn.classList.add('loading');
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="spin"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"/></svg> Generating...';
 
@@ -753,7 +852,20 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
         });
 
         const data = await response.json();
-        if (data.system_prompt) {
+
+        if (!response.ok) {
+            // Handle error responses
+            if (response.status === 503 && data.code === 'NO_LLM_AVAILABLE') {
+                errorText.innerHTML = data.error + ' <a href="/settings">Configure in Settings</a>';
+                errorBanner.classList.add('visible');
+                // Still create a fallback prompt
+                personaData.system_prompt = `You are ${personaData.name}, a ${personaData.category.toLowerCase()}. ${personaData.description || 'Be helpful and engaging.'}`;
+                previewContent.textContent = personaData.system_prompt;
+                previewBox.style.display = 'block';
+            } else {
+                throw new Error(data.error || 'Failed to generate');
+            }
+        } else if (data.system_prompt) {
             personaData.system_prompt = data.system_prompt;
             previewContent.textContent = data.system_prompt;
             previewBox.style.display = 'block';
@@ -761,7 +873,7 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     } catch (error) {
         console.error('Failed to generate:', error);
         // Use a fallback prompt
-        personaData.system_prompt = `You are ${personaData.name}, a ${personaData.category.toLowerCase()}. ${personaData.description}`;
+        personaData.system_prompt = `You are ${personaData.name}, a ${personaData.category.toLowerCase()}. ${personaData.description || 'Be helpful and engaging.'}`;
         previewContent.textContent = personaData.system_prompt;
         previewBox.style.display = 'block';
     }
@@ -779,18 +891,13 @@ async function createPersona() {
     btn.textContent = 'Creating...';
 
     // Build the final persona object
+    // Note: model_config is intentionally omitted - backend will use user's default LLM
     const finalPersona = {
         name: personaData.name,
         category: personaData.category,
         system_prompt: personaData.system_prompt || `You are ${personaData.name}, a ${personaData.category.toLowerCase()}. ${personaData.description || 'Be helpful and engaging.'}`,
         communication_style: personaData.communication_style,
-        traits: {},
-        model_config: {
-            provider: 'ollama',
-            model: 'llama3.1:8b',
-            temperature: 0.7,
-            max_tokens: 2048
-        }
+        traits: {}
     };
 
     try {

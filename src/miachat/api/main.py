@@ -963,7 +963,7 @@ async def get_character(character_id: str):
     return character
 
 @app.post("/api/characters")
-async def create_character(request: CharacterCreateRequest):
+async def create_character(request: CharacterCreateRequest, req: Request = None, db: Session = Depends(get_db)):
     """Create a new character card."""
     character_data = request.dict()
 
@@ -979,21 +979,38 @@ async def create_character(request: CharacterCreateRequest):
     elif 'llm_config' in character_data and character_data['llm_config']:
         character_data['model_config'] = character_data.pop('llm_config')
     else:
+        # Get user's default LLM config instead of hardcoding Ollama
+        current_user = await get_current_user_from_session(req, db) if req else None
+        user_id = current_user.id if current_user else None
+        default_config = settings_service.get_fallback_llm_config(user_id, db)
+
+        # Use user's default LLM if available, otherwise use provided values
+        provider = default_config.get('provider') or character_data.get('llm_provider') or 'ollama'
+        model = default_config.get('model') or character_data.get('model') or 'llama3:8b'
+
         model_config = {
-            'provider': character_data.get('llm_provider', 'ollama'),
-            'model': character_data.get('model', 'llama3:8b'),
+            'provider': provider,
+            'model': model,
             'temperature': character_data.get('temperature', 0.7),
             'top_p': character_data.get('top_p', 0.9),
             'repeat_penalty': character_data.get('repeat_penalty', 1.1),
             'top_k': character_data.get('top_k', 40)
         }
+        # Add API key if it's a cloud provider
+        if default_config.get('api_key'):
+            model_config['api_key'] = default_config['api_key']
+
         character_data['model_config'] = model_config
         for field in ['llm_provider', 'model', 'temperature', 'top_p', 'repeat_penalty', 'top_k']:
             character_data.pop(field, None)
 
+    # If model_config exists but has no provider, use user's default or fall back to Ollama
     if 'model_config' in character_data and 'provider' not in character_data['model_config']:
-        character_data['model_config']['provider'] = 'ollama'
-        logger.info("Defaulting to Ollama provider for privacy")
+        current_user = await get_current_user_from_session(req, db) if req else None
+        user_id = current_user.id if current_user else None
+        default_config = settings_service.get_fallback_llm_config(user_id, db)
+        character_data['model_config']['provider'] = default_config.get('provider') or 'ollama'
+        logger.info(f"Using {character_data['model_config']['provider']} provider from user settings")
 
     character = character_manager.create_character(character_data)
     if not character:
@@ -2464,13 +2481,17 @@ async def suggest_system_prompt(request: Request, db: Session = Depends(get_db))
     backstory = data.get('backstory', '')
     category = data.get('category', '')
 
-    # Get user's assistant LLM config
+    # Get LLM config with smart fallback
     current_user = await get_current_user_from_session(request, db)
-    if current_user:
-        model_config = settings_service.get_assistant_llm_config(current_user.id, db)
-    else:
-        # Default config for unauthenticated users
-        model_config = {"provider": "ollama", "model": "llama3.1:8b", "temperature": 0.7, "max_tokens": 512}
+    user_id = current_user.id if current_user else None
+    model_config = settings_service.get_fallback_llm_config(user_id, db)
+
+    # Check if an LLM is available
+    if model_config.get("error"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": model_config["error"], "code": "NO_LLM_AVAILABLE"}
+        )
 
     # Prompt for the LLM
     prompt = f"""
@@ -2512,13 +2533,17 @@ async def suggest_traits(
     db: Session = Depends(get_db)
 ):
     """Suggest personality traits and communication style from a backstory using the LLM."""
-    # Get user's assistant LLM config
+    # Get LLM config with smart fallback
     current_user = await get_current_user_from_session(request_obj, db)
-    if current_user:
-        model_config = settings_service.get_assistant_llm_config(current_user.id, db)
-    else:
-        # Default config for unauthenticated users
-        model_config = {"provider": "ollama", "model": "llama3.1:8b", "temperature": 0.7, "max_tokens": 512}
+    user_id = current_user.id if current_user else None
+    model_config = settings_service.get_fallback_llm_config(user_id, db)
+
+    # Check if an LLM is available
+    if model_config.get("error"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": model_config["error"], "code": "NO_LLM_AVAILABLE"}
+        )
 
     prompt = f"""
 Given the following backstory for a character, suggest a set of core personality traits (as a dictionary of trait name to value from 0.0 to 1.0) and a communication style (as a dictionary of style name to value from 0.0 to 1.0). Only return valid JSON with two keys: 'traits' and 'communication_style'.

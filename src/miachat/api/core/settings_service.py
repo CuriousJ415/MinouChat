@@ -143,6 +143,155 @@ class SettingsService:
 
         return config
 
+    def get_fallback_llm_config(self, user_id: Optional[int], db: Optional[Session]) -> Dict[str, Any]:
+        """
+        Get LLM config with smart fallback logic.
+
+        Priority:
+        1. User's configured assistant LLM (if user is logged in)
+        2. User's default chat LLM (if user is logged in)
+        3. Check for available cloud providers (API keys in env)
+        4. Fall back to Ollama only if nothing else is available
+
+        Returns a config dict with 'provider', 'model', 'temperature', 'max_tokens', etc.
+        If no LLM is available, returns config with 'error' key explaining the issue.
+        """
+        import requests
+
+        # Try user's configured LLMs first
+        if user_id and db:
+            settings = self.get_user_settings(user_id, db)
+            if settings:
+                # Try assistant LLM first
+                if settings.assistant_llm_provider and settings.assistant_llm_model:
+                    provider = settings.assistant_llm_provider
+                    config = {
+                        "provider": provider,
+                        "model": settings.assistant_llm_model,
+                        "temperature": 0.7,
+                        "max_tokens": 512
+                    }
+                    # Add API key if needed
+                    if provider == "openai" and settings.openai_api_key:
+                        config["api_key"] = settings.openai_api_key
+                        return config
+                    elif provider == "anthropic" and settings.anthropic_api_key:
+                        config["api_key"] = settings.anthropic_api_key
+                        return config
+                    elif provider == "openrouter" and settings.openrouter_api_key:
+                        config["api_key"] = settings.openrouter_api_key
+                        return config
+                    elif provider == "ollama":
+                        config["api_url"] = settings.ollama_url or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+                        # Check if Ollama is reachable
+                        try:
+                            resp = requests.get(f"{config['api_url']}/api/tags", timeout=2)
+                            if resp.ok:
+                                return config
+                        except:
+                            pass  # Ollama not available, try other options
+
+                # Try default chat LLM
+                if settings.default_llm_provider:
+                    provider = settings.default_llm_provider
+                    config = {
+                        "provider": provider,
+                        "model": settings.default_model or self.default_models.get(provider, "gpt-4"),
+                        "temperature": 0.7,
+                        "max_tokens": 512
+                    }
+                    if provider == "openai" and settings.openai_api_key:
+                        config["api_key"] = settings.openai_api_key
+                        return config
+                    elif provider == "anthropic" and settings.anthropic_api_key:
+                        config["api_key"] = settings.anthropic_api_key
+                        return config
+                    elif provider == "openrouter" and settings.openrouter_api_key:
+                        config["api_key"] = settings.openrouter_api_key
+                        return config
+                    elif provider == "ollama":
+                        config["api_url"] = settings.ollama_url or f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+                        try:
+                            resp = requests.get(f"{config['api_url']}/api/tags", timeout=2)
+                            if resp.ok:
+                                return config
+                        except:
+                            pass
+
+                # Check for any configured API keys in user settings
+                if settings.openrouter_api_key:
+                    return {
+                        "provider": "openrouter",
+                        "model": settings.openrouter_model or "openai/gpt-4o-mini",
+                        "api_key": settings.openrouter_api_key,
+                        "temperature": 0.7,
+                        "max_tokens": 512
+                    }
+                if settings.openai_api_key:
+                    return {
+                        "provider": "openai",
+                        "model": settings.openai_model or "gpt-4o-mini",
+                        "api_key": settings.openai_api_key,
+                        "temperature": 0.7,
+                        "max_tokens": 512
+                    }
+                if settings.anthropic_api_key:
+                    return {
+                        "provider": "anthropic",
+                        "model": settings.anthropic_model or "claude-3-5-haiku-20241022",
+                        "api_key": settings.anthropic_api_key,
+                        "temperature": 0.7,
+                        "max_tokens": 512
+                    }
+
+        # Check environment variables for API keys
+        if os.getenv('OPENROUTER_API_KEY'):
+            return {
+                "provider": "openrouter",
+                "model": "openai/gpt-4o-mini",
+                "api_key": os.getenv('OPENROUTER_API_KEY'),
+                "temperature": 0.7,
+                "max_tokens": 512
+            }
+        if os.getenv('OPENAI_API_KEY'):
+            return {
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "api_key": os.getenv('OPENAI_API_KEY'),
+                "temperature": 0.7,
+                "max_tokens": 512
+            }
+        if os.getenv('ANTHROPIC_API_KEY'):
+            return {
+                "provider": "anthropic",
+                "model": "claude-3-5-haiku-20241022",
+                "api_key": os.getenv('ANTHROPIC_API_KEY'),
+                "temperature": 0.7,
+                "max_tokens": 512
+            }
+
+        # Check if Ollama is available
+        ollama_url = f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
+        try:
+            resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
+            if resp.ok:
+                return {
+                    "provider": "ollama",
+                    "model": "llama3.1:8b",
+                    "api_url": ollama_url,
+                    "temperature": 0.7,
+                    "max_tokens": 512
+                }
+        except:
+            pass
+
+        # No LLM available - return error config
+        return {
+            "error": "No LLM provider available. Please configure an API key in Settings or start Ollama.",
+            "provider": None,
+            "model": None
+        }
+
     def update_assistant_llm_config(self, user_id: int, db: Session, provider: str, model: str) -> bool:
         """Update Assistant LLM configuration"""
         try:
