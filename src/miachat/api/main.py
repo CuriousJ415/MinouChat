@@ -2514,39 +2514,61 @@ async def suggest_system_prompt(request: Request, db: Session = Depends(get_db))
             content={"error": model_config["error"], "code": "NO_LLM_AVAILABLE"}
         )
 
-    # Prompt for the LLM
-    prompt = f"""
-Given the following backstory and category for a character, generate a concise, effective system prompt for an AI assistant to roleplay as this character. The system prompt should:
-- Clearly establish the character's role, personality, and communication style
-- Be 1-3 sentences
-- Use natural language, not JSON
-- Do NOT include any explanation, prelude, or commentary—just the system prompt itself.
+    # Get additional context from request
+    name = data.get('name', '')
+    existing_prompt = data.get('system_prompt', '')
 
-Backstory: {backstory}
-Category: {category}
-"""
+    # Build context for the LLM
+    context_parts = []
+    if name:
+        context_parts.append(f"Character name: {name}")
+    if category:
+        context_parts.append(f"Category: {category}")
+    if backstory:
+        context_parts.append(f"User's description/request: {backstory}")
+    if existing_prompt:
+        context_parts.append(f"Existing prompt to improve: {existing_prompt}")
+
+    context = "\n".join(context_parts)
+
+    # Prompt for the LLM - designed to produce quality character cards
+    prompt = f"""Create a detailed, high-quality character card/system prompt based on the following:
+
+{context}
+
+Write a comprehensive system prompt that:
+1. Establishes the character's role, expertise, and purpose
+2. Defines their interaction style and approach (e.g., Socratic questioning, collaborative exploration)
+3. Specifies what they should and shouldn't do
+4. Includes relevant domain knowledge or references if applicable
+5. Sets the tone and personality
+
+The output should be the system prompt ONLY - no preamble, no "Here is...", no explanations. Just the character instructions that will guide the AI's behavior.
+
+Write in second person ("You are..."). Be specific and actionable. Aim for 150-400 words."""
+
     response = llm_client.generate_response_with_config(
         messages=[{"role": "user", "content": prompt}],
-        system_prompt="You are an expert at writing system prompts for AI roleplay based on character backstories and categories.",
+        system_prompt="You are an expert at writing detailed, effective system prompts for AI personas. You create character cards that bring out the best in AI assistants - making them engaging, knowledgeable, and true to their intended role.",
         model_config=model_config
     )
-    # Extract only the quoted or main instruction
-    import re
+
+    # Clean up the response - remove common preambles but preserve the full content
     system_prompt_text = response.strip()
-    logger.info(f"[SUGGEST_PROMPT] Raw LLM response: {response[:500] if response else 'EMPTY'}")
-    # Try to extract quoted string
-    quoted = re.search(r'"([^"]{20,})"', system_prompt_text)
-    if quoted:
-        system_prompt_text = quoted.group(1).strip()
-    else:
-        # Remove prelude lines (e.g. 'Here is ...') and explanations
-        lines = [l.strip() for l in system_prompt_text.splitlines() if l.strip()]
-        # Find the first line that looks like a persona instruction
-        for line in lines:
-            if len(line) > 20 and not line.lower().startswith(('here is', 'this prompt', 'the above', 'as requested', 'explanation', 'note:')):
-                system_prompt_text = line
-                break
-    logger.info(f"[SUGGEST_PROMPT] Final system_prompt_text: {system_prompt_text[:200] if system_prompt_text else 'EMPTY'}")
+    logger.info(f"[SUGGEST_PROMPT] Raw LLM response length: {len(response) if response else 0}")
+
+    # Remove common preamble patterns
+    import re
+    preamble_patterns = [
+        r'^(?:Here(?:\'s| is) (?:a |the |your )?(?:system prompt|character card|prompt)[:\s]*\n*)',
+        r'^(?:Sure[,!]?\s*(?:here(?:\'s| is)[:\s]*)?)',
+        r'^(?:Certainly[,!]?\s*(?:here(?:\'s| is)[:\s]*)?)',
+    ]
+    for pattern in preamble_patterns:
+        system_prompt_text = re.sub(pattern, '', system_prompt_text, flags=re.IGNORECASE)
+
+    system_prompt_text = system_prompt_text.strip()
+    logger.info(f"[SUGGEST_PROMPT] Final length: {len(system_prompt_text) if system_prompt_text else 0}")
     return JSONResponse({"system_prompt": system_prompt_text})
 
 @app.post("/api/suggest_traits", response_model=SuggestTraitsResponse)
