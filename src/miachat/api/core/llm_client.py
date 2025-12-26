@@ -440,7 +440,15 @@ class LLMClient:
             logger.info(f"[OpenRouter/CLOUD] Response status: {response.status_code}")
             response.raise_for_status()
             result = response.json()
-            logger.info(f"[OpenRouter/CLOUD] Full response: {result}")
+
+            # Check for errors in the response (OpenRouter returns 200 but with error in choices)
+            if result.get('choices') and result['choices'][0].get('error'):
+                error_info = result['choices'][0]['error']
+                error_msg = error_info.get('message', 'Unknown error')
+                provider = error_info.get('metadata', {}).get('provider_name', 'provider')
+                logger.error(f"[OpenRouter/CLOUD] Provider error from {provider}: {error_msg}")
+                return f"Error from {provider}: {error_msg}"
+
             content = result['choices'][0]['message']['content'] if result.get('choices') else ''
             logger.info(f"[OpenRouter/CLOUD] Response content length: {len(content) if content else 0}")
             return content or ''
