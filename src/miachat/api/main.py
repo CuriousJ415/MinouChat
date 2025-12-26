@@ -2533,6 +2533,7 @@ Category: {category}
     # Extract only the quoted or main instruction
     import re
     system_prompt_text = response.strip()
+    logger.info(f"[SUGGEST_PROMPT] Raw LLM response: {response[:500] if response else 'EMPTY'}")
     # Try to extract quoted string
     quoted = re.search(r'"([^"]{20,})"', system_prompt_text)
     if quoted:
@@ -2545,6 +2546,7 @@ Category: {category}
             if len(line) > 20 and not line.lower().startswith(('here is', 'this prompt', 'the above', 'as requested', 'explanation', 'note:')):
                 system_prompt_text = line
                 break
+    logger.info(f"[SUGGEST_PROMPT] Final system_prompt_text: {system_prompt_text[:200] if system_prompt_text else 'EMPTY'}")
     return JSONResponse({"system_prompt": system_prompt_text})
 
 @app.post("/api/suggest_traits", response_model=SuggestTraitsResponse)
