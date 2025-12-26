@@ -270,18 +270,23 @@ class SettingsService:
                 "max_tokens": 512
             }
 
-        # Check if Ollama is available
+        # Check if Ollama is available and get an installed model
         ollama_url = f"http://{os.getenv('OLLAMA_HOST', 'localhost')}:{os.getenv('OLLAMA_PORT', '11434')}"
         try:
             resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
             if resp.ok:
-                return {
-                    "provider": "ollama",
-                    "model": "llama3.1:8b",
-                    "api_url": ollama_url,
-                    "temperature": 0.7,
-                    "max_tokens": 512
-                }
+                data = resp.json()
+                models = data.get('models', [])
+                if models:
+                    # Pick the first available model
+                    model_name = models[0].get('name', 'llama3.1:8b')
+                    return {
+                        "provider": "ollama",
+                        "model": model_name,
+                        "api_url": ollama_url,
+                        "temperature": 0.7,
+                        "max_tokens": 512
+                    }
         except:
             pass
 
