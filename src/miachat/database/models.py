@@ -355,6 +355,9 @@ class UserSettings(Base):
     theme = Column(String(20), default='light')
     notifications_enabled = Column(Integer, default=1)  # Boolean: 0=False, 1=True
 
+    # Setup wizard tracking
+    setup_completed = Column(Integer, default=0)  # Boolean: 1=user has completed setup wizard
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -377,6 +380,7 @@ class UserSettings(Base):
             'openrouter_model': self.openrouter_model,
             'theme': self.theme,
             'notifications_enabled': bool(self.notifications_enabled),
+            'setup_completed': bool(self.setup_completed),
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

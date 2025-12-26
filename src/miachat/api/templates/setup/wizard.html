@@ -286,7 +286,21 @@
         let assignmentPlan = [];
 
         // Start assessment on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // First check if setup is already completed for this user
+            try {
+                const checkResponse = await fetch('/api/setup/check-first-run');
+                const checkData = await checkResponse.json();
+
+                if (checkData.setup_completed && !checkData.first_run) {
+                    // User has already completed setup, redirect to dashboard
+                    window.location.href = '/';
+                    return;
+                }
+            } catch (error) {
+                console.log('Could not check first-run status, proceeding with setup');
+            }
+
             performAssessment();
         });
 
@@ -555,6 +569,13 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // Mark setup as complete for this user
+                    try {
+                        await fetch('/api/setup/complete', { method: 'POST' });
+                    } catch (e) {
+                        console.log('Could not mark setup as complete:', e);
+                    }
+
                     // Show completion summary
                     const summaryDiv = document.getElementById('completion-summary');
                     summaryDiv.innerHTML = `
@@ -563,7 +584,7 @@
                             <p class="mb-0">Updated ${result.updated_personas.length} personas with working AI models.</p>
                         </div>
                     `;
-                    
+
                     nextStep();
                 } else {
                     throw new Error(result.message || 'Configuration failed');

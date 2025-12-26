@@ -70,13 +70,34 @@ class DatabaseConfig:
     
     def init_db(self):
         """Initialize the database.
-        
+
         This method:
         1. Creates all tables
-        2. Sets up any initial data
+        2. Runs any pending migrations
+        3. Sets up any initial data
         """
         self.create_tables()
-        # TODO: Add any initial data setup here
+        self._run_migrations()
+
+    def _run_migrations(self):
+        """Run any pending database migrations."""
+        from sqlalchemy import text, inspect
+
+        with self.get_session() as session:
+            inspector = inspect(self.engine)
+
+            # Migration: Add setup_completed column to user_settings if missing
+            if 'user_settings' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('user_settings')]
+                if 'setup_completed' not in columns:
+                    try:
+                        session.execute(text(
+                            "ALTER TABLE user_settings ADD COLUMN setup_completed INTEGER DEFAULT 0"
+                        ))
+                        session.commit()
+                    except Exception:
+                        # Column may already exist or other error - ignore
+                        session.rollback()
 
 # Global database configuration instance
 db_config = DatabaseConfig()

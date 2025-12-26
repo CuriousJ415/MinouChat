@@ -254,16 +254,45 @@ async def test_provider_connection(provider: str):
         raise HTTPException(status_code=500, detail=f"Provider test failed: {str(e)}")
 
 @router.get("/check-first-run")
-async def check_first_run():
-    """Check if this is a first-run that needs setup"""
-    
+async def check_first_run(request: Request, db = Depends(get_db)):
+    """Check if this is a first-run that needs setup for the current user"""
+
     try:
+        from ..core.settings_service import settings_service
+
+        # First check if the user has already completed setup
+        current_user = await get_current_user_from_session(request, db)
+        if current_user:
+            user_settings = settings_service.get_user_settings(current_user.id, db)
+            if user_settings and user_settings.setup_completed:
+                # User has already completed setup - check if their provider is available
+                has_api_key = (
+                    user_settings.openai_api_key or
+                    user_settings.anthropic_api_key or
+                    user_settings.openrouter_api_key
+                )
+
+                # If user has completed setup and has at least one API key, skip wizard
+                if has_api_key:
+                    return {
+                        "first_run": False,
+                        "overall_status": "ready",
+                        "setup_required": False,
+                        "setup_completed": True,
+                        "characters_need_init": False,
+                        "unconfigured_characters": 0,
+                        "providers_available": 1,
+                        "personas_working": 0,
+                        "recommendations": [],
+                        "message": "Setup already completed"
+                    }
+
         # Check if characters need initialization/setup
         needs_char_init = character_initializer.check_needs_initialization()
         unconfigured_chars = character_initializer.get_unonfigured_characters()
-        
+
         assessment = await setup_service.perform_full_assessment()
-        
+
         # Determine if setup is needed
         needs_setup = (
             needs_char_init or
@@ -272,24 +301,50 @@ async def check_first_run():
             assessment.setup_required or
             not any(p.available for p in assessment.providers)
         )
-        
+
         return {
             "first_run": needs_setup,
             "overall_status": assessment.overall_status,
             "setup_required": assessment.setup_required,
+            "setup_completed": False,
             "characters_need_init": needs_char_init,
             "unconfigured_characters": len(unconfigured_chars),
             "providers_available": len([p for p in assessment.providers if p.available]),
             "personas_working": len([p for p in assessment.personas if p.status.value == "available"]),
             "recommendations": assessment.recommendations[:3]  # Top 3 recommendations
         }
-        
+
     except Exception as e:
         logger.error(f"Error checking first run: {e}")
         return {
             "first_run": True,
             "error": str(e)
         }
+
+
+@router.post("/complete")
+async def mark_setup_complete(request: Request, db = Depends(get_db)):
+    """Mark setup wizard as completed for the current user"""
+
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    try:
+        from ..core.settings_service import settings_service
+
+        # Mark setup as completed in user settings
+        settings_service.update_user_settings(current_user.id, db, setup_completed=1)
+        logger.info(f"User {current_user.id} completed setup wizard")
+
+        return {
+            "success": True,
+            "message": "Setup completed successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error marking setup complete: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark setup complete: {str(e)}")
 
 @router.post("/initialize-characters")
 async def initialize_default_characters(request: Request, db = Depends(get_db)):
@@ -438,31 +493,35 @@ class ApiKeyTestRequest(BaseModel):
     api_key: str
 
 @router.post("/test-api-key")
-async def test_api_key(request: ApiKeyTestRequest):
-    """Test if an API key is valid for a provider"""
-    
+async def test_api_key(request_body: ApiKeyTestRequest, request: Request = None, db = Depends(get_db)):
+    """Test if an API key is valid for a provider and save to user settings"""
+
     try:
         import os
         import requests
-        
-        provider = request.provider.lower()
-        api_key = request.api_key.strip()
-        
+        from ..core.settings_service import settings_service
+        from ...database.models import UserSettings
+
+        provider = request_body.provider.lower()
+        api_key = request_body.api_key.strip()
+
         if not api_key:
             return {"success": False, "message": "API key is required"}
-        
+
         # Test the API key based on provider
+        valid = False
+        message = ""
+
         if provider == "openai":
             headers = {"Authorization": f"Bearer {api_key}"}
-            response = requests.get("https://api.openai.com/v1/models", 
+            response = requests.get("https://api.openai.com/v1/models",
                                   headers=headers, timeout=10)
             if response.status_code == 200:
-                # Store API key in environment for this session
-                os.environ["OPENAI_API_KEY"] = api_key
-                return {"success": True, "message": "OpenAI API key is valid"}
+                valid = True
+                message = "OpenAI API key is valid"
             else:
                 return {"success": False, "message": "Invalid OpenAI API key"}
-                
+
         elif provider == "anthropic":
             headers = {
                 "x-api-key": api_key,
@@ -477,27 +536,59 @@ async def test_api_key(request: ApiKeyTestRequest):
             response = requests.post("https://api.anthropic.com/v1/messages",
                                    headers=headers, json=test_data, timeout=10)
             if response.status_code in [200, 400]:  # 400 might be rate limit but key is valid
-                os.environ["ANTHROPIC_API_KEY"] = api_key
-                return {"success": True, "message": "Anthropic API key is valid"}
+                valid = True
+                message = "Anthropic API key is valid"
             else:
                 return {"success": False, "message": "Invalid Anthropic API key"}
-                
+
         elif provider == "openrouter":
             headers = {"Authorization": f"Bearer {api_key}"}
             response = requests.get("https://openrouter.ai/api/v1/models",
                                   headers=headers, timeout=10)
             if response.status_code == 200:
-                os.environ["OPENROUTER_API_KEY"] = api_key
-                return {"success": True, "message": "OpenRouter API key is valid"}
+                valid = True
+                message = "OpenRouter API key is valid"
             else:
                 return {"success": False, "message": "Invalid OpenRouter API key"}
         else:
             return {"success": False, "message": f"Unknown provider: {provider}"}
-            
+
+        # If API key is valid, save it to the user's settings in the database
+        if valid:
+            # Also set in environment for current session
+            if provider == "openai":
+                os.environ["OPENAI_API_KEY"] = api_key
+            elif provider == "anthropic":
+                os.environ["ANTHROPIC_API_KEY"] = api_key
+            elif provider == "openrouter":
+                os.environ["OPENROUTER_API_KEY"] = api_key
+
+            # Try to get current user and save to their settings
+            try:
+                current_user = await get_current_user_from_session(request, db)
+                if current_user:
+                    # Update user's settings with the API key
+                    update_data = {}
+                    if provider == "openai":
+                        update_data["openai_api_key"] = api_key
+                    elif provider == "anthropic":
+                        update_data["anthropic_api_key"] = api_key
+                    elif provider == "openrouter":
+                        update_data["openrouter_api_key"] = api_key
+
+                    settings_service.update_user_settings(current_user.id, db, **update_data)
+                    logger.info(f"Saved {provider} API key to user {current_user.id} settings")
+                    message += " and saved to your account"
+            except Exception as e:
+                logger.warning(f"Could not save API key to user settings: {e}")
+                # Still return success since the key is valid
+
+        return {"success": valid, "message": message}
+
     except requests.exceptions.Timeout:
         return {"success": False, "message": "Connection timeout - please try again"}
     except requests.exceptions.RequestException as e:
         return {"success": False, "message": f"Connection error: {str(e)}"}
     except Exception as e:
-        logger.error(f"Error testing API key for {request.provider}: {e}")
+        logger.error(f"Error testing API key for {request_body.provider}: {e}")
         return {"success": False, "message": f"API key test failed: {str(e)}"}

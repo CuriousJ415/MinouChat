@@ -571,10 +571,10 @@ from .core.user_profile_service import user_profile_service
 # Create database tables on startup
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database tables on startup"""
+    """Initialize database tables and run migrations on startup"""
     from ..database.config import db_config
-    db_config.create_tables()
-    logger.info("Database tables created")
+    db_config.init_db()
+    logger.info("Database initialized with migrations")
 
 # Pydantic models
 class ChatRequest(BaseModel):

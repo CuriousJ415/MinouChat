@@ -248,13 +248,15 @@ class LLMClient:
         Args:
             messages: Conversation messages
             system_prompt: System prompt to prepend
-            model_config: Model configuration parameters
+            model_config: Model configuration (can include 'api_key' override)
 
         Returns:
             Generated response or error message
         """
-        if not self.openai_key:
-            return "OpenAI API key not configured. Set OPENAI_API_KEY environment variable."
+        # Check for API key in model_config first, then fall back to instance variable
+        api_key = model_config.get('api_key') or self.openai_key
+        if not api_key:
+            return "OpenAI API key not configured. Set OPENAI_API_KEY or configure in Settings."
 
         model = model_config.get('model', DEFAULTS.OPENAI_MODEL)
 
@@ -271,7 +273,7 @@ class LLMClient:
         }
 
         headers = {
-            "Authorization": f"Bearer {self.openai_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
 
@@ -313,13 +315,15 @@ class LLMClient:
         Args:
             messages: Conversation messages
             system_prompt: System prompt (sent as separate field for Anthropic)
-            model_config: Model configuration parameters
+            model_config: Model configuration (can include 'api_key' override)
 
         Returns:
             Generated response or error message
         """
-        if not self.anthropic_key:
-            return "Anthropic API key not configured. Set ANTHROPIC_API_KEY environment variable."
+        # Check for API key in model_config first, then fall back to instance variable
+        api_key = model_config.get('api_key') or self.anthropic_key
+        if not api_key:
+            return "Anthropic API key not configured. Set ANTHROPIC_API_KEY or configure in Settings."
 
         model = model_config.get('model', DEFAULTS.ANTHROPIC_MODEL)
 
@@ -343,7 +347,7 @@ class LLMClient:
             payload["system"] = system_prompt
 
         headers = {
-            "x-api-key": self.anthropic_key,
+            "x-api-key": api_key,
             "Content-Type": "application/json",
             "anthropic-version": DEFAULTS.ANTHROPIC_VERSION
         }
