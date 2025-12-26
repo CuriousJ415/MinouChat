@@ -651,21 +651,46 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
+{% if clerk_publishable_key %}
+<script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="{{ clerk_publishable_key }}"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    type="text/javascript"
+></script>
+{% endif %}
 <script>
-// Initialize Clerk for token refresh
+// Wait for Clerk to be ready (matching chat/index.html pattern)
+let clerkReady = false;
 let clerkReadyPromise = new Promise((resolve) => {
     if (window.Clerk) {
-        window.Clerk.load().then(() => resolve());
+        window.Clerk.load().then(() => {
+            clerkReady = true;
+            resolve();
+        }).catch(() => resolve());
     } else {
-        // Clerk SDK not available, resolve anyway
-        setTimeout(resolve, 100);
+        // Wait for Clerk script to load
+        const checkClerk = setInterval(() => {
+            if (window.Clerk) {
+                clearInterval(checkClerk);
+                window.Clerk.load().then(() => {
+                    clerkReady = true;
+                    resolve();
+                }).catch(() => resolve());
+            }
+        }, 100);
+        // Timeout after 5 seconds
+        setTimeout(() => {
+            clearInterval(checkClerk);
+            resolve();
+        }, 5000);
     }
 });
 
 // Get fresh token from Clerk
 async function getFreshToken() {
-    if (window.Clerk && window.Clerk.session) {
+    if (clerkReady && window.Clerk && window.Clerk.session) {
         try {
             return await window.Clerk.session.getToken();
         } catch (e) {
@@ -678,13 +703,16 @@ async function getFreshToken() {
 
 // Authenticated fetch helper - refreshes token if needed and retries on 401/503
 async function authFetch(url, options = {}, retried = false) {
-    await Promise.race([clerkReadyPromise, new Promise(r => setTimeout(r, 2000))]);
+    await clerkReadyPromise;
 
     const token = await getFreshToken();
     if (token) {
         options.headers = options.headers || {};
         options.headers['Authorization'] = `Bearer ${token}`;
     }
+
+    // Always include credentials to send cookies as fallback
+    options.credentials = 'include';
 
     const response = await fetch(url, options);
 
@@ -697,6 +725,8 @@ async function authFetch(url, options = {}, retried = false) {
                 console.warn('Session touch failed:', e);
             }
         }
+        // Wait a moment for token refresh, then retry
+        await new Promise(r => setTimeout(r, 500));
         return authFetch(url, { ...options, headers: {} }, true);
     }
 
