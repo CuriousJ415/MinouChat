@@ -191,7 +191,7 @@
             </div>
 
             <p class="persona-description">
-                {{ persona.personality or persona.description or 'No description provided.' }}
+                {{ persona.personality or persona.persona or persona.description or 'No description provided.' }}
             </p>
 
             {% if persona.tags %}
