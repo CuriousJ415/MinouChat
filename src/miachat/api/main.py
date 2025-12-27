@@ -1026,6 +1026,21 @@ async def create_character(request: CharacterCreateRequest, req: Request = None,
         character_data['model_config']['provider'] = default_config.get('provider')
         logger.info(f"Using {character_data['model_config']['provider']} provider from user settings")
 
+    # Auto-generate personality description if not provided
+    if not character_data.get('personality') and character_data.get('system_prompt'):
+        # Extract first 1-2 sentences from system_prompt as the personality description
+        system_prompt = character_data['system_prompt']
+        # Find the first sentence or two (up to ~200 chars)
+        sentences = system_prompt.replace('\n', ' ').split('. ')
+        personality = sentences[0]
+        if len(sentences) > 1 and len(personality) < 100:
+            personality += '. ' + sentences[1]
+        # Truncate if too long
+        if len(personality) > 200:
+            personality = personality[:197] + '...'
+        character_data['personality'] = personality
+        logger.info(f"Auto-generated personality description for {character_data.get('name', 'new character')}")
+
     character = character_manager.create_character(character_data)
     if not character:
         return JSONResponse(status_code=400, content={"error": "Failed to create character"})
@@ -1050,6 +1065,20 @@ async def update_character(character_id: str, request: CharacterUpdateRequest):
             update_data['communication_style'] = normalize_trait_values(update_data['communication_style'])
         if 'llm_config' in update_data:
             update_data['model_config'] = update_data.pop('llm_config')
+
+        # Auto-generate personality description if not set and system_prompt exists
+        merged_data = {**character, **update_data}
+        if not merged_data.get('personality') and merged_data.get('system_prompt'):
+            system_prompt = merged_data['system_prompt']
+            sentences = system_prompt.replace('\n', ' ').split('. ')
+            personality = sentences[0]
+            if len(sentences) > 1 and len(personality) < 100:
+                personality += '. ' + sentences[1]
+            if len(personality) > 200:
+                personality = personality[:197] + '...'
+            update_data['personality'] = personality
+            logger.info(f"Auto-generated personality description for {character.get('name', character_id)}")
+
         updated_character = character_manager.update_character(character_id, update_data)
         if not updated_character:
             return JSONResponse(status_code=400, content={"error": "Failed to update character"})
