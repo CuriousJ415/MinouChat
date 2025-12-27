@@ -2498,14 +2498,17 @@ You should be proactive about offering to create documents when it would be help
 
 @app.post("/api/suggest_system_prompt")
 async def suggest_system_prompt(request: Request, db: Session = Depends(get_db)):
+    # Require authentication - return 401 so frontend can retry with fresh token
+    current_user = await get_current_user_from_session(request, db)
+    if not current_user:
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
     data = await request.json()
     backstory = data.get('backstory', '')
     category = data.get('category', '')
 
     # Get LLM config with smart fallback
-    current_user = await get_current_user_from_session(request, db)
-    user_id = current_user.id if current_user else None
-    model_config = settings_service.get_fallback_llm_config(user_id, db)
+    model_config = settings_service.get_fallback_llm_config(current_user.id, db)
 
     # Check if an LLM is available
     if model_config.get("error"):
@@ -2578,10 +2581,13 @@ async def suggest_traits(
     db: Session = Depends(get_db)
 ):
     """Suggest personality traits and communication style from a backstory using the LLM."""
-    # Get LLM config with smart fallback
+    # Require authentication - return 401 so frontend can retry with fresh token
     current_user = await get_current_user_from_session(request_obj, db)
-    user_id = current_user.id if current_user else None
-    model_config = settings_service.get_fallback_llm_config(user_id, db)
+    if not current_user:
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+
+    # Get LLM config with smart fallback
+    model_config = settings_service.get_fallback_llm_config(current_user.id, db)
 
     # Check if an LLM is available
     if model_config.get("error"):
