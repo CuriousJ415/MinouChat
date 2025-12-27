@@ -1300,15 +1300,18 @@ pre {
     gap: var(--space-3);
   }
 
-  /* Touch-friendly buttons (min 44px touch target) */
-  .btn {
+  /* Touch-friendly buttons (min 44px touch target - iOS HIG) */
+  .btn,
+  button,
+  [role="button"] {
     min-height: 44px;
+    min-width: 44px;
     padding: var(--space-3) var(--space-4);
     font-size: var(--text-sm);
   }
 
   .btn-sm {
-    min-height: 36px;
+    min-height: 44px; /* Increased from 36px for iOS compliance */
     padding: var(--space-2) var(--space-3);
   }
 
@@ -1320,6 +1323,7 @@ pre {
   .btn-icon {
     width: 44px;
     height: 44px;
+    padding: 10px; /* Centers icon with padding */
   }
 
   /* Touch-friendly form inputs */
@@ -1332,8 +1336,27 @@ pre {
   }
 
   .form-check input {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Chat-specific touch targets */
+  .send-btn,
+  .search-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Conversation list items need adequate touch area */
+  .conversation-item {
+    min-height: 56px;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Persona dropdown needs adequate touch area */
+  .persona-dropdown {
+    min-height: 48px;
+    padding: var(--space-3) var(--space-4);
   }
 
   .form-group {

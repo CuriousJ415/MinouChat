@@ -2,7 +2,7 @@
 <html lang="en" class="theme-light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Chat - MinouChat</title>
 
     <!-- Prevent theme flash -->
@@ -29,6 +29,8 @@
         .chat-layout {
             display: flex;
             height: 100vh;
+            height: 100dvh; /* Dynamic viewport - accounts for Safari UI */
+            height: -webkit-fill-available; /* Fallback for older iOS */
         }
 
         /* Sidebar */
@@ -1433,6 +1435,8 @@
         .chat-input-wrapper {
             display: flex;
             gap: var(--space-2);
+            touch-action: manipulation; /* Prevents 300ms delay on mobile */
+            cursor: text;
         }
 
         .chat-input {
@@ -1443,7 +1447,11 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             font-size: var(--text-base);
+            font-size: 16px; /* Prevents iOS zoom on focus */
             resize: none;
+            -webkit-appearance: none; /* Prevent iOS styling issues */
+            -webkit-user-select: text;
+            touch-action: manipulation;
         }
 
         .chat-input:focus {
@@ -1733,6 +1741,8 @@
             z-index: calc(var(--z-modal) - 1);
             opacity: 0;
             transition: opacity var(--transition-normal);
+            touch-action: none; /* Block touch events behind backdrop */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .sidebar-backdrop.show {
@@ -3085,7 +3095,10 @@
         function enableChat() {
             document.getElementById('messageInput').disabled = false;
             document.querySelector('.send-btn').disabled = false;
-            setTimeout(() => document.getElementById('messageInput').focus(), 100);
+            // Only auto-focus on desktop - iOS Safari blocks programmatic focus without user gesture
+            if (window.innerWidth > 768) {
+                setTimeout(() => document.getElementById('messageInput').focus(), 100);
+            }
         }
 
         // Convert URLs in text to clickable links
@@ -4212,14 +4225,18 @@
 
             sidebar.classList.toggle('collapsed', sidebarCollapsed);
 
-            // Handle mobile backdrop
+            // Handle mobile backdrop and body scroll lock
             if (window.innerWidth <= 768) {
                 if (sidebarCollapsed) {
                     backdrop.classList.remove('show');
                     document.body.style.overflow = '';
+                    document.body.style.position = '';
+                    document.body.style.width = '';
                 } else {
                     backdrop.classList.add('show');
                     document.body.style.overflow = 'hidden';
+                    document.body.style.position = 'fixed'; // Prevents iOS bounce scroll
+                    document.body.style.width = '100%';
                 }
             }
         }
@@ -4231,12 +4248,34 @@
             }
         });
 
+        // Swipe-to-close gesture for sidebar
+        (function initSidebarSwipe() {
+            const sidebar = document.getElementById('chatSidebar');
+            let touchStartX = 0;
+
+            sidebar.addEventListener('touchstart', function(e) {
+                touchStartX = e.touches[0].clientX;
+            }, { passive: true });
+
+            sidebar.addEventListener('touchend', function(e) {
+                const touchEndX = e.changedTouches[0].clientX;
+                const swipeDistance = touchStartX - touchEndX;
+
+                // Swipe left (more than 50px) to close sidebar
+                if (swipeDistance > 50 && !sidebarCollapsed) {
+                    toggleSidebar();
+                }
+            }, { passive: true });
+        })();
+
         // Handle window resize - close sidebar on mobile when resizing
         window.addEventListener('resize', function() {
             const backdrop = document.getElementById('sidebarBackdrop');
             if (window.innerWidth > 768) {
                 backdrop.classList.remove('show');
                 document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.width = '';
             }
         });
 
@@ -4621,6 +4660,70 @@
             document.body.appendChild(container);
             return container;
         }
+
+        // ========================================
+        // Mobile-specific handlers (iOS Safari)
+        // ========================================
+
+        (function initMobileHandlers() {
+            const isMobile = window.innerWidth <= 768;
+
+            // Touch handler: tapping input wrapper area focuses the input
+            const inputWrapper = document.querySelector('.chat-input-wrapper');
+            if (inputWrapper) {
+                inputWrapper.addEventListener('touchend', function(e) {
+                    const input = document.getElementById('messageInput');
+                    if (input && !input.disabled && e.target !== input) {
+                        e.preventDefault();
+                        input.focus();
+                    }
+                });
+            }
+
+            // Focus handler: scroll input into view on mobile when focused
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                messageInput.addEventListener('focus', function() {
+                    if (window.innerWidth <= 768) {
+                        // Wait for keyboard to appear, then scroll into view
+                        setTimeout(() => {
+                            this.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }, 300);
+                    }
+                });
+            }
+
+            // Visual Viewport API: handle keyboard appearance
+            if (window.visualViewport) {
+                const chatInputArea = document.querySelector('.chat-input-area');
+                const chatContainer = document.getElementById('chatContainer');
+                let initialHeight = window.visualViewport.height;
+
+                window.visualViewport.addEventListener('resize', () => {
+                    if (window.innerWidth > 768) return; // Only on mobile
+
+                    const currentHeight = window.visualViewport.height;
+                    const keyboardHeight = initialHeight - currentHeight;
+
+                    if (keyboardHeight > 100 && chatInputArea) {
+                        // Keyboard is visible - adjust input area
+                        document.body.style.setProperty('--keyboard-height', keyboardHeight + 'px');
+                        chatInputArea.style.paddingBottom = keyboardHeight + 'px';
+
+                        // Scroll to bottom of chat
+                        if (chatContainer) {
+                            setTimeout(() => {
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                            }, 100);
+                        }
+                    } else if (chatInputArea) {
+                        // Keyboard hidden - reset
+                        document.body.style.removeProperty('--keyboard-height');
+                        chatInputArea.style.paddingBottom = '';
+                    }
+                });
+            }
+        })();
     </script>
 </body>
 </html>
